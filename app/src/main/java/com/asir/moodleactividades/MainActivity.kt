@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Grade
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -37,6 +38,7 @@ import com.asir.moodleactividades.data.Conectividad
 import com.asir.moodleactividades.data.SesionStore
 import com.asir.moodleactividades.data.net.SsoLogin
 import com.asir.moodleactividades.notificaciones.RecordatoriosWorker
+import com.asir.moodleactividades.ui.acercade.AcercaDeScreen
 import com.asir.moodleactividades.ui.actividades.ActividadesScreen
 import com.asir.moodleactividades.ui.actividades.ActividadesViewModel
 import com.asir.moodleactividades.ui.login.LoginScreen
@@ -80,7 +82,8 @@ class MainActivity : ComponentActivity() {
 
 private enum class Seccion(val etiqueta: String) {
     ACTIVIDADES("Actividades"),
-    NOTAS("Notas")
+    NOTAS("Notas"),
+    ACERCA_DE("Acerca de")
 }
 
 @Composable
@@ -173,6 +176,12 @@ private fun PantallaPrincipal(
                     icon = { Icon(Icons.Default.Grade, contentDescription = null) },
                     label = { Text(Seccion.NOTAS.etiqueta) }
                 )
+                NavigationBarItem(
+                    selected = seccion == Seccion.ACERCA_DE,
+                    onClick = { seccion = Seccion.ACERCA_DE },
+                    icon = { Icon(Icons.Default.Info, contentDescription = null) },
+                    label = { Text(Seccion.ACERCA_DE.etiqueta) }
+                )
             }
         }
     ) { relleno ->
@@ -192,6 +201,8 @@ private fun PantallaPrincipal(
                     modifier = Modifier.padding(relleno)
                 )
             }
+
+            Seccion.ACERCA_DE -> AcercaDeScreen(modifier = Modifier.padding(relleno))
         }
     }
 }
