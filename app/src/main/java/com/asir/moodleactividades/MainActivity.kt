@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.asir.moodleactividades.data.ActividadesRepository
 import com.asir.moodleactividades.data.CacheActividades
+import com.asir.moodleactividades.data.Conectividad
 import com.asir.moodleactividades.data.SesionStore
 import com.asir.moodleactividades.data.net.SsoLogin
 import com.asir.moodleactividades.notificaciones.RecordatoriosWorker
@@ -77,7 +78,7 @@ private fun App(enlaceSso: String?, alConsumirEnlace: () -> Unit) {
     if (haySesion) {
         val viewModel: ActividadesViewModel = viewModel(
             key = "actividades-$generacion",
-            factory = fabrica { ActividadesViewModel(repositorio) }
+            factory = fabrica { ActividadesViewModel(repositorio, Conectividad(contexto)) }
         )
         val estado by viewModel.estado.collectAsStateWithLifecycle()
 
