@@ -29,7 +29,9 @@ val AmbarPendienteOscuro = Color(0xFF3D2D10)
 val RojoNoEntregadaOscuro = Color(0xFF3D1E1F)
 
 /** Degradado de la cabecera: es lo que da carácter a la pantalla principal. */
-val DegradadoCabecera = Brush.linearGradient(listOf(Indigo, Violeta))
+val DegradadoCabecera = Brush.linearGradient(
+    listOf(Color(0xFF4A3FD4), Indigo, Violeta, Color(0xFFB06AE8))
+)
 
 private val EsquemaClaro = lightColorScheme(
     primary = Indigo,
