@@ -60,7 +60,8 @@ data class Calificacion(
     val porcentaje: String,
     val notaMaxima: Double,
     val esTotalDelCurso: Boolean,
-    val tipo: TipoActividad
+    val tipo: TipoActividad,
+    val fecha: Long? = null
 ) {
     val calificada: Boolean get() = nota.isNotBlank()
 }
@@ -71,6 +72,10 @@ data class NotasDeCurso(
     val calificaciones: List<Calificacion>
 ) {
     val calificadas: Int get() = calificaciones.count { it.calificada }
+
+    /** Lo que decide qué asignatura va primero: su actividad más reciente. */
+    val fechaMasReciente: Long
+        get() = calificaciones.mapNotNull { it.fecha }.maxOrNull() ?: 0L
 }
 
 enum class FiltroNotas(val etiqueta: String) {
