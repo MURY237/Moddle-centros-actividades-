@@ -13,10 +13,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,9 +102,7 @@ fun SelectorAsignatura(
     alElegir: (String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var desplegado by androidx.compose.runtime.remember {
-        androidx.compose.runtime.mutableStateOf(false)
-    }
+    var desplegado by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
         Row(
@@ -116,17 +121,14 @@ fun SelectorAsignatura(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false)
             )
-            androidx.compose.material3.Icon(
-                imageVector = androidx.compose.material.icons.Icons.Default.ArrowDropDown,
+            Icon(
+                imageVector = Icons.Default.ArrowDropDown,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        androidx.compose.material3.DropdownMenu(
-            expanded = desplegado,
-            onDismissRequest = { desplegado = false }
-        ) {
-            androidx.compose.material3.DropdownMenuItem(
+        DropdownMenu(expanded = desplegado, onDismissRequest = { desplegado = false }) {
+            DropdownMenuItem(
                 text = { Text("Todas las asignaturas") },
                 onClick = {
                     alElegir(null)
@@ -134,7 +136,7 @@ fun SelectorAsignatura(
                 }
             )
             asignaturas.forEach { asignatura ->
-                androidx.compose.material3.DropdownMenuItem(
+                DropdownMenuItem(
                     text = { Text(asignatura) },
                     onClick = {
                         alElegir(asignatura)
@@ -215,7 +217,7 @@ fun EstadoVacio(
                 .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(24.dp)),
             contentAlignment = Alignment.Center
         ) {
-            androidx.compose.material3.Icon(
+            Icon(
                 imageVector = icono,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
