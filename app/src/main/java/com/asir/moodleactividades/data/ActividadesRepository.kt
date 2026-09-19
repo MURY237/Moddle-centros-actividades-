@@ -14,6 +14,8 @@ import com.asir.moodleactividades.data.net.ResultadoSso
 import com.asir.moodleactividades.data.net.SiteInfoDto
 import com.asir.moodleactividades.data.net.SsoLogin
 import com.asir.moodleactividades.data.net.decodificar
+import com.asir.moodleactividades.data.net.limpiarHtml
+import com.asir.moodleactividades.data.net.notaVisible
 import com.asir.moodleactividades.domain.Actividad
 import com.asir.moodleactividades.domain.Calificacion
 import com.asir.moodleactividades.domain.Clasificador
@@ -278,7 +280,7 @@ class ActividadesRepository(
             .map { it.aCalificacion(nombreCurso, cliente.urlSitio) }
             .ordenadasPorRecientes()
         val total = items
-            .firstOrNull { it.itemtype == "course" && it.gradeformatted.esNotaReal() }
+            .firstOrNull { it.itemtype == "course" && notaVisible(it.gradeformatted).esNotaReal() }
             ?.aCalificacion(nombreCurso, cliente.urlSitio)
 
         return NotasDeCurso(curso = nombreCurso, total = total, calificaciones = calificaciones)
@@ -287,8 +289,8 @@ class ActividadesRepository(
     private fun ItemNotaDto.aCalificacion(nombreCurso: String, urlSitio: String) = Calificacion(
         curso = nombreCurso,
         nombre = itemname?.takeIf { it.isNotBlank() } ?: "Total del curso",
-        nota = gradeformatted.takeIf { it.esNotaReal() }.orEmpty(),
-        porcentaje = percentageformatted.takeIf { it.esNotaReal() }.orEmpty(),
+        nota = notaVisible(gradeformatted).takeIf { it.esNotaReal() }.orEmpty(),
+        porcentaje = limpiarHtml(percentageformatted).takeIf { it.esNotaReal() }.orEmpty(),
         notaMaxima = grademax,
         esTotalDelCurso = itemtype == "course",
         tipo = Clasificador.tipoDesdeModulo(itemmodule),
@@ -350,8 +352,13 @@ class ActividadesRepository(
             )
             dto.usergrades
                 .flatMap { it.gradeitems }
-                .filter { it.itemmodule == "assign" && it.gradeformatted.esNotaReal() }
-                .associate { it.iteminstance to it.gradeformatted }
+                .filter { it.itemmodule == "assign" }
+                .mapNotNull { item ->
+                    notaVisible(item.gradeformatted)
+                        .takeIf { it.esNotaReal() }
+                        ?.let { item.iteminstance to it }
+                }
+                .toMap()
         }.getOrDefault(emptyMap())
 
     private fun String.esNotaReal(): Boolean =
@@ -419,17 +426,9 @@ class ActividadesRepository(
         val nota: String? = null
     )
 
-    /**
-     * Moodle formatea esta nota para la web: llega con etiquetas HTML y como «8,00 / 10,00»,
-     * y en la tarjeta solo cabe la nota.
-     */
-    private fun FeedbackDto.notaLegible(): String? {
-        val bruta = gradefordisplay.ifBlank { grade?.grade.orEmpty() }
-        val limpia = bruta.replace(Regex("<[^>]*>"), "")
-            .substringBefore('/')
-            .trim()
-        return limpia.takeIf { it.esNotaReal() }
-    }
+    private fun FeedbackDto.notaLegible(): String? =
+        notaVisible(gradefordisplay.ifBlank { grade?.grade.orEmpty() })
+            .takeIf { it.esNotaReal() }
 
     private companion object {
         val TIPOS_EVALUABLES = setOf("mod", "manual")
