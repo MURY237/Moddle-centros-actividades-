@@ -43,7 +43,18 @@ class LoginViewModel(private val repositorio: ActividadesRepository) : ViewModel
             _estado.update { it.copy(error = "Escribe primero la URL del Moodle de tu centro.") }
             return
         }
-        _estado.update { it.copy(error = null, urlParaAbrir = repositorio.prepararSso(url)) }
+
+        _estado.update { it.copy(cargando = true, error = null) }
+        viewModelScope.launch {
+            runCatching { repositorio.prepararSso(url) }.fold(
+                onSuccess = { destino ->
+                    _estado.update { it.copy(cargando = false, urlParaAbrir = destino) }
+                },
+                onFailure = { fallo ->
+                    _estado.update { it.copy(cargando = false, error = mensajeDeError(fallo)) }
+                }
+            )
+        }
     }
 
     fun navegadorAbierto() = _estado.update { it.copy(urlParaAbrir = null) }
