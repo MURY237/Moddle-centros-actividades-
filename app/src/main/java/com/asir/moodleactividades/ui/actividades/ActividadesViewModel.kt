@@ -103,7 +103,14 @@ class ActividadesViewModel(
                     val caducada = fallo is MoodleException && fallo.esTokenInvalido
                     if (caducada) repositorio.cerrarSesion()
                     _estado.update {
-                        it.copy(cargando = false, error = mensajeDeError(fallo), sesionCaducada = caducada)
+                        it.copy(
+                            cargando = false,
+                            error = mensajeDeError(fallo),
+                            sesionCaducada = caducada,
+                            // Lo que sigue en pantalla es de la carga anterior: sin marcarlo,
+                            // un fallo tras una carga correcta no se avisaba por ningún lado.
+                            datosDeCache = it.todas.isNotEmpty()
+                        )
                     }
                 }
             )

@@ -35,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -53,6 +54,9 @@ import com.asir.moodleactividades.domain.NotasDeCurso
 import com.asir.moodleactividades.ui.componentes.EstadoVacio
 import com.asir.moodleactividades.ui.componentes.SelectorAsignatura
 import com.asir.moodleactividades.ui.formatearFecha
+import com.asir.moodleactividades.ui.theme.AmbarPendiente
+import com.asir.moodleactividades.ui.theme.AmbarPendienteFondo
+import com.asir.moodleactividades.ui.theme.AmbarPendienteOscuro
 import com.asir.moodleactividades.ui.theme.DegradadoCabecera
 import com.asir.moodleactividades.ui.theme.RojoNoEntregada
 import com.asir.moodleactividades.ui.theme.RojoNoEntregadaFondo
@@ -101,6 +105,37 @@ fun NotasScreen(viewModel: NotasViewModel, modifier: Modifier = Modifier) {
                 }
                 IconButton(onClick = viewModel::refrescar, enabled = !estado.cargando) {
                     Icon(Icons.Default.Refresh, "Actualizar", tint = Color.White)
+                }
+            }
+        }
+
+        if (estado.mostrandoDatosAntiguos) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = fondoDeEstado(AmbarPendienteFondo, AmbarPendienteOscuro)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CloudOff,
+                        contentDescription = null,
+                        tint = AmbarPendiente,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Text(
+                        text = "Datos sin actualizar. ${estado.error.orEmpty()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AmbarPendiente,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = viewModel::refrescar, enabled = !estado.cargando) {
+                        Text("Reintentar", color = AmbarPendiente)
+                    }
                 }
             }
         }
@@ -165,15 +200,17 @@ fun NotasScreen(viewModel: NotasViewModel, modifier: Modifier = Modifier) {
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    estado.cursos.forEach { curso ->
-                        stickyHeader(key = curso.curso) {
+                    // Dos matrículas pueden resolverse al mismo nombre de curso, y dos claves
+                    // iguales en la lista tumban la pantalla.
+                    estado.cursos.forEachIndexed { indice, curso ->
+                        stickyHeader(key = "curso-$indice-${curso.curso}") {
                             CabeceraCurso(curso)
                         }
                         // Dos actividades del mismo curso pueden llamarse igual: la posición
                         // es lo único que las distingue de verdad.
                         itemsIndexed(
                             curso.calificaciones,
-                            key = { indice, item -> "${curso.curso}-$indice-${item.nombre}" }
+                            key = { posicion, item -> "$indice-$posicion-${item.nombre}" }
                         ) { _, calificacion ->
                             TarjetaCalificacion(calificacion) {
                                 calificacion.url?.let { enlace ->

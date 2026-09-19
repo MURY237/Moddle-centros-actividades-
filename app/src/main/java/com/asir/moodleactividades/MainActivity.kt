@@ -1,10 +1,14 @@
 package com.asir.moodleactividades
 
+import android.Manifest
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -37,8 +41,10 @@ import com.asir.moodleactividades.data.CacheActividades
 import com.asir.moodleactividades.data.Conectividad
 import com.asir.moodleactividades.data.SesionStore
 import com.asir.moodleactividades.data.net.SsoLogin
+import com.asir.moodleactividades.notificaciones.Recordatorios
 import com.asir.moodleactividades.notificaciones.RecordatoriosWorker
 import com.asir.moodleactividades.ui.acercade.AcercaDeScreen
+import com.asir.moodleactividades.ui.actualizacion.ActualizacionViewModel
 import com.asir.moodleactividades.ui.actividades.ActividadesScreen
 import com.asir.moodleactividades.ui.actividades.ActividadesViewModel
 import com.asir.moodleactividades.ui.login.LoginScreen
@@ -142,6 +148,7 @@ private fun PantallaPrincipal(
     generacion: Int,
     alCerrarSesion: () -> Unit
 ) {
+    val contexto = LocalContext.current
     var seccion by remember { mutableStateOf(Seccion.ACTIVIDADES) }
 
     val actividadesViewModel: ActividadesViewModel = viewModel(
@@ -149,6 +156,27 @@ private fun PantallaPrincipal(
         factory = fabrica { ActividadesViewModel(repositorio, conectividad) }
     )
     val estadoActividades by actividadesViewModel.estado.collectAsStateWithLifecycle()
+
+    val actualizacionViewModel: ActualizacionViewModel = viewModel()
+    val actualizacion by actualizacionViewModel.estado.collectAsStateWithLifecycle()
+
+    val pedirPermiso = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { concedido ->
+        if (concedido) RecordatoriosWorker.programar(contexto)
+    }
+
+    // Aquí y no en la pantalla: dentro de una pestaña esto se repetía en cada cambio de
+    // sección, volviendo a pedir el permiso y a consultar la API de GitHub.
+    LaunchedEffect(Unit) {
+        actualizacionViewModel.comprobar()
+        Recordatorios.crearCanal(contexto)
+        if (Recordatorios.puedeNotificar(contexto)) {
+            RecordatoriosWorker.programar(contexto)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pedirPermiso.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     LaunchedEffect(estadoActividades.sesionCaducada) {
         if (estadoActividades.sesionCaducada) alCerrarSesion()
@@ -188,6 +216,9 @@ private fun PantallaPrincipal(
         when (seccion) {
             Seccion.ACTIVIDADES -> ActividadesScreen(
                 viewModel = actividadesViewModel,
+                actualizacion = actualizacion,
+                alInstalarActualizacion = { actualizacionViewModel.instalar(contexto) },
+                alDescartarActualizacion = actualizacionViewModel::descartar,
                 modifier = Modifier.padding(relleno)
             )
 
