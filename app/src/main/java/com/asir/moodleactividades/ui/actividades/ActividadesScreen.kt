@@ -33,7 +33,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Logout
@@ -43,8 +42,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -56,9 +53,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -82,6 +76,7 @@ import com.asir.moodleactividades.ui.componentes.AnilloProgreso
 import com.asir.moodleactividades.ui.componentes.EstadoVacio
 import com.asir.moodleactividades.ui.componentes.Etiqueta
 import com.asir.moodleactividades.ui.componentes.FilaEstadisticas
+import com.asir.moodleactividades.ui.componentes.SelectorAsignatura
 import com.asir.moodleactividades.ui.formatearFecha
 import com.asir.moodleactividades.ui.textoRelativo
 import com.asir.moodleactividades.ui.theme.AmbarPendiente
@@ -385,7 +380,12 @@ private fun Filtros(estado: ActividadesUiState, viewModel: ActividadesViewModel)
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         if (estado.asignaturas.isNotEmpty()) {
-            SelectorAsignatura(estado, viewModel::cambiarAsignatura)
+            SelectorAsignatura(
+                asignaturas = estado.asignaturas,
+                seleccionada = estado.asignatura,
+                alElegir = viewModel::cambiarAsignatura,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
         }
 
         Row(
@@ -419,54 +419,6 @@ private fun Filtros(estado: ActividadesUiState, viewModel: ActividadesViewModel)
                         selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                         selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
                     )
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SelectorAsignatura(estado: ActividadesUiState, alElegir: (String?) -> Unit) {
-    var desplegado by remember { mutableStateOf(false) }
-
-    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(14.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable { desplegado = true }
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = estado.asignatura ?: "Todas las asignaturas",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-            Icon(
-                Icons.Default.ArrowDropDown,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        DropdownMenu(expanded = desplegado, onDismissRequest = { desplegado = false }) {
-            DropdownMenuItem(
-                text = { Text("Todas las asignaturas") },
-                onClick = {
-                    alElegir(null)
-                    desplegado = false
-                }
-            )
-            estado.asignaturas.forEach { asignatura ->
-                DropdownMenuItem(
-                    text = { Text(asignatura) },
-                    onClick = {
-                        alElegir(asignatura)
-                        desplegado = false
-                    }
                 )
             }
         }

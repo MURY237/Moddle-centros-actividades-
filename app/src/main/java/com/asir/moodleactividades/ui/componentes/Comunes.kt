@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,8 +17,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -81,6 +84,64 @@ fun AnilloProgreso(
                 color = colorPista,
                 textAlign = TextAlign.Center
             )
+        }
+    }
+}
+
+@Composable
+fun SelectorAsignatura(
+    asignaturas: List<String>,
+    seleccionada: String?,
+    alElegir: (String?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var desplegado by androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf(false)
+    }
+
+    Box(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable { desplegado = true }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = seleccionada ?: "Todas las asignaturas",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            androidx.compose.material3.Icon(
+                imageVector = androidx.compose.material.icons.Icons.Default.ArrowDropDown,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        androidx.compose.material3.DropdownMenu(
+            expanded = desplegado,
+            onDismissRequest = { desplegado = false }
+        ) {
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text("Todas las asignaturas") },
+                onClick = {
+                    alElegir(null)
+                    desplegado = false
+                }
+            )
+            asignaturas.forEach { asignatura ->
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(asignatura) },
+                    onClick = {
+                        alElegir(asignatura)
+                        desplegado = false
+                    }
+                )
+            }
         }
     }
 }

@@ -46,6 +46,7 @@ import com.asir.moodleactividades.domain.Calificacion
 import com.asir.moodleactividades.domain.FiltroNotas
 import com.asir.moodleactividades.domain.NotasDeCurso
 import com.asir.moodleactividades.ui.componentes.EstadoVacio
+import com.asir.moodleactividades.ui.componentes.SelectorAsignatura
 import com.asir.moodleactividades.ui.formatearFecha
 import com.asir.moodleactividades.ui.theme.DegradadoCabecera
 import com.asir.moodleactividades.ui.theme.RojoNoEntregada
@@ -99,19 +100,30 @@ fun NotasScreen(viewModel: NotasViewModel, modifier: Modifier = Modifier) {
         }
 
         if (estado.todos.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                modifier = Modifier.padding(top = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                FiltroNotas.entries.forEach { filtro ->
-                    FilterChip(
-                        selected = estado.filtro == filtro,
-                        onClick = { viewModel.cambiarFiltro(filtro) },
-                        label = { Text(filtro.etiqueta) },
-                        shape = RoundedCornerShape(14.dp)
-                    )
+                SelectorAsignatura(
+                    asignaturas = estado.asignaturas,
+                    seleccionada = estado.asignatura,
+                    alElegir = viewModel::cambiarAsignatura,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                Row(
+                    modifier = Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FiltroNotas.entries.forEach { filtro ->
+                        FilterChip(
+                            selected = estado.filtro == filtro,
+                            onClick = { viewModel.cambiarFiltro(filtro) },
+                            label = { Text(filtro.etiqueta) },
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                    }
                 }
             }
         }
@@ -138,7 +150,7 @@ fun NotasScreen(viewModel: NotasViewModel, modifier: Modifier = Modifier) {
                     detalle = if (estado.todos.isEmpty()) {
                         "Cuando tus asignaturas tengan actividades evaluables aparecerán aquí."
                     } else {
-                        "Ninguna calificación encaja con este filtro."
+                        "Ninguna calificación encaja con estos filtros."
                     },
                     modifier = Modifier.align(Alignment.Center)
                 )

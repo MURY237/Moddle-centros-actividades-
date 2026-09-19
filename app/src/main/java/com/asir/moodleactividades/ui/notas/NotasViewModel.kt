@@ -19,11 +19,16 @@ data class NotasUiState(
     val cargando: Boolean = false,
     val todos: List<NotasDeCurso> = emptyList(),
     val cursos: List<NotasDeCurso> = emptyList(),
+    val asignaturas: List<String> = emptyList(),
+    val asignatura: String? = null,
     val filtro: FiltroNotas = FiltroNotas.TODAS,
     val error: String? = null
 ) {
-    val totalEvaluables: Int get() = todos.sumOf { it.calificaciones.size }
-    val totalCalificadas: Int get() = todos.sumOf { it.calificadas }
+    private val visibles: List<NotasDeCurso>
+        get() = todos.filter { asignatura == null || it.curso == asignatura }
+
+    val totalEvaluables: Int get() = visibles.sumOf { it.calificaciones.size }
+    val totalCalificadas: Int get() = visibles.sumOf { it.calificadas }
 }
 
 class NotasViewModel(
@@ -40,16 +45,25 @@ class NotasViewModel(
 
     fun cambiarFiltro(filtro: FiltroNotas) = _estado.update { aplicarFiltro(it.copy(filtro = filtro)) }
 
+    fun cambiarAsignatura(asignatura: String?) =
+        _estado.update { aplicarFiltro(it.copy(asignatura = asignatura)) }
+
     private fun aplicarFiltro(estado: NotasUiState): NotasUiState {
-        val cursos = estado.todos.mapNotNull { curso ->
-            val visibles = when (estado.filtro) {
-                FiltroNotas.TODAS -> curso.calificaciones
-                FiltroNotas.CALIFICADAS -> curso.calificaciones.filter { it.calificada }
-                FiltroNotas.SIN_CALIFICAR -> curso.calificaciones.filterNot { it.calificada }
+        val asignaturas = estado.todos.map { it.curso }.distinct()
+        val asignatura = estado.asignatura?.takeIf { it in asignaturas }
+
+        val cursos = estado.todos
+            .filter { asignatura == null || it.curso == asignatura }
+            .mapNotNull { curso ->
+                val visibles = when (estado.filtro) {
+                    FiltroNotas.TODAS -> curso.calificaciones
+                    FiltroNotas.CALIFICADAS -> curso.calificaciones.filter { it.calificada }
+                    FiltroNotas.SIN_CALIFICAR -> curso.calificaciones.filterNot { it.calificada }
+                }
+                if (visibles.isEmpty()) null else curso.copy(calificaciones = visibles)
             }
-            if (visibles.isEmpty()) null else curso.copy(calificaciones = visibles)
-        }
-        return estado.copy(cursos = cursos)
+
+        return estado.copy(cursos = cursos, asignaturas = asignaturas, asignatura = asignatura)
     }
 
     fun refrescar() {
