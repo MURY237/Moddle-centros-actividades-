@@ -3,6 +3,7 @@ package com.asir.moodleactividades.ui.actividades
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.asir.moodleactividades.data.ActividadesRepository
+import com.asir.moodleactividades.data.Conectividad
 import com.asir.moodleactividades.data.net.MoodleException
 import com.asir.moodleactividades.domain.Actividad
 import com.asir.moodleactividades.domain.Clasificador
@@ -39,7 +40,10 @@ data class ActividadesUiState(
         get() = datosDeCache && error != null && todas.isNotEmpty()
 }
 
-class ActividadesViewModel(private val repositorio: ActividadesRepository) : ViewModel() {
+class ActividadesViewModel(
+    private val repositorio: ActividadesRepository,
+    private val conectividad: Conectividad
+) : ViewModel() {
 
     private val _estado = MutableStateFlow(ActividadesUiState())
     val estado: StateFlow<ActividadesUiState> = _estado.asStateFlow()
@@ -132,7 +136,11 @@ class ActividadesViewModel(private val repositorio: ActividadesRepository) : Vie
                 "hacer varias consultas seguidas: espera unos segundos y vuelve a intentarlo."
         fallo is HttpException ->
             "El servidor del centro respondió con un error (${fallo.code()}). Inténtalo de nuevo."
-        fallo is IOException -> "Sin conexión con el servidor del centro."
+        fallo is IOException && !conectividad.hayInternet() ->
+            "Tu móvil no tiene conexión a internet."
+        fallo is IOException ->
+            "El Moodle del centro no responde. Tu conexión a internet funciona; el problema está " +
+                "en el servidor del centro."
         else -> "No se pudieron cargar las actividades: ${fallo.message ?: fallo::class.simpleName}"
     }
 }

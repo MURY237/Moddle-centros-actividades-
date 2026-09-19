@@ -248,14 +248,14 @@ private fun AvisoSinConexion(estado: ActividadesUiState, alReintentar: () -> Uni
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Sin conexión con el centro",
+                    text = "Datos sin actualizar",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = AmbarPendiente
                 )
                 Text(
-                    text = "Estos datos son de ${formatearFecha(estado.momentoDatos)} y pueden " +
-                        "estar desactualizados.",
+                    text = "Son los de ${formatearFecha(estado.momentoDatos)}. " +
+                        estado.error.orEmpty(),
                     style = MaterialTheme.typography.bodySmall,
                     color = AmbarPendiente
                 )

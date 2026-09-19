@@ -97,7 +97,8 @@ class LoginViewModel(private val repositorio: ActividadesRepository) : ViewModel
         fallo is MoodleException && fallo.esTokenInvalido ->
             "El token no es válido o ha caducado. Genera uno nuevo desde tu perfil de Moodle."
         fallo is MoodleException -> fallo.message ?: "Error de Moodle."
-        fallo is IOException -> "No se puede conectar. Revisa la URL del centro y tu conexión a internet."
+        fallo is IOException ->
+            "No se ha podido contactar con ese servidor. Comprueba que la URL del centro sea correcta."
         else -> "No se pudo iniciar sesión: ${fallo.message ?: fallo::class.simpleName}"
     }
 }
