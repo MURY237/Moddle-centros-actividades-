@@ -36,7 +36,19 @@ data class TareaDto(
 
 @Serializable
 data class EstadoEntregaDto(
-    val lastattempt: UltimoIntentoDto? = null
+    val lastattempt: UltimoIntentoDto? = null,
+    val feedback: FeedbackDto? = null
+)
+
+@Serializable
+data class FeedbackDto(
+    val gradefordisplay: String = "",
+    val grade: NotaEntregaDto? = null
+)
+
+@Serializable
+data class NotaEntregaDto(
+    val grade: String = ""
 )
 
 @Serializable

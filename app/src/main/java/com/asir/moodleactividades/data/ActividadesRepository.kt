@@ -4,6 +4,7 @@ import com.asir.moodleactividades.data.net.AssignmentsDto
 import com.asir.moodleactividades.data.net.CursoMatriculadoDto
 import com.asir.moodleactividades.data.net.EstadoEntregaDto
 import com.asir.moodleactividades.data.net.EventosCalendarioDto
+import com.asir.moodleactividades.data.net.FeedbackDto
 import com.asir.moodleactividades.data.net.ItemNotaDto
 import com.asir.moodleactividades.data.net.MoodleClient
 import com.asir.moodleactividades.data.net.MoodleException
@@ -151,7 +152,7 @@ class ActividadesRepository(
                     },
                     calificada = estadoEntrega?.calificada ?: (nota != null),
                     url = "${cliente.urlSitio}mod/assign/view.php?id=${tarea.cmid}",
-                    nota = nota ?: previa?.nota
+                    nota = nota ?: estadoEntrega?.nota ?: previa?.nota
                 )
             }
         }.awaitAll()
@@ -173,14 +174,56 @@ class ActividadesRepository(
         )
 
         val limitador = Semaphore(MAX_PETICIONES_SIMULTANEAS)
-        cursos.map { curso ->
+        val resultados = cursos.map { curso ->
             async {
                 limitador.withPermit {
-                    notasDelCurso(cliente, curso.id, curso.fullname.ifBlank { curso.shortname })
+                    runCatching {
+                        notasDelCurso(cliente, curso.id, curso.fullname.ifBlank { curso.shortname })
+                    }
                 }
             }
-        }.awaitAll().filterNotNull().filter { it.calificaciones.isNotEmpty() || it.total != null }
+        }.awaitAll()
+
+        val obtenidos = resultados.mapNotNull { it.getOrNull() }
+            .filter { it.calificaciones.isNotEmpty() || it.total != null }
+
+        if (obtenidos.isNotEmpty()) return@coroutineScope obtenidos
+
+        // Si el centro no deja leer su libro de calificaciones, al menos se enseña lo que ya
+        // se sabe por las propias tareas antes de darse por vencido.
+        val respaldo = notasDesdeActividades()
+        if (respaldo.isNotEmpty()) return@coroutineScope respaldo
+
+        // Y si tampoco hay nada, el motivo real, no un «no tienes notas» que es mentira.
+        resultados.firstNotNullOfOrNull { it.exceptionOrNull() }?.let { throw it }
+        if (cursos.isEmpty()) {
+            throw MoodleException(null, "Moodle no ha devuelto ninguna asignatura para tu usuario.")
+        }
+        emptyList()
     }
+
+    private fun notasDesdeActividades(): List<NotasDeCurso> =
+        cache.leer()?.actividades.orEmpty()
+            .filter { it.curso.isNotBlank() }
+            .groupBy { it.curso }
+            .map { (curso, actividades) ->
+                NotasDeCurso(
+                    curso = curso,
+                    total = null,
+                    calificaciones = actividades.map { actividad ->
+                        Calificacion(
+                            curso = curso,
+                            nombre = actividad.nombre,
+                            nota = actividad.nota.orEmpty(),
+                            porcentaje = "",
+                            notaMaxima = 0.0,
+                            esTotalDelCurso = false,
+                            tipo = actividad.tipo
+                        )
+                    }
+                )
+            }
+            .sortedBy { it.curso }
 
     /**
      * Las sesiones abiertas antes de que se guardara el identificador lo tienen a cero, y sin
@@ -198,7 +241,7 @@ class ActividadesRepository(
         cliente: MoodleClient,
         idCurso: Long,
         nombreCurso: String
-    ): NotasDeCurso? = runCatching {
+    ): NotasDeCurso {
         val dto: NotasCursoDto = cliente.decodificar(
             cliente.invocar(
                 "gradereport_user_get_grade_items",
@@ -216,8 +259,8 @@ class ActividadesRepository(
             .firstOrNull { it.itemtype == "course" && it.gradeformatted.esNotaReal() }
             ?.aCalificacion(nombreCurso)
 
-        NotasDeCurso(curso = nombreCurso, total = total, calificaciones = calificaciones)
-    }.getOrNull()
+        return NotasDeCurso(curso = nombreCurso, total = total, calificaciones = calificaciones)
+    }
 
     private fun ItemNotaDto.aCalificacion(nombreCurso: String) = Calificacion(
         curso = nombreCurso,
@@ -260,7 +303,8 @@ class ActividadesRepository(
                 val entrega = intento?.submission ?: intento?.teamsubmission
                 EntregaResumen(
                     estado = entrega?.status,
-                    calificada = intento?.graded == true || entrega?.gradingstatus == "graded"
+                    calificada = intento?.graded == true || entrega?.gradingstatus == "graded",
+                    nota = dto.feedback?.notaLegible()
                 )
             }.getOrNull()
 
@@ -302,7 +346,18 @@ class ActividadesRepository(
             }
     }.getOrDefault(emptyList())
 
-    private data class EntregaResumen(val estado: String?, val calificada: Boolean)
+    private data class EntregaResumen(
+        val estado: String?,
+        val calificada: Boolean,
+        val nota: String? = null
+    )
+
+    /** Moodle devuelve esta nota con etiquetas HTML alrededor cuando la formatea para la web. */
+    private fun FeedbackDto.notaLegible(): String? {
+        val bruta = gradefordisplay.ifBlank { grade?.grade.orEmpty() }
+        val limpia = bruta.replace(Regex("<[^>]*>"), "").trim()
+        return limpia.takeIf { it.esNotaReal() }
+    }
 
     private companion object {
         val TIPOS_EVALUABLES = setOf("mod", "manual")
