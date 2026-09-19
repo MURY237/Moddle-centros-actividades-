@@ -67,6 +67,23 @@ data class EntregaDto(
 )
 
 @Serializable
+data class NotasTareasDto(
+    val assignments: List<NotasDeTareaDto> = emptyList()
+)
+
+@Serializable
+data class NotasDeTareaDto(
+    val assignmentid: Long = 0,
+    val grades: List<NotaAlumnoDto> = emptyList()
+)
+
+@Serializable
+data class NotaAlumnoDto(
+    val userid: Long = 0,
+    val grade: String = ""
+)
+
+@Serializable
 data class NotasCursoDto(
     val usergrades: List<NotasUsuarioDto> = emptyList()
 )
