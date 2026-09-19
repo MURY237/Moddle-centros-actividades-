@@ -107,7 +107,7 @@ class ActividadesRepository(
     private suspend fun cargarTareas(
         cliente: MoodleClient,
         ahora: Long,
-        previas: Map<Long, Actividad>,
+        previas: Map<String, Actividad>,
         idUsuario: Long
     ): List<Actividad> = coroutineScope {
         val respuesta: AssignmentsDto = cliente.decodificar(cliente.invocar("mod_assign_get_assignments"))
