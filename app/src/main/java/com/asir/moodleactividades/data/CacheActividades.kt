@@ -3,6 +3,7 @@ package com.asir.moodleactividades.data
 import android.content.Context
 import com.asir.moodleactividades.domain.Actividad
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 @Serializable
