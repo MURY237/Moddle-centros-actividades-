@@ -100,6 +100,7 @@ data class ItemNotaDto(
     val itemtype: String = "",
     val itemmodule: String? = null,
     val iteminstance: Long = 0,
+    val cmid: Long? = null,
     val gradeformatted: String = "",
     val percentageformatted: String = "",
     val grademax: Double = 0.0,

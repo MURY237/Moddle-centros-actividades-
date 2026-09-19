@@ -234,7 +234,8 @@ class ActividadesRepository(
                             notaMaxima = 0.0,
                             esTotalDelCurso = false,
                             tipo = actividad.tipo,
-                            fecha = actividad.fechaLimite
+                            fecha = actividad.fechaLimite,
+                            url = actividad.url
                         )
                     }.ordenadasPorRecientes()
                 )
@@ -274,16 +275,16 @@ class ActividadesRepository(
         // también es algo que el alumno necesita ver.
         val calificaciones = items
             .filter { it.itemtype in TIPOS_EVALUABLES }
-            .map { it.aCalificacion(nombreCurso) }
+            .map { it.aCalificacion(nombreCurso, cliente.urlSitio) }
             .ordenadasPorRecientes()
         val total = items
             .firstOrNull { it.itemtype == "course" && it.gradeformatted.esNotaReal() }
-            ?.aCalificacion(nombreCurso)
+            ?.aCalificacion(nombreCurso, cliente.urlSitio)
 
         return NotasDeCurso(curso = nombreCurso, total = total, calificaciones = calificaciones)
     }
 
-    private fun ItemNotaDto.aCalificacion(nombreCurso: String) = Calificacion(
+    private fun ItemNotaDto.aCalificacion(nombreCurso: String, urlSitio: String) = Calificacion(
         curso = nombreCurso,
         nombre = itemname?.takeIf { it.isNotBlank() } ?: "Total del curso",
         nota = gradeformatted.takeIf { it.esNotaReal() }.orEmpty(),
@@ -291,7 +292,9 @@ class ActividadesRepository(
         notaMaxima = grademax,
         esTotalDelCurso = itemtype == "course",
         tipo = Clasificador.tipoDesdeModulo(itemmodule),
-        fecha = (gradedategraded ?: gradedatesubmitted)?.takeIf { it > 0 }
+        fecha = (gradedategraded ?: gradedatesubmitted)?.takeIf { it > 0 },
+        url = cmid?.takeIf { it > 0 && !itemmodule.isNullOrBlank() }
+            ?.let { "${urlSitio}mod/$itemmodule/view.php?id=$it" }
     )
 
     /**

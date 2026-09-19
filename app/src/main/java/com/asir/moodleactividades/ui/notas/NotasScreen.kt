@@ -1,7 +1,9 @@
 package com.asir.moodleactividades.ui.notas
 
+import android.content.Intent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +22,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.Refresh
@@ -38,9 +41,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.asir.moodleactividades.domain.Calificacion
 import com.asir.moodleactividades.domain.FiltroNotas
@@ -61,6 +66,7 @@ import com.asir.moodleactividades.ui.theme.fondoDeEstado
 @Composable
 fun NotasScreen(viewModel: NotasViewModel, modifier: Modifier = Modifier) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
+    val contexto = LocalContext.current
 
     Column(modifier = modifier.fillMaxSize()) {
 
@@ -169,7 +175,15 @@ fun NotasScreen(viewModel: NotasViewModel, modifier: Modifier = Modifier) {
                             curso.calificaciones,
                             key = { indice, item -> "${curso.curso}-$indice-${item.nombre}" }
                         ) { _, calificacion ->
-                            TarjetaCalificacion(calificacion)
+                            TarjetaCalificacion(calificacion) {
+                                calificacion.url?.let { enlace ->
+                                    runCatching {
+                                        contexto.startActivity(
+                                            Intent(Intent.ACTION_VIEW, enlace.toUri())
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -224,7 +238,7 @@ private fun CabeceraCurso(curso: NotasDeCurso) {
 }
 
 @Composable
-private fun TarjetaCalificacion(calificacion: Calificacion) {
+private fun TarjetaCalificacion(calificacion: Calificacion, alPulsar: () -> Unit) {
     val aprobada = if (calificacion.calificada) calificacion.esAprobada() else null
     val color = when {
         !calificacion.calificada -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -240,10 +254,12 @@ private fun TarjetaCalificacion(calificacion: Calificacion) {
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = calificacion.url != null, onClick = alPulsar),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -265,12 +281,23 @@ private fun TarjetaCalificacion(calificacion: Calificacion) {
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = calificacion.nombre,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = calificacion.nombre,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (calificacion.url != null) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = buildString {
