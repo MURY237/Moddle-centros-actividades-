@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
@@ -25,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +43,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.asir.moodleactividades.domain.Calificacion
+import com.asir.moodleactividades.domain.FiltroNotas
+import com.asir.moodleactividades.domain.NotasDeCurso
 import com.asir.moodleactividades.ui.componentes.EstadoVacio
 import com.asir.moodleactividades.ui.theme.DegradadoCabecera
 import com.asir.moodleactividades.ui.theme.RojoNoEntregada
@@ -77,13 +82,35 @@ fun NotasScreen(viewModel: NotasViewModel, modifier: Modifier = Modifier) {
                         color = Color.White
                     )
                     Text(
-                        text = "Calificaciones de todas tus asignaturas",
+                        text = if (estado.totalEvaluables == 0) {
+                            "Calificaciones de todas tus asignaturas"
+                        } else {
+                            "${estado.totalCalificadas} de ${estado.totalEvaluables} calificadas"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.82f)
                     )
                 }
                 IconButton(onClick = viewModel::refrescar, enabled = !estado.cargando) {
                     Icon(Icons.Default.Refresh, "Actualizar", tint = Color.White)
+                }
+            }
+        }
+
+        if (estado.todos.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FiltroNotas.entries.forEach { filtro ->
+                    FilterChip(
+                        selected = estado.filtro == filtro,
+                        onClick = { viewModel.cambiarFiltro(filtro) },
+                        label = { Text(filtro.etiqueta) },
+                        shape = RoundedCornerShape(14.dp)
+                    )
                 }
             }
         }
@@ -106,8 +133,12 @@ fun NotasScreen(viewModel: NotasViewModel, modifier: Modifier = Modifier) {
 
                 estado.cursos.isEmpty() -> EstadoVacio(
                     icono = Icons.Default.Grade,
-                    titulo = "Todavía sin notas",
-                    detalle = "Cuando tus profesores publiquen calificaciones aparecerán aquí.",
+                    titulo = if (estado.todos.isEmpty()) "Todavía sin notas" else "Sin resultados",
+                    detalle = if (estado.todos.isEmpty()) {
+                        "Cuando tus asignaturas tengan actividades evaluables aparecerán aquí."
+                    } else {
+                        "Ninguna calificación encaja con este filtro."
+                    },
                     modifier = Modifier.align(Alignment.Center)
                 )
 
@@ -117,12 +148,14 @@ fun NotasScreen(viewModel: NotasViewModel, modifier: Modifier = Modifier) {
                 ) {
                     estado.cursos.forEach { curso ->
                         stickyHeader(key = curso.curso) {
-                            CabeceraCurso(curso.curso, curso.total?.nota, curso.total?.porcentaje)
+                            CabeceraCurso(curso)
                         }
-                        items(
+                        // Dos actividades del mismo curso pueden llamarse igual: la posición
+                        // es lo único que las distingue de verdad.
+                        itemsIndexed(
                             curso.calificaciones,
-                            key = { "${curso.curso}-${it.nombre}-${it.nota}" }
-                        ) { calificacion ->
+                            key = { indice, item -> "${curso.curso}-$indice-${item.nombre}" }
+                        ) { _, calificacion ->
                             TarjetaCalificacion(calificacion)
                         }
                     }
@@ -133,7 +166,7 @@ fun NotasScreen(viewModel: NotasViewModel, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun CabeceraCurso(nombre: String, notaTotal: String?, porcentaje: String?) {
+private fun CabeceraCurso(curso: NotasDeCurso) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -141,20 +174,20 @@ private fun CabeceraCurso(nombre: String, notaTotal: String?, porcentaje: String
             .padding(vertical = 10.dp)
     ) {
         Text(
-            text = nombre,
+            text = curso.curso,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
-        if (notaTotal != null) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.padding(top = 4.dp)
-            ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(top = 4.dp)
+        ) {
+            curso.total?.let { total ->
                 Text(
-                    text = "Total: $notaTotal",
+                    text = "Total: ${total.nota}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier
@@ -164,30 +197,30 @@ private fun CabeceraCurso(nombre: String, notaTotal: String?, porcentaje: String
                         )
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 )
-                if (!porcentaje.isNullOrBlank()) {
-                    Text(
-                        text = porcentaje,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
+            Text(
+                text = "${curso.calificadas} de ${curso.calificaciones.size} con nota",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
 @Composable
 private fun TarjetaCalificacion(calificacion: Calificacion) {
-    val aprobada = calificacion.esAprobada()
-    val color = when (aprobada) {
-        true -> VerdeEntregada
-        false -> RojoNoEntregada
-        null -> MaterialTheme.colorScheme.primary
+    val aprobada = if (calificacion.calificada) calificacion.esAprobada() else null
+    val color = when {
+        !calificacion.calificada -> MaterialTheme.colorScheme.onSurfaceVariant
+        aprobada == true -> VerdeEntregada
+        aprobada == false -> RojoNoEntregada
+        else -> MaterialTheme.colorScheme.primary
     }
-    val fondo = when (aprobada) {
-        true -> fondoDeEstado(VerdeEntregadaFondo, VerdeEntregadaOscuro)
-        false -> fondoDeEstado(RojoNoEntregadaFondo, RojoNoEntregadaOscuro)
-        null -> MaterialTheme.colorScheme.primaryContainer
+    val fondo = when {
+        !calificacion.calificada -> MaterialTheme.colorScheme.surfaceVariant
+        aprobada == true -> fondoDeEstado(VerdeEntregadaFondo, VerdeEntregadaOscuro)
+        aprobada == false -> fondoDeEstado(RojoNoEntregadaFondo, RojoNoEntregadaOscuro)
+        else -> MaterialTheme.colorScheme.primaryContainer
     }
 
     Card(
@@ -208,7 +241,7 @@ private fun TarjetaCalificacion(calificacion: Calificacion) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = calificacion.nota,
+                    text = calificacion.nota.ifBlank { "—" },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = color,
@@ -225,7 +258,7 @@ private fun TarjetaCalificacion(calificacion: Calificacion) {
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = buildString {
-                        append(calificacion.tipo.etiqueta)
+                        append(if (calificacion.calificada) calificacion.tipo.etiqueta else "Sin calificar")
                         if (calificacion.notaMaxima > 0) {
                             append(" · sobre ")
                             append(formateaMaxima(calificacion.notaMaxima))

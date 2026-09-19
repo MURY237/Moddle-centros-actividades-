@@ -61,13 +61,23 @@ data class Calificacion(
     val notaMaxima: Double,
     val esTotalDelCurso: Boolean,
     val tipo: TipoActividad
-)
+) {
+    val calificada: Boolean get() = nota.isNotBlank()
+}
 
 data class NotasDeCurso(
     val curso: String,
     val total: Calificacion?,
     val calificaciones: List<Calificacion>
-)
+) {
+    val calificadas: Int get() = calificaciones.count { it.calificada }
+}
+
+enum class FiltroNotas(val etiqueta: String) {
+    TODAS("Todas"),
+    CALIFICADAS("Con nota"),
+    SIN_CALIFICAR("Sin calificar")
+}
 
 data class SeccionActividades(
     val grupo: GrupoPlazo,

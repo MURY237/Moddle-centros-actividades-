@@ -174,8 +174,10 @@ class ActividadesRepository(
         )
 
         val items = dto.usergrades.flatMap { it.gradeitems }
+        // Todo lo evaluable del curso, con nota o sin ella: una tarea aún sin calificar
+        // también es algo que el alumno necesita ver.
         val calificaciones = items
-            .filter { it.itemtype != "course" && it.gradeformatted.esNotaReal() }
+            .filter { it.itemtype in TIPOS_EVALUABLES }
             .map { it.aCalificacion(nombreCurso) }
         val total = items
             .firstOrNull { it.itemtype == "course" && it.gradeformatted.esNotaReal() }
@@ -187,7 +189,7 @@ class ActividadesRepository(
     private fun ItemNotaDto.aCalificacion(nombreCurso: String) = Calificacion(
         curso = nombreCurso,
         nombre = itemname?.takeIf { it.isNotBlank() } ?: "Total del curso",
-        nota = gradeformatted,
+        nota = gradeformatted.takeIf { it.esNotaReal() }.orEmpty(),
         porcentaje = percentageformatted.takeIf { it.esNotaReal() }.orEmpty(),
         notaMaxima = grademax,
         esTotalDelCurso = itemtype == "course",
@@ -270,6 +272,7 @@ class ActividadesRepository(
     private data class EntregaResumen(val estado: String?, val calificada: Boolean)
 
     private companion object {
+        val TIPOS_EVALUABLES = setOf("mod", "manual")
         const val MAX_PETICIONES_SIMULTANEAS = 3
         const val INTENTOS_POR_TAREA = 2
         const val ESPERA_ENTRE_INTENTOS_MS = 900L

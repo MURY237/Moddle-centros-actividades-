@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.asir.moodleactividades.data.ActividadesRepository
 import com.asir.moodleactividades.data.Conectividad
 import com.asir.moodleactividades.data.net.MoodleException
+import com.asir.moodleactividades.domain.FiltroNotas
 import com.asir.moodleactividades.domain.NotasDeCurso
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,9 +17,14 @@ import java.io.IOException
 
 data class NotasUiState(
     val cargando: Boolean = false,
+    val todos: List<NotasDeCurso> = emptyList(),
     val cursos: List<NotasDeCurso> = emptyList(),
+    val filtro: FiltroNotas = FiltroNotas.TODAS,
     val error: String? = null
-)
+) {
+    val totalEvaluables: Int get() = todos.sumOf { it.calificaciones.size }
+    val totalCalificadas: Int get() = todos.sumOf { it.calificadas }
+}
 
 class NotasViewModel(
     private val repositorio: ActividadesRepository,
@@ -32,12 +38,28 @@ class NotasViewModel(
         refrescar()
     }
 
+    fun cambiarFiltro(filtro: FiltroNotas) = _estado.update { aplicarFiltro(it.copy(filtro = filtro)) }
+
+    private fun aplicarFiltro(estado: NotasUiState): NotasUiState {
+        val cursos = estado.todos.mapNotNull { curso ->
+            val visibles = when (estado.filtro) {
+                FiltroNotas.TODAS -> curso.calificaciones
+                FiltroNotas.CALIFICADAS -> curso.calificaciones.filter { it.calificada }
+                FiltroNotas.SIN_CALIFICAR -> curso.calificaciones.filterNot { it.calificada }
+            }
+            if (visibles.isEmpty()) null else curso.copy(calificaciones = visibles)
+        }
+        return estado.copy(cursos = cursos)
+    }
+
     fun refrescar() {
         _estado.update { it.copy(cargando = true, error = null) }
         viewModelScope.launch {
             runCatching { repositorio.cargarCalificaciones() }.fold(
                 onSuccess = { lista ->
-                    _estado.update { it.copy(cargando = false, cursos = lista, error = null) }
+                    _estado.update {
+                        aplicarFiltro(it.copy(cargando = false, todos = lista, error = null))
+                    }
                 },
                 onFailure = { fallo ->
                     _estado.update { it.copy(cargando = false, error = mensajeDeError(fallo)) }
