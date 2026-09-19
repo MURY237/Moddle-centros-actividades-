@@ -61,7 +61,8 @@ data class Calificacion(
     val notaMaxima: Double,
     val esTotalDelCurso: Boolean,
     val tipo: TipoActividad,
-    val fecha: Long? = null
+    val fecha: Long? = null,
+    val url: String? = null
 ) {
     val calificada: Boolean get() = nota.isNotBlank()
 }
