@@ -7,7 +7,8 @@ data class Sesion(
     val token: String,
     val usuario: String,
     val nombreCompleto: String,
-    val nombreSitio: String
+    val nombreSitio: String,
+    val idUsuario: Long = 0
 )
 
 class SesionStore(contexto: Context) {
@@ -22,6 +23,7 @@ class SesionStore(contexto: Context) {
             .putString(CLAVE_USUARIO, sesion.usuario)
             .putString(CLAVE_NOMBRE, sesion.nombreCompleto)
             .putString(CLAVE_SITIO, sesion.nombreSitio)
+            .putLong(CLAVE_ID_USUARIO, sesion.idUsuario)
             .apply()
     }
 
@@ -33,7 +35,8 @@ class SesionStore(contexto: Context) {
             token = token,
             usuario = prefs.getString(CLAVE_USUARIO, "").orEmpty(),
             nombreCompleto = prefs.getString(CLAVE_NOMBRE, "").orEmpty(),
-            nombreSitio = prefs.getString(CLAVE_SITIO, "").orEmpty()
+            nombreSitio = prefs.getString(CLAVE_SITIO, "").orEmpty(),
+            idUsuario = prefs.getLong(CLAVE_ID_USUARIO, 0)
         )
     }
 
@@ -67,5 +70,6 @@ class SesionStore(contexto: Context) {
         const val CLAVE_NOMBRE = "nombre"
         const val CLAVE_SITIO = "sitio"
         const val CLAVE_PASSPORT = "passport"
+        const val CLAVE_ID_USUARIO = "id_usuario"
     }
 }

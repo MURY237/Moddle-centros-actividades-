@@ -52,6 +52,23 @@ data class Actividad(
     val nota: String? = null
 )
 
+@Serializable
+data class Calificacion(
+    val curso: String,
+    val nombre: String,
+    val nota: String,
+    val porcentaje: String,
+    val notaMaxima: Double,
+    val esTotalDelCurso: Boolean,
+    val tipo: TipoActividad
+)
+
+data class NotasDeCurso(
+    val curso: String,
+    val total: Calificacion?,
+    val calificaciones: List<Calificacion>
+)
+
 data class SeccionActividades(
     val grupo: GrupoPlazo,
     val actividades: List<Actividad>

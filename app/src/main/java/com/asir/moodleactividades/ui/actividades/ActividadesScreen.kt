@@ -152,7 +152,7 @@ fun ActividadesScreen(
 
             FilaResumen(estado)
 
-            if (estado.asignaturas.size > 1) {
+            if (estado.asignaturas.isNotEmpty()) {
                 SelectorAsignatura(estado, viewModel::cambiarAsignatura)
             }
 
@@ -204,7 +204,12 @@ fun ActividadesScreen(
                                     .padding(vertical = 8.dp)
                             )
                         }
-                        items(seccion.actividades, key = { "${seccion.grupo.name}-${it.id}" }) { actividad ->
+                        // El id de una tarea y el de un evento de calendario pueden coincidir,
+                        // y dos claves iguales rompen la lista.
+                        items(
+                            seccion.actividades,
+                            key = { "${seccion.grupo.name}-${it.tipo.name}-${it.id}" }
+                        ) { actividad ->
                             TarjetaActividad(actividad) {
                                 actividad.url?.let { enlace ->
                                     runCatching {

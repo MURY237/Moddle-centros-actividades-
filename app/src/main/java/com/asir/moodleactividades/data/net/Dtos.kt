@@ -67,10 +67,20 @@ data class NotasUsuarioDto(
 
 @Serializable
 data class ItemNotaDto(
+    val itemname: String? = null,
+    val itemtype: String = "",
     val itemmodule: String? = null,
     val iteminstance: Long = 0,
     val gradeformatted: String = "",
-    val percentageformatted: String = ""
+    val percentageformatted: String = "",
+    val grademax: Double = 0.0
+)
+
+@Serializable
+data class CursoMatriculadoDto(
+    val id: Long = 0,
+    val fullname: String = "",
+    val shortname: String = ""
 )
 
 @Serializable
