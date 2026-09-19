@@ -9,6 +9,7 @@ import com.asir.moodleactividades.data.net.ItemNotaDto
 import com.asir.moodleactividades.data.net.MoodleClient
 import com.asir.moodleactividades.data.net.MoodleException
 import com.asir.moodleactividades.data.net.NotasCursoDto
+import com.asir.moodleactividades.data.net.NotasTareasDto
 import com.asir.moodleactividades.data.net.ResultadoSso
 import com.asir.moodleactividades.data.net.SiteInfoDto
 import com.asir.moodleactividades.data.net.SsoLogin
@@ -25,6 +26,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import java.util.Locale
 
 class ActividadesRepository(
     private val sesionStore: SesionStore,
@@ -92,7 +94,8 @@ class ActividadesRepository(
         val cliente = MoodleClient(sesion.urlSitio, sesion.token)
 
         val previas = cache.leer()?.actividades?.associateBy { it.id }.orEmpty()
-        val actividades = cargarTareas(cliente, ahora, previas) + cargarEventosNoTarea(cliente, ahora)
+        val actividades = cargarTareas(cliente, ahora, previas, idUsuario(cliente, sesion)) +
+            cargarEventosNoTarea(cliente, ahora)
         cache.guardar(actividades, ahora)
         return actividades
     }
@@ -100,15 +103,26 @@ class ActividadesRepository(
     private suspend fun cargarTareas(
         cliente: MoodleClient,
         ahora: Long,
-        previas: Map<Long, Actividad>
+        previas: Map<Long, Actividad>,
+        idUsuario: Long
     ): List<Actividad> = coroutineScope {
         val respuesta: AssignmentsDto = cliente.decodificar(cliente.invocar("mod_assign_get_assignments"))
         val limitador = Semaphore(MAX_PETICIONES_SIMULTANEAS)
 
+        val idsTareas = respuesta.courses.flatMap { curso -> curso.assignments.map { it.id } }
+
         val notas = async {
-            respuesta.courses.map { curso ->
+            // En lotes: una petición por cada cincuenta tareas en vez de una por tarea.
+            val porLotes = idsTareas.chunked(TAMANO_LOTE_NOTAS).map { lote ->
+                async { limitador.withPermit { notasDeTareas(cliente, lote, idUsuario) } }
+            }.awaitAll().fold(emptyMap<Long, String>()) { acumulado, parcial -> acumulado + parcial }
+
+            // El libro de calificaciones aporta las que no son tareas, cuando el centro lo permite.
+            val porCurso = respuesta.courses.map { curso ->
                 async { limitador.withPermit { consultarNotas(cliente, curso.id) } }
             }.awaitAll().fold(emptyMap<Long, String>()) { acumulado, parcial -> acumulado + parcial }
+
+            porCurso + porLotes
         }
 
         val pares = respuesta.courses.flatMap { curso ->
@@ -272,6 +286,45 @@ class ActividadesRepository(
         tipo = Clasificador.tipoDesdeModulo(itemmodule)
     )
 
+    /**
+     * Notas de varias tareas en una sola petición. Es la vía que funciona en centros que no
+     * abren el libro de calificaciones a los servicios web.
+     */
+    private suspend fun notasDeTareas(
+        cliente: MoodleClient,
+        ids: List<Long>,
+        idUsuario: Long
+    ): Map<Long, String> =
+        runCatching {
+            if (ids.isEmpty()) return emptyMap()
+
+            val parametros = ids.withIndex().associate { (posicion, id) ->
+                "assignmentids[$posicion]" to id.toString()
+            }
+            val dto: NotasTareasDto = cliente.decodificar(
+                cliente.invocar("mod_assign_get_grades", parametros)
+            )
+
+            dto.assignments.mapNotNull { tarea ->
+                tarea.grades
+                    .firstOrNull { idUsuario == 0L || it.userid == idUsuario }
+                    ?.grade
+                    ?.let { formatearNota(it) }
+                    ?.let { tarea.assignmentid to it }
+            }.toMap()
+        }.getOrDefault(emptyMap())
+
+    /** Moodle entrega la nota como «100.00000», y «-1» cuando aún no hay ninguna. */
+    private fun formatearNota(bruta: String): String? {
+        val valor = bruta.trim().toDoubleOrNull() ?: return null
+        if (valor < 0) return null
+        return if (valor % 1.0 == 0.0) {
+            valor.toLong().toString()
+        } else {
+            String.format(Locale.forLanguageTag("es-ES"), "%.2f", valor)
+        }
+    }
+
     /** Devuelve la nota de cada tarea del curso, indexada por el id de la tarea. */
     private suspend fun consultarNotas(cliente: MoodleClient, idCurso: Long): Map<Long, String> =
         runCatching {
@@ -362,6 +415,7 @@ class ActividadesRepository(
     private companion object {
         val TIPOS_EVALUABLES = setOf("mod", "manual")
         const val MAX_PETICIONES_SIMULTANEAS = 3
+        const val TAMANO_LOTE_NOTAS = 50
         const val MAX_CONSULTAS_ESTADO = 60
         const val INTENTOS_POR_TAREA = 2
         const val ESPERA_ENTRE_INTENTOS_MS = 900L
