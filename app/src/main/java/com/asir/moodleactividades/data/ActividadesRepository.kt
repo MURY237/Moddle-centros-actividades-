@@ -110,35 +110,56 @@ class ActividadesRepository(
             }.awaitAll().fold(emptyMap<Long, String>()) { acumulado, parcial -> acumulado + parcial }
         }
 
-        val actividades = respuesta.courses.flatMap { curso ->
+        val pares = respuesta.courses.flatMap { curso ->
             curso.assignments.map { tarea -> curso to tarea }
-        }.map { (curso, tarea) ->
+        }
+        val notasPorTarea = notas.await()
+
+        // Un alumno con varios cursos arrastra cientos de tareas de años anteriores, y una
+        // petición por cada una acaba siendo rechazada por el centro. Solo se consulta el
+        // estado de las que no tienen nota todavía, empezando por las de plazo más cercano.
+        val aConsultar = pares
+            .filterNot { (_, tarea) -> notasPorTarea.containsKey(tarea.id) }
+            .sortedBy { (_, tarea) -> distanciaAlPlazo(tarea.duedate, ahora) }
+            .take(MAX_CONSULTAS_ESTADO)
+            .mapTo(mutableSetOf()) { (_, tarea) -> tarea.id }
+
+        pares.map { (curso, tarea) ->
             async {
-                val estadoEntrega = limitador.withPermit { consultarEntrega(cliente, tarea.id) }
+                val estadoEntrega = if (tarea.id in aConsultar) {
+                    limitador.withPermit { consultarEntrega(cliente, tarea.id) }
+                } else {
+                    null
+                }
                 val limite = tarea.duedate.takeIf { it > 0 }
+                val nota = notasPorTarea[tarea.id]
                 val previa = previas[tarea.id]
+
                 Actividad(
                     id = tarea.id,
                     nombre = tarea.name,
                     curso = curso.fullname.ifBlank { curso.shortname },
                     tipo = TipoActividad.TAREA,
                     fechaLimite = limite,
-                    // Si el centro no contesta no se puede afirmar que falte la entrega: se
-                    // conserva lo último que sí se supo antes que dar por no entregada una tarea.
+                    // Sin respuesta del centro no se puede afirmar que falte la entrega: una
+                    // tarea con nota está entregada, y si no, se conserva lo último que se supo.
                     estado = when {
                         estadoEntrega != null -> Clasificador.estado(estadoEntrega.estado, limite, ahora)
+                        nota != null -> EstadoActividad.ENTREGADA
                         previa != null -> previa.estado
                         else -> EstadoActividad.PENDIENTE
                     },
-                    calificada = estadoEntrega?.calificada ?: (previa?.calificada == true),
-                    url = "${cliente.urlSitio}mod/assign/view.php?id=${tarea.cmid}"
+                    calificada = estadoEntrega?.calificada ?: (nota != null),
+                    url = "${cliente.urlSitio}mod/assign/view.php?id=${tarea.cmid}",
+                    nota = nota ?: previa?.nota
                 )
             }
         }.awaitAll()
-
-        val notasPorTarea = notas.await()
-        actividades.map { it.copy(nota = notasPorTarea[it.id] ?: previas[it.id]?.nota) }
     }
+
+    /** Sin fecha límite va al final: no hay urgencia que justifique gastar una consulta. */
+    private fun distanciaAlPlazo(plazo: Long, ahora: Long): Long =
+        if (plazo <= 0) Long.MAX_VALUE else kotlin.math.abs(plazo - ahora)
 
     suspend fun cargarCalificaciones(): List<NotasDeCurso> = coroutineScope {
         val sesion = sesionStore.leer() ?: throw MoodleException(null, "No hay ninguna sesión iniciada.")
@@ -147,7 +168,7 @@ class ActividadesRepository(
         val cursos: List<CursoMatriculadoDto> = cliente.decodificar(
             cliente.invocar(
                 "core_enrol_get_users_courses",
-                mapOf("userid" to sesion.idUsuario.toString())
+                mapOf("userid" to idUsuario(cliente, sesion).toString())
             )
         )
 
@@ -159,6 +180,18 @@ class ActividadesRepository(
                 }
             }
         }.awaitAll().filterNotNull().filter { it.calificaciones.isNotEmpty() || it.total != null }
+    }
+
+    /**
+     * Las sesiones abiertas antes de que se guardara el identificador lo tienen a cero, y sin
+     * él Moodle devuelve una lista de cursos vacía en lugar de un error.
+     */
+    private suspend fun idUsuario(cliente: MoodleClient, sesion: Sesion): Long {
+        if (sesion.idUsuario > 0) return sesion.idUsuario
+
+        val info: SiteInfoDto = cliente.decodificar(cliente.invocar("core_webservice_get_site_info"))
+        if (info.userid > 0) sesionStore.guardar(sesion.copy(idUsuario = info.userid))
+        return info.userid
     }
 
     private suspend fun notasDelCurso(
@@ -274,6 +307,7 @@ class ActividadesRepository(
     private companion object {
         val TIPOS_EVALUABLES = setOf("mod", "manual")
         const val MAX_PETICIONES_SIMULTANEAS = 3
+        const val MAX_CONSULTAS_ESTADO = 60
         const val INTENTOS_POR_TAREA = 2
         const val ESPERA_ENTRE_INTENTOS_MS = 900L
         const val VENTANA_PASADA = 60L * 60 * 24 * 60
