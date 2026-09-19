@@ -32,10 +32,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.Button
@@ -64,10 +68,12 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.asir.moodleactividades.BuildConfig
 import com.asir.moodleactividades.domain.Actividad
 import com.asir.moodleactividades.domain.EstadoActividad
 import com.asir.moodleactividades.domain.FiltroEstado
 import com.asir.moodleactividades.domain.RangoTiempo
+import com.asir.moodleactividades.domain.TipoActividad
 import com.asir.moodleactividades.notificaciones.Recordatorios
 import com.asir.moodleactividades.notificaciones.RecordatoriosWorker
 import com.asir.moodleactividades.ui.actualizacion.ActualizacionViewModel
@@ -184,7 +190,10 @@ fun ActividadesScreen(
                         seccion.actividades,
                         key = { "${seccion.grupo.name}-${it.tipo.name}-${it.id}" }
                     ) { actividad ->
-                        TarjetaActividad(actividad) {
+                        TarjetaActividad(
+                            actividad = actividad,
+                            modifier = Modifier.animateItem()
+                        ) {
                             actividad.url?.let { enlace ->
                                 runCatching {
                                     contexto.startActivity(Intent(Intent.ACTION_VIEW, enlace.toUri()))
@@ -236,11 +245,25 @@ private fun Cabecera(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Mis actividades",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.White
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Mis actividades",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "v${BuildConfig.VERSION_NAME}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .background(
+                                    Color.White.copy(alpha = 0.22f),
+                                    RoundedCornerShape(7.dp)
+                                )
+                                .padding(horizontal = 7.dp, vertical = 2.dp)
+                        )
+                    }
                     if (estado.nombreUsuario.isNotBlank()) {
                         Text(
                             text = estado.nombreUsuario,
@@ -425,8 +448,19 @@ private fun Filtros(estado: ActividadesUiState, viewModel: ActividadesViewModel)
     }
 }
 
+private fun iconoDe(tipo: TipoActividad) = when (tipo) {
+    TipoActividad.TAREA -> Icons.AutoMirrored.Filled.Assignment
+    TipoActividad.CUESTIONARIO -> Icons.Default.Quiz
+    TipoActividad.FORO -> Icons.Default.Forum
+    TipoActividad.OTRA -> Icons.Default.Event
+}
+
 @Composable
-private fun TarjetaActividad(actividad: Actividad, alPulsar: () -> Unit) {
+private fun TarjetaActividad(
+    actividad: Actividad,
+    modifier: Modifier = Modifier,
+    alPulsar: () -> Unit
+) {
     val color = when (actividad.estado) {
         EstadoActividad.ENTREGADA -> VerdeEntregada
         EstadoActividad.PENDIENTE -> AmbarPendiente
@@ -439,18 +473,25 @@ private fun TarjetaActividad(actividad: Actividad, alPulsar: () -> Unit) {
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = alPulsar),
+        modifier = modifier.fillMaxWidth().clickable(onClick = alPulsar),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(modifier = Modifier.padding(14.dp)) {
             Box(
                 modifier = Modifier
-                    .width(5.dp)
-                    .height(64.dp)
-                    .background(color, RoundedCornerShape(3.dp))
-            )
+                    .size(44.dp)
+                    .background(fondo, RoundedCornerShape(14.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = iconoDe(actividad.tipo),
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
             Column(modifier = Modifier.weight(1f).padding(start = 14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -484,16 +525,11 @@ private fun TarjetaActividad(actividad: Actividad, alPulsar: () -> Unit) {
                     Etiqueta(actividad.estado.etiqueta, color, fondo)
                     actividad.nota?.let { nota ->
                         Etiqueta(
-                            texto = nota,
+                            texto = "Nota $nota",
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
                             fondo = MaterialTheme.colorScheme.secondaryContainer
                         )
                     }
-                    Text(
-                        text = actividad.tipo.etiqueta,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
                 }
                 Text(
                     text = buildString {

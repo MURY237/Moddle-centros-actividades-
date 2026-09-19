@@ -130,9 +130,9 @@ class ActividadesRepository(
         }
         val notasPorTarea = notas.await()
 
-        // Un alumno con varios cursos arrastra cientos de tareas de años anteriores, y una
-        // petición por cada una acaba siendo rechazada por el centro. Solo se consulta el
-        // estado de las que no tienen nota todavía, empezando por las de plazo más cercano.
+        // La consulta individual es la única que da la nota cuando el centro no abre su libro
+        // de calificaciones, así que se reserva para las tareas que aún no la tienen,
+        // empezando por las de plazo más cercano a hoy.
         val aConsultar = pares
             .filterNot { (_, tarea) -> notasPorTarea.containsKey(tarea.id) }
             .sortedBy { (_, tarea) -> distanciaAlPlazo(tarea.duedate, ahora) }
@@ -314,9 +314,12 @@ class ActividadesRepository(
             )
 
             dto.assignments.mapNotNull { tarea ->
-                tarea.grades
-                    .firstOrNull { idUsuario == 0L || it.userid == idUsuario }
-                    ?.grade
+                // Moodle suele devolver solo la nota propia; si el id no cuadra pero viene una
+                // sola, es la del alumno igualmente.
+                val propia = tarea.grades.firstOrNull { it.userid == idUsuario }
+                    ?: tarea.grades.singleOrNull()
+
+                propia?.grade
                     ?.let { formatearNota(it) }
                     ?.let { tarea.assignmentid to it }
             }.toMap()
@@ -413,18 +416,23 @@ class ActividadesRepository(
         val nota: String? = null
     )
 
-    /** Moodle devuelve esta nota con etiquetas HTML alrededor cuando la formatea para la web. */
+    /**
+     * Moodle formatea esta nota para la web: llega con etiquetas HTML y como «8,00 / 10,00»,
+     * y en la tarjeta solo cabe la nota.
+     */
     private fun FeedbackDto.notaLegible(): String? {
         val bruta = gradefordisplay.ifBlank { grade?.grade.orEmpty() }
-        val limpia = bruta.replace(Regex("<[^>]*>"), "").trim()
+        val limpia = bruta.replace(Regex("<[^>]*>"), "")
+            .substringBefore('/')
+            .trim()
         return limpia.takeIf { it.esNotaReal() }
     }
 
     private companion object {
         val TIPOS_EVALUABLES = setOf("mod", "manual")
         const val MAX_PETICIONES_SIMULTANEAS = 3
-        const val TAMANO_LOTE_NOTAS = 50
-        const val MAX_CONSULTAS_ESTADO = 60
+        const val TAMANO_LOTE_NOTAS = 25
+        const val MAX_CONSULTAS_ESTADO = 180
         const val INTENTOS_POR_TAREA = 2
         const val ESPERA_ENTRE_INTENTOS_MS = 900L
         const val VENTANA_PASADA = 60L * 60 * 24 * 60
