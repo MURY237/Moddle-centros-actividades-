@@ -272,9 +272,15 @@ private fun TarjetaCalificacion(calificacion: Calificacion, alPulsar: () -> Unit
                     .background(fondo, RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center
             ) {
+                val texto = calificacion.nota.ifBlank { "—" }
                 Text(
-                    text = calificacion.nota.ifBlank { "—" },
-                    style = MaterialTheme.typography.titleMedium,
+                    text = texto,
+                    // Una nota sobre 100 no cabe con el cuerpo grande y se saldría del recuadro.
+                    style = if (texto.length > 5) {
+                        MaterialTheme.typography.labelLarge
+                    } else {
+                        MaterialTheme.typography.titleMedium
+                    },
                     fontWeight = FontWeight.Bold,
                     color = color,
                     maxLines = 1
