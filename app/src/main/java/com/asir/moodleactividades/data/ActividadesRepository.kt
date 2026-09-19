@@ -95,7 +95,9 @@ class ActividadesRepository(
         val sesion = sesionStore.leer() ?: throw MoodleException(null, "No hay ninguna sesión iniciada.")
         val cliente = MoodleClient(sesion.urlSitio, sesion.token)
 
-        val previas = cache.leer()?.actividades?.associateBy { it.id }.orEmpty()
+        // El id de una tarea puede coincidir con el de un evento del calendario, así que la
+        // clave lleva el tipo: sin él, un evento pisaba la tarea y le borraba estado y nota.
+        val previas = cache.leer()?.actividades?.associateBy { claveDe(it.tipo, it.id) }.orEmpty()
         val actividades = cargarTareas(cliente, ahora, previas, idUsuario(cliente, sesion)) +
             cargarEventosNoTarea(cliente, ahora)
         cache.guardar(actividades, ahora)
@@ -150,7 +152,7 @@ class ActividadesRepository(
                 }
                 val limite = tarea.duedate.takeIf { it > 0 }
                 val nota = notasPorTarea[tarea.id]
-                val previa = previas[tarea.id]
+                val previa = previas[claveDe(TipoActividad.TAREA, tarea.id)]
 
                 Actividad(
                     id = tarea.id,
@@ -177,6 +179,8 @@ class ActividadesRepository(
     /** Sin fecha límite va al final: no hay urgencia que justifique gastar una consulta. */
     private fun distanciaAlPlazo(plazo: Long, ahora: Long): Long =
         if (plazo <= 0) Long.MAX_VALUE else kotlin.math.abs(plazo - ahora)
+
+    private fun claveDe(tipo: TipoActividad, id: Long) = "${tipo.name}-$id"
 
     suspend fun cargarCalificaciones(): List<NotasDeCurso> = coroutineScope {
         val sesion = sesionStore.leer() ?: throw MoodleException(null, "No hay ninguna sesión iniciada.")
@@ -374,7 +378,10 @@ class ActividadesRepository(
                     )
                 )
                 val intento = dto.lastattempt
-                val entrega = intento?.submission ?: intento?.teamsubmission
+                // En una tarea de grupo el registro personal se queda en «new» y la entrega
+                // real vive en el del grupo, así que gana el que esté más avanzado.
+                val entrega = listOfNotNull(intento?.submission, intento?.teamsubmission)
+                    .maxByOrNull { avanceDeEntrega(it.status) }
                 EntregaResumen(
                     estado = entrega?.status,
                     calificada = intento?.graded == true || entrega?.gradingstatus == "graded",
@@ -419,6 +426,13 @@ class ActividadesRepository(
                 )
             }
     }.getOrDefault(emptyList())
+
+    private fun avanceDeEntrega(estado: String?): Int = when (estado?.lowercase()) {
+        "submitted" -> 3
+        "reopened" -> 2
+        "draft" -> 1
+        else -> 0
+    }
 
     private data class EntregaResumen(
         val estado: String?,

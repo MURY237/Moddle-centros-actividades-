@@ -1,8 +1,8 @@
 package com.asir.moodleactividades.data.net
 
 import java.security.MessageDigest
+import java.security.SecureRandom
 import java.util.Base64
-import kotlin.random.Random
 
 sealed interface ResultadoSso {
     data class Ok(val token: String) : ResultadoSso
@@ -23,7 +23,12 @@ object SsoLogin {
 
     val ESQUEMAS_ACEPTADOS = setOf(ESQUEMA_SOLICITADO, "moodleactividades")
 
-    fun generarPassport(): String = Random.nextLong(1_000_000_000L, 9_999_999_999L).toString()
+    /**
+     * La firma que acompaña al token se calcula sobre este valor, y es lo único que impide que
+     * otra app entregue un token ajeno por el esquema compartido: tiene que ser impredecible.
+     */
+    fun generarPassport(): String =
+        (SecureRandom().nextLong() and Long.MAX_VALUE).toString()
 
     fun urlDeLanzamiento(sitio: String, passport: String): String =
         sitio.trimEnd('/') +

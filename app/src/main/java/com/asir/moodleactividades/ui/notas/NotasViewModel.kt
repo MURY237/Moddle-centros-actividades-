@@ -24,6 +24,9 @@ data class NotasUiState(
     val filtro: FiltroNotas = FiltroNotas.TODAS,
     val error: String? = null
 ) {
+    /** Hay algo en pantalla, pero es de una carga anterior y la última consulta falló. */
+    val mostrandoDatosAntiguos: Boolean get() = error != null && todos.isNotEmpty()
+
     private val visibles: List<NotasDeCurso>
         get() = todos.filter { asignatura == null || it.curso == asignatura }
 

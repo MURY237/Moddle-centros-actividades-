@@ -17,20 +17,7 @@ class MoodleClient(
 
     private val servicio: MoodleService = Retrofit.Builder()
         .baseUrl(urlSitio)
-        .client(
-            OkHttpClient.Builder()
-                .connectTimeout(20, TimeUnit.SECONDS)
-                .readTimeout(45, TimeUnit.SECONDS)
-                // Sin User-Agent propio OkHttp manda el suyo, que los cortafuegos de centro filtran.
-                .addInterceptor { cadena ->
-                    cadena.proceed(
-                        cadena.request().newBuilder()
-                            .header("User-Agent", USER_AGENT)
-                            .build()
-                    )
-                }
-                .build()
-        )
+        .client(httpCompartido)
         .addConverterFactory(ScalarsConverterFactory.create())
         .build()
         .create(MoodleService::class.java)
@@ -79,7 +66,24 @@ class MoodleClient(
 
     companion object {
         const val SERVICIO_MOVIL = "moodle_mobile_app"
-        const val USER_AGENT = "MoodleActividades/1.2 (Android)"
+        const val USER_AGENT = "MoodleActividades (Android)"
+
+        /**
+         * Uno solo para toda la app: se crea un cliente por carga y por sitio, y con uno nuevo
+         * cada vez se acumulan hilos y cada petición rehace el saludo TLS.
+         */
+        private val httpCompartido: OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(45, TimeUnit.SECONDS)
+            // Sin User-Agent propio OkHttp manda el suyo, que los cortafuegos de centro filtran.
+            .addInterceptor { cadena ->
+                cadena.proceed(
+                    cadena.request().newBuilder()
+                        .header("User-Agent", USER_AGENT)
+                        .build()
+                )
+            }
+            .build()
 
         val json = Json {
             ignoreUnknownKeys = true

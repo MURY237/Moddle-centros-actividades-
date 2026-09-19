@@ -1,10 +1,6 @@
 package com.asir.moodleactividades.ui.actividades
 
-import android.Manifest
 import android.content.Intent
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -74,9 +70,7 @@ import com.asir.moodleactividades.domain.EstadoActividad
 import com.asir.moodleactividades.domain.FiltroEstado
 import com.asir.moodleactividades.domain.RangoTiempo
 import com.asir.moodleactividades.domain.TipoActividad
-import com.asir.moodleactividades.notificaciones.Recordatorios
-import com.asir.moodleactividades.notificaciones.RecordatoriosWorker
-import com.asir.moodleactividades.ui.actualizacion.ActualizacionViewModel
+import com.asir.moodleactividades.ui.actualizacion.ActualizacionUiState
 import com.asir.moodleactividades.ui.actualizacion.BannerActualizacion
 import com.asir.moodleactividades.ui.componentes.AnilloProgreso
 import com.asir.moodleactividades.ui.componentes.EstadoVacio
@@ -101,29 +95,13 @@ import com.asir.moodleactividades.ui.theme.fondoDeEstado
 @Composable
 fun ActividadesScreen(
     viewModel: ActividadesViewModel,
+    actualizacion: ActualizacionUiState,
+    alInstalarActualizacion: () -> Unit,
+    alDescartarActualizacion: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
     val contexto = LocalContext.current
-
-    val actualizacionViewModel: ActualizacionViewModel = viewModel()
-    val actualizacion by actualizacionViewModel.estado.collectAsStateWithLifecycle()
-
-    val pedirPermiso = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { concedido ->
-        if (concedido) RecordatoriosWorker.programar(contexto)
-    }
-
-    LaunchedEffect(Unit) {
-        actualizacionViewModel.comprobar()
-        Recordatorios.crearCanal(contexto)
-        if (Recordatorios.puedeNotificar(contexto)) {
-            RecordatoriosWorker.programar(contexto)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            pedirPermiso.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
 
     Column(modifier = modifier.fillMaxSize()) {
 
@@ -136,8 +114,8 @@ fun ActividadesScreen(
         AnimatedVisibility(visible = actualizacion.visible, enter = fadeIn(), exit = fadeOut()) {
             BannerActualizacion(
                 estado = actualizacion,
-                alInstalar = { actualizacionViewModel.instalar(contexto) },
-                alDescartar = actualizacionViewModel::descartar
+                alInstalar = alInstalarActualizacion,
+                alDescartar = alDescartarActualizacion
             )
         }
 
