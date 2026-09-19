@@ -200,6 +200,7 @@ class ActividadesRepository(
 
         val obtenidos = resultados.mapNotNull { it.getOrNull() }
             .filter { it.calificaciones.isNotEmpty() || it.total != null }
+            .sortedByDescending { it.fechaMasReciente }
 
         if (obtenidos.isNotEmpty()) return@coroutineScope obtenidos
 
@@ -232,12 +233,17 @@ class ActividadesRepository(
                             porcentaje = "",
                             notaMaxima = 0.0,
                             esTotalDelCurso = false,
-                            tipo = actividad.tipo
+                            tipo = actividad.tipo,
+                            fecha = actividad.fechaLimite
                         )
-                    }
+                    }.ordenadasPorRecientes()
                 )
             }
-            .sortedBy { it.curso }
+            .sortedByDescending { it.fechaMasReciente }
+
+    /** Lo último evaluado es lo que interesa: sin fecha conocida, al final. */
+    private fun List<Calificacion>.ordenadasPorRecientes(): List<Calificacion> =
+        sortedWith(compareByDescending<Calificacion> { it.fecha ?: Long.MIN_VALUE }.thenBy { it.nombre })
 
     /**
      * Las sesiones abiertas antes de que se guardara el identificador lo tienen a cero, y sin
@@ -269,6 +275,7 @@ class ActividadesRepository(
         val calificaciones = items
             .filter { it.itemtype in TIPOS_EVALUABLES }
             .map { it.aCalificacion(nombreCurso) }
+            .ordenadasPorRecientes()
         val total = items
             .firstOrNull { it.itemtype == "course" && it.gradeformatted.esNotaReal() }
             ?.aCalificacion(nombreCurso)
@@ -283,7 +290,8 @@ class ActividadesRepository(
         porcentaje = percentageformatted.takeIf { it.esNotaReal() }.orEmpty(),
         notaMaxima = grademax,
         esTotalDelCurso = itemtype == "course",
-        tipo = Clasificador.tipoDesdeModulo(itemmodule)
+        tipo = Clasificador.tipoDesdeModulo(itemmodule),
+        fecha = (gradedategraded ?: gradedatesubmitted)?.takeIf { it > 0 }
     )
 
     /**

@@ -46,6 +46,7 @@ import com.asir.moodleactividades.domain.Calificacion
 import com.asir.moodleactividades.domain.FiltroNotas
 import com.asir.moodleactividades.domain.NotasDeCurso
 import com.asir.moodleactividades.ui.componentes.EstadoVacio
+import com.asir.moodleactividades.ui.formatearFecha
 import com.asir.moodleactividades.ui.theme.DegradadoCabecera
 import com.asir.moodleactividades.ui.theme.RojoNoEntregada
 import com.asir.moodleactividades.ui.theme.RojoNoEntregadaFondo
@@ -167,42 +168,45 @@ fun NotasScreen(viewModel: NotasViewModel, modifier: Modifier = Modifier) {
 
 @Composable
 private fun CabeceraCurso(curso: NotasDeCurso) {
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
-            .padding(vertical = 10.dp)
+            .padding(top = 14.dp, bottom = 6.dp)
     ) {
-        Text(
-            text = curso.curso,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.padding(top = 4.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(16.dp))
+                .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
-            curso.total?.let { total ->
+            Text(
+                text = curso.curso,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 3.dp)
+            ) {
+                curso.total?.let { total ->
+                    Text(
+                        text = "Total: ${total.nota}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
                 Text(
-                    text = "Total: ${total.nota}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier
-                        .background(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            RoundedCornerShape(8.dp)
-                        )
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                    text = "${curso.calificadas} de ${curso.calificaciones.size} con nota",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
                 )
             }
-            Text(
-                text = "${curso.calificadas} de ${curso.calificaciones.size} con nota",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -266,6 +270,7 @@ private fun TarjetaCalificacion(calificacion: Calificacion) {
                         if (calificacion.porcentaje.isNotBlank()) {
                             append(" · ").append(calificacion.porcentaje)
                         }
+                        calificacion.fecha?.let { append(" · ").append(formatearFecha(it)) }
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

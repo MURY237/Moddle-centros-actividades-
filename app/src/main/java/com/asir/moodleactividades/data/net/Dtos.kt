@@ -102,7 +102,9 @@ data class ItemNotaDto(
     val iteminstance: Long = 0,
     val gradeformatted: String = "",
     val percentageformatted: String = "",
-    val grademax: Double = 0.0
+    val grademax: Double = 0.0,
+    val gradedategraded: Long? = null,
+    val gradedatesubmitted: Long? = null
 )
 
 @Serializable
