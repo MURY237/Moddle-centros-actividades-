@@ -1,5 +1,7 @@
 # Actividades Moodle
 
+Desarrollada por **Mury237**.
+
 Aplicación Android que muestra las actividades de un Moodle de centro educativo
 (Moodle Centros, Moodle propio del instituto, etc.) clasificadas en **pendientes**,
 **entregadas** y **no entregadas**, agrupadas por plazo: hoy, próximos 7 días,
