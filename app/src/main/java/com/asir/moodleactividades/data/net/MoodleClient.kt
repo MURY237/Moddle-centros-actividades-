@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import retrofit2.Retrofit
 import retrofit2.converter.scalars.ScalarsConverterFactory
 import java.util.concurrent.TimeUnit
@@ -67,6 +68,15 @@ class MoodleClient(
     companion object {
         const val SERVICIO_MOVIL = "moodle_mobile_app"
         const val USER_AGENT = "MoodleActividades (Android)"
+
+        /** Descarga una página cualquiera del sitio; null si no se pudo leer. */
+        fun descargarTexto(url: String): String? = runCatching {
+            val peticion = Request.Builder()
+                .url(url)
+                .header("User-Agent", USER_AGENT)
+                .build()
+            httpCompartido.newCall(peticion).execute().use { it.body?.string() }
+        }.getOrNull()
 
         /**
          * Uno solo para toda la app: se crea un cliente por carga y por sitio, y con uno nuevo

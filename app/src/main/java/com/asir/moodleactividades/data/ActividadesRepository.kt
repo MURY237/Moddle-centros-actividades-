@@ -22,10 +22,12 @@ import com.asir.moodleactividades.domain.Clasificador
 import com.asir.moodleactividades.domain.EstadoActividad
 import com.asir.moodleactividades.domain.NotasDeCurso
 import com.asir.moodleactividades.domain.TipoActividad
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import java.util.Locale
@@ -57,11 +59,23 @@ class ActividadesRepository(
         return completarSesion(sitio, token.trim())
     }
 
-    fun prepararSso(url: String): String {
+    suspend fun prepararSso(url: String): String = withContext(Dispatchers.IO) {
         val sitio = MoodleClient.normalizarUrl(url)
         val passport = SsoLogin.generarPassport()
+        val destino = SsoLogin.urlDeLanzamiento(sitio, passport)
+
+        if (SsoLogin.servicioMovilApagado(MoodleClient.descargarTexto(destino))) {
+            throw MoodleException(
+                "mobileservicesnotenabled",
+                "Este portal tiene desactivado el acceso desde aplicaciones móviles, así que " +
+                    "ninguna app puede consultarlo, tampoco la oficial de Moodle. Pídeselo al " +
+                    "coordinador TIC del centro o entra con un token si tu perfil te deja " +
+                    "generarlo."
+            )
+        }
+
         sesionStore.guardarSsoPendiente(sitio, passport)
-        return SsoLogin.urlDeLanzamiento(sitio, passport)
+        destino
     }
 
     suspend fun completarSso(enlace: String): Sesion {

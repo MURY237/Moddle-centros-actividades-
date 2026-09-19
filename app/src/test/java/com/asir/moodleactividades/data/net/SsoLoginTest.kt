@@ -1,6 +1,7 @@
 package com.asir.moodleactividades.data.net
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.security.MessageDigest
@@ -92,5 +93,19 @@ class SsoLoginTest {
         val resultado = SsoLogin.extraerToken("moodlemobile://error=1", sitio, passport)
 
         assertTrue(resultado is ResultadoSso.Error)
+    }
+
+    @Test
+    fun `detecta el aviso de Moodle cuando el servicio movil esta apagado`() {
+        assertTrue(
+            SsoLogin.servicioMovilApagado("<div>Complemento no habilitado o no configurado.</div>")
+        )
+        assertTrue(SsoLogin.servicioMovilApagado("error: mobileservicesnotenabled"))
+    }
+
+    @Test
+    fun `no confunde una redireccion normal con un servicio apagado`() {
+        assertFalse(SsoLogin.servicioMovilApagado("<html>Redirigiendo…</html>"))
+        assertFalse(SsoLogin.servicioMovilApagado(null))
     }
 }

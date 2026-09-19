@@ -37,6 +37,23 @@ object SsoLogin {
             "&passport=$passport" +
             "&urlscheme=$ESQUEMA_SOLICITADO"
 
+    /**
+     * Moodle rechaza el lanzamiento antes de pedir credenciales cuando el administrador tiene
+     * apagado el servicio móvil, así que se detecta sin mandar a nadie al navegador.
+     */
+    fun servicioMovilApagado(respuesta: String?): Boolean {
+        val texto = respuesta?.lowercase() ?: return false
+        return SENALES_DE_APAGADO.any { it in texto }
+    }
+
+    private val SENALES_DE_APAGADO = listOf(
+        "mobileservicesnotenabled",
+        "complemento no habilitado",
+        "plugin not enabled",
+        "servicio móvil no está habilitado",
+        "mobile services are disabled"
+    )
+
     fun extraerToken(enlace: String, sitio: String, passport: String): ResultadoSso {
         val cargaUtil = enlace.substringAfter("token=", "").substringBefore('&')
         if (cargaUtil.isBlank()) {
