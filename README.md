@@ -50,16 +50,28 @@ Para generar un token manualmente en Moodle:
 - Avisa con notificaciones de las entregas próximas y de las actividades recién
   publicadas, con la antelación, la frecuencia y la hora que elija el usuario.
 - Guarda el horario de clase en PDF o imagen y lo muestra con zoom, sin conexión.
+- Abre la ficha de cada tarea con su enunciado y sus documentos adjuntos, que se
+  descargan y se abren desde la propia app, sin entrar en Moodle.
 
 ## Funciones de la API usadas
 
 | Función | Uso |
 |---|---|
 | `core_webservice_get_site_info` | Validar el token y leer el nombre del usuario |
-| `mod_assign_get_assignments` | Listar las tareas de todos los cursos matriculados |
+| `mod_assign_get_assignments` | Listar las tareas, su enunciado y sus adjuntos |
 | `mod_assign_get_submission_status` | Saber si cada tarea está entregada y calificada |
 | `gradereport_user_get_grade_items` | Leer la calificación de cada tarea |
 | `core_calendar_get_action_events_by_timesort` | Añadir cuestionarios y otras actividades con fecha |
+
+## Enunciados y adjuntos
+
+`mod_assign_get_assignments` devuelve, junto a cada tarea, su enunciado en HTML y la
+lista de archivos que el profesorado adjuntó. La app pinta el enunciado tal cual y
+descarga los adjuntos a su caché para abrirlos con el visor del móvil.
+
+Los archivos se sirven por `webservice/pluginfile.php`, que exige el token en la
+propia URL. Ese token se añade **solo en el momento de la descarga**: en la copia
+guardada de las actividades queda la URL limpia, sin credencial alguna.
 
 ## Cómo se clasifica cada actividad
 

@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.asir.moodleactividades.data.ActividadesRepository
 import com.asir.moodleactividades.data.Conectividad
+import com.asir.moodleactividades.data.DescargaAdjuntos
 import com.asir.moodleactividades.data.net.MoodleException
 import com.asir.moodleactividades.domain.Actividad
+import com.asir.moodleactividades.domain.Adjunto
 import com.asir.moodleactividades.domain.Clasificador
 import com.asir.moodleactividades.domain.FiltroEstado
 import com.asir.moodleactividades.domain.RangoTiempo
@@ -17,7 +19,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+import java.io.File
 import java.io.IOException
+
+enum class EstadoDescarga { PENDIENTE, DESCARGANDO, LISTA, ERROR }
+
+data class DescargaUi(
+    val estado: EstadoDescarga = EstadoDescarga.PENDIENTE,
+    val archivo: File? = null
+)
 
 data class ActividadesUiState(
     val cargando: Boolean = false,
@@ -33,7 +43,9 @@ data class ActividadesUiState(
     val error: String? = null,
     val sesionCaducada: Boolean = false,
     val datosDeCache: Boolean = false,
-    val momentoDatos: Long? = null
+    val momentoDatos: Long? = null,
+    val detalle: Actividad? = null,
+    val descargas: Map<String, DescargaUi> = emptyMap()
 ) {
     /** Hay algo que enseñar, pero es una copia guardada y la última consulta al centro falló. */
     val mostrandoDatosAntiguos: Boolean
@@ -42,7 +54,8 @@ data class ActividadesUiState(
 
 class ActividadesViewModel(
     private val repositorio: ActividadesRepository,
-    private val conectividad: Conectividad
+    private val conectividad: Conectividad,
+    private val descargas: DescargaAdjuntos
 ) : ViewModel() {
 
     private val _estado = MutableStateFlow(ActividadesUiState())
@@ -77,6 +90,45 @@ class ActividadesViewModel(
     fun cambiarAsignatura(asignatura: String?) =
         _estado.update { recalcular(it.copy(asignatura = asignatura)) }
 
+    fun abrirDetalle(actividad: Actividad) {
+        // El estado de cada adjunto se recalcula al abrir: si la caché conserva el archivo de
+        // otra vez, la ficha ya sale con el botón de abrir en lugar del de descargar.
+        val estados = actividad.adjuntos.associate { adjunto ->
+            val guardado = descargas.yaDescargado(adjunto)
+            adjunto.url to DescargaUi(
+                estado = if (guardado != null) EstadoDescarga.LISTA else EstadoDescarga.PENDIENTE,
+                archivo = guardado
+            )
+        }
+        _estado.update { it.copy(detalle = actividad, descargas = estados) }
+    }
+
+    fun cerrarDetalle() = _estado.update { it.copy(detalle = null) }
+
+    fun descargar(adjunto: Adjunto) {
+        if (_estado.value.descargas[adjunto.url]?.estado == EstadoDescarga.DESCARGANDO) return
+        cambiarDescarga(adjunto, DescargaUi(EstadoDescarga.DESCARGANDO))
+        viewModelScope.launch {
+            val archivo = runCatching { descargas.descargar(adjunto) }.getOrNull()
+            cambiarDescarga(
+                adjunto,
+                if (archivo == null) {
+                    DescargaUi(EstadoDescarga.ERROR)
+                } else {
+                    DescargaUi(EstadoDescarga.LISTA, archivo)
+                }
+            )
+        }
+    }
+
+    fun intentAbrir(adjunto: Adjunto, archivo: File) = descargas.intentAbrir(archivo, adjunto.tipo)
+
+    fun intentCompartir(adjunto: Adjunto, archivo: File) =
+        descargas.intentCompartir(archivo, adjunto.tipo)
+
+    private fun cambiarDescarga(adjunto: Adjunto, descarga: DescargaUi) =
+        _estado.update { it.copy(descargas = it.descargas + (adjunto.url to descarga)) }
+
     fun cerrarSesion() {
         repositorio.cerrarSesion()
         _estado.update { it.copy(sesionCaducada = true) }
@@ -87,11 +139,18 @@ class ActividadesViewModel(
         viewModelScope.launch {
             runCatching { repositorio.cargarActividades() }.fold(
                 onSuccess = { lista ->
-                    _estado.update {
+                    _estado.update { previo ->
                         recalcular(
-                            it.copy(
+                            previo.copy(
                                 cargando = false,
                                 todas = lista,
+                                // La ficha abierta se queda con los datos de la carga anterior
+                                // si no se vuelve a buscar en la lista recién traída.
+                                detalle = previo.detalle?.let { abierta ->
+                                    lista.firstOrNull {
+                                        it.id == abierta.id && it.tipo == abierta.tipo
+                                    } ?: abierta
+                                },
                                 error = null,
                                 datosDeCache = false,
                                 momentoDatos = System.currentTimeMillis() / 1000

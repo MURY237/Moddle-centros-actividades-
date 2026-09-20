@@ -1,6 +1,7 @@
 package com.asir.moodleactividades.ui.actividades
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -103,6 +104,38 @@ fun ActividadesScreen(
     val estado by viewModel.estado.collectAsStateWithLifecycle()
     val contexto = LocalContext.current
 
+    val abrirIntent: (Intent) -> Unit = { intento ->
+        // Puede no haber ningún visor instalado para ese tipo de archivo: sin capturarlo,
+        // tocar «Abrir» tumbaría la aplicación.
+        if (runCatching { contexto.startActivity(intento) }.isFailure) {
+            Toast.makeText(
+                contexto,
+                "No hay ninguna aplicación que pueda abrir este archivo.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    estado.detalle?.let { actividad ->
+        HojaDetalleActividad(
+            actividad = actividad,
+            descargas = estado.descargas,
+            alCerrar = viewModel::cerrarDetalle,
+            alDescargar = viewModel::descargar,
+            alAbrirArchivo = { adjunto, archivo ->
+                abrirIntent(viewModel.intentAbrir(adjunto, archivo))
+            },
+            alCompartirArchivo = { adjunto, archivo ->
+                abrirIntent(viewModel.intentCompartir(adjunto, archivo))
+            },
+            alAbrirEnMoodle = {
+                actividad.url?.let { enlace ->
+                    abrirIntent(Intent(Intent.ACTION_VIEW, enlace.toUri()))
+                }
+            }
+        )
+    }
+
     Column(modifier = modifier.fillMaxSize()) {
 
         Cabecera(
@@ -172,11 +205,7 @@ fun ActividadesScreen(
                             actividad = actividad,
                             modifier = Modifier.animateItem()
                         ) {
-                            actividad.url?.let { enlace ->
-                                runCatching {
-                                    contexto.startActivity(Intent(Intent.ACTION_VIEW, enlace.toUri()))
-                                }
-                            }
+                            viewModel.abrirDetalle(actividad)
                         }
                     }
                 }
@@ -501,6 +530,14 @@ private fun TarjetaActividad(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Etiqueta(actividad.estado.etiqueta, color, fondo)
+                    if (actividad.adjuntos.isNotEmpty()) {
+                        Etiqueta(
+                            texto = "${actividad.adjuntos.size} archivo" +
+                                if (actividad.adjuntos.size == 1) "" else "s",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fondo = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    }
                     actividad.nota?.let { nota ->
                         Etiqueta(
                             texto = "Nota $nota",
