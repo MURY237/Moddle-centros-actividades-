@@ -1,6 +1,7 @@
 package com.asir.moodleactividades.ui.acercade
 
 import android.content.Intent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,11 +36,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.asir.moodleactividades.BuildConfig
+import com.asir.moodleactividades.R
 import com.asir.moodleactividades.data.net.Actualizaciones
 import com.asir.moodleactividades.ui.theme.DegradadoCabecera
 
@@ -71,14 +74,14 @@ fun AcercaDeScreen(modifier: Modifier = Modifier) {
             ) {
                 Box(
                     modifier = Modifier
-                        .size(76.dp)
-                        .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(26.dp)),
+                        .size(84.dp)
+                        .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(28.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "M",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = Color.White
+                    Image(
+                        painter = painterResource(R.drawable.ic_launcher_foreground),
+                        contentDescription = null,
+                        modifier = Modifier.size(84.dp)
                     )
                 }
                 Spacer(Modifier.height(14.dp))
