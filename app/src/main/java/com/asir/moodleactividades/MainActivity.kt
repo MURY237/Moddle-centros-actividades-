@@ -45,6 +45,7 @@ import com.asir.moodleactividades.data.ActividadesRepository
 import com.asir.moodleactividades.data.AlmacenHorario
 import com.asir.moodleactividades.data.CacheActividades
 import com.asir.moodleactividades.data.Conectividad
+import com.asir.moodleactividades.data.AlmacenFaltas
 import com.asir.moodleactividades.data.CacheCalificaciones
 import com.asir.moodleactividades.data.DescargaAdjuntos
 import com.asir.moodleactividades.data.HistorialAvisos
@@ -57,6 +58,8 @@ import com.asir.moodleactividades.ui.acercade.AcercaDeScreen
 import com.asir.moodleactividades.ui.actualizacion.ActualizacionViewModel
 import com.asir.moodleactividades.ui.ajustes.AjustesViewModel
 import com.asir.moodleactividades.ui.asistencia.AsistenciaViewModel
+import com.asir.moodleactividades.ui.faltas.FaltasScreen
+import com.asir.moodleactividades.ui.faltas.FaltasViewModel
 import com.asir.moodleactividades.ui.avisos.AvisosScreen
 import com.asir.moodleactividades.ui.avisos.AvisosViewModel
 import com.asir.moodleactividades.ui.horario.HorarioScreen
@@ -173,6 +176,9 @@ private fun PantallaPrincipal(
 ) {
     val contexto = LocalContext.current
     var seccion by remember { mutableStateOf(Seccion.ACTIVIDADES) }
+    // Las faltas se abren por encima de las pestañas: son una pantalla completa y no caben
+    // como sexta pestaña sin apretar el resto de la barra.
+    var viendoFaltas by remember { mutableStateOf(false) }
 
     val actividadesViewModel: ActividadesViewModel = viewModel(
         key = "actividades-$generacion",
@@ -189,6 +195,10 @@ private fun PantallaPrincipal(
         factory = fabrica { AjustesViewModel(PreferenciasAvisos(contexto)) }
     )
     val ajustes by ajustesViewModel.estado.collectAsStateWithLifecycle()
+
+    val faltasViewModel: FaltasViewModel = viewModel(
+        factory = fabrica { FaltasViewModel(AlmacenFaltas(contexto)) }
+    )
 
     val asistenciaViewModel: AsistenciaViewModel = viewModel(
         key = "asistencia-$generacion",
@@ -226,6 +236,15 @@ private fun PantallaPrincipal(
 
     LaunchedEffect(estadoActividades.sesionCaducada) {
         if (estadoActividades.sesionCaducada) alCerrarSesion()
+    }
+
+    if (viendoFaltas) {
+        FaltasScreen(
+            viewModel = faltasViewModel,
+            alVolver = { viendoFaltas = false },
+            modifier = Modifier.fillMaxSize()
+        )
+        return
     }
 
     Scaffold(
@@ -297,6 +316,7 @@ private fun PantallaPrincipal(
                 )
                 NotasScreen(
                     viewModel = notasViewModel,
+                    alAbrirFaltas = { viendoFaltas = true },
                     modifier = Modifier.padding(relleno)
                 )
             }
@@ -327,6 +347,7 @@ private fun PantallaPrincipal(
                 alCambiarHora = { ajustesViewModel.cambiarHora(it, contexto) },
                 asistencia = asistencia,
                 alComprobarAsistencia = asistenciaViewModel::comprobar,
+                alVerFaltasSeneca = { viendoFaltas = true },
                 modifier = Modifier.padding(relleno)
             )
         }

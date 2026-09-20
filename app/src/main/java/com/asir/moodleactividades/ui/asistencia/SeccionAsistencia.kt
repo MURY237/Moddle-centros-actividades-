@@ -39,6 +39,7 @@ import com.asir.moodleactividades.ui.theme.VerdeEntregada
 fun SeccionAsistencia(
     estado: AsistenciaUiState,
     alComprobar: () -> Unit,
+    alVerFaltasSeneca: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val portapapeles = LocalClipboardManager.current
@@ -153,6 +154,34 @@ fun SeccionAsistencia(
                 if (estado.error != null) {
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = alComprobar) { Text("Reintentar") }
+                }
+            }
+        }
+
+        // La vía por Moodle puede no existir, pero las faltas siempre se pueden leer de la
+        // sesión que el propio alumno abre en Séneca.
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Leer las faltas desde Séneca",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "La app abre Séneca para que entres tú y, cuando llegues a la tabla " +
+                        "de faltas, la guarda y la agrupa por asignatura. Tu contraseña no " +
+                        "pasa por la aplicación.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = alVerFaltasSeneca, shape = RoundedCornerShape(14.dp)) {
+                    Text("Ver mis faltas")
                 }
             }
         }

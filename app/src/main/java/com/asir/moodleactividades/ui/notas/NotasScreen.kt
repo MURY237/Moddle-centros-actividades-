@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Grade
+import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -68,7 +69,11 @@ import com.asir.moodleactividades.ui.theme.fondoDeEstado
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun NotasScreen(viewModel: NotasViewModel, modifier: Modifier = Modifier) {
+fun NotasScreen(
+    viewModel: NotasViewModel,
+    alAbrirFaltas: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
     val contexto = LocalContext.current
 
@@ -102,6 +107,9 @@ fun NotasScreen(viewModel: NotasViewModel, modifier: Modifier = Modifier) {
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.82f)
                     )
+                }
+                IconButton(onClick = alAbrirFaltas) {
+                    Icon(Icons.Default.EventBusy, "Faltas de asistencia", tint = Color.White)
                 }
                 IconButton(onClick = viewModel::refrescar, enabled = !estado.cargando) {
                     Icon(Icons.Default.Refresh, "Actualizar", tint = Color.White)
