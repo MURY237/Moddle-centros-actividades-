@@ -31,7 +31,18 @@ data class TareaDto(
     val name: String = "",
     val duedate: Long = 0,
     val cutoffdate: Long = 0,
-    val allowsubmissionsfromdate: Long = 0
+    val allowsubmissionsfromdate: Long = 0,
+    val intro: String = "",
+    val introattachments: List<ArchivoDto> = emptyList(),
+    val introfiles: List<ArchivoDto> = emptyList()
+)
+
+@Serializable
+data class ArchivoDto(
+    val filename: String = "",
+    val fileurl: String = "",
+    val filesize: Long = 0,
+    val mimetype: String = ""
 )
 
 @Serializable

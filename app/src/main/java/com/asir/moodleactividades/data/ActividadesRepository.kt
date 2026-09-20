@@ -17,6 +17,7 @@ import com.asir.moodleactividades.data.net.decodificar
 import com.asir.moodleactividades.data.net.limpiarHtml
 import com.asir.moodleactividades.data.net.notaVisible
 import com.asir.moodleactividades.domain.Actividad
+import com.asir.moodleactividades.domain.Adjunto
 import com.asir.moodleactividades.domain.Calificacion
 import com.asir.moodleactividades.domain.Clasificador
 import com.asir.moodleactividades.domain.EstadoActividad
@@ -38,6 +39,16 @@ class ActividadesRepository(
 ) {
 
     fun sesionGuardada(): Sesion? = sesionStore.leer()
+
+    /**
+     * Los archivos de Moodle se sirven por `pluginfile.php`, que exige el token en la propia
+     * URL. Se añade solo al descargar para no dejarlo escrito en la caché.
+     */
+    fun urlDescargable(adjunto: Adjunto): String? {
+        val token = sesionStore.leer()?.token ?: return null
+        val separador = if ('?' in adjunto.url) '&' else '?'
+        return "${adjunto.url}${separador}token=$token"
+    }
 
     fun ultimaUrl(): String = sesionStore.ultimaUrl()
 
@@ -184,7 +195,19 @@ class ActividadesRepository(
                     },
                     calificada = estadoEntrega?.calificada ?: (nota != null),
                     url = "${cliente.urlSitio}mod/assign/view.php?id=${tarea.cmid}",
-                    nota = nota ?: estadoEntrega?.nota ?: previa?.nota
+                    nota = nota ?: estadoEntrega?.nota ?: previa?.nota,
+                    descripcion = tarea.intro,
+                    adjuntos = (tarea.introattachments + tarea.introfiles)
+                        .filter { it.filename.isNotBlank() && it.fileurl.isNotBlank() }
+                        .distinctBy { it.fileurl }
+                        .map {
+                            Adjunto(
+                                nombre = it.filename,
+                                url = it.fileurl,
+                                tamano = it.filesize,
+                                tipo = it.mimetype
+                            )
+                        }
                 )
             }
         }.awaitAll()

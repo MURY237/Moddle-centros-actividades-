@@ -9,6 +9,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import retrofit2.Retrofit
 import retrofit2.converter.scalars.ScalarsConverterFactory
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 class MoodleClient(
@@ -77,6 +78,35 @@ class MoodleClient(
                 .build()
             httpCompartido.newCall(peticion).execute().use { it.body?.string() }
         }.getOrNull()
+
+        /**
+         * Baja un archivo de `pluginfile.php` a [destino]. Devuelve false y no deja restos si
+         * el servidor no lo sirvió, para que un archivo a medias no se quede en la caché.
+         */
+        fun descargarArchivo(url: String, destino: File): Boolean {
+            val correcto = runCatching {
+                val peticion = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", USER_AGENT)
+                    .build()
+                httpCompartido.newCall(peticion).execute().use { respuesta ->
+                    val cuerpo = respuesta.body
+                    if (!respuesta.isSuccessful || cuerpo == null) return@use false
+                    // Un token caducado no da un 403: pluginfile.php responde 200 con un JSON
+                    // de error que, sin mirar el tipo, se guardaría como si fuera el documento.
+                    if (cuerpo.contentType()?.subtype.equals("json", ignoreCase = true)) {
+                        return@use false
+                    }
+                    destino.parentFile?.mkdirs()
+                    cuerpo.byteStream().use { entrada ->
+                        destino.outputStream().use { salida -> entrada.copyTo(salida) }
+                    }
+                    true
+                }
+            }.getOrDefault(false)
+            if (!correcto) runCatching { destino.delete() }
+            return correcto
+        }
 
         /**
          * Uno solo para toda la app: se crea un cliente por carga y por sitio, y con uno nuevo

@@ -40,6 +40,14 @@ enum class FiltroEstado(val etiqueta: String, val estado: EstadoActividad?) {
 }
 
 @Serializable
+data class Adjunto(
+    val nombre: String,
+    val url: String,
+    val tamano: Long = 0,
+    val tipo: String = ""
+)
+
+@Serializable
 data class Actividad(
     val id: Long,
     val nombre: String,
@@ -49,8 +57,12 @@ data class Actividad(
     val estado: EstadoActividad,
     val calificada: Boolean,
     val url: String?,
-    val nota: String? = null
-)
+    val nota: String? = null,
+    val descripcion: String = "",
+    val adjuntos: List<Adjunto> = emptyList()
+) {
+    val tieneDetalle: Boolean get() = descripcion.isNotBlank() || adjuntos.isNotEmpty()
+}
 
 @Serializable
 data class Calificacion(

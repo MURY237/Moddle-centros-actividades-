@@ -41,6 +41,7 @@ import com.asir.moodleactividades.data.ActividadesRepository
 import com.asir.moodleactividades.data.AlmacenHorario
 import com.asir.moodleactividades.data.CacheActividades
 import com.asir.moodleactividades.data.Conectividad
+import com.asir.moodleactividades.data.DescargaAdjuntos
 import com.asir.moodleactividades.data.PreferenciasAvisos
 import com.asir.moodleactividades.data.SesionStore
 import com.asir.moodleactividades.data.net.SsoLogin
@@ -160,7 +161,9 @@ private fun PantallaPrincipal(
 
     val actividadesViewModel: ActividadesViewModel = viewModel(
         key = "actividades-$generacion",
-        factory = fabrica { ActividadesViewModel(repositorio, conectividad) }
+        factory = fabrica {
+            ActividadesViewModel(repositorio, conectividad, DescargaAdjuntos(contexto, repositorio))
+        }
     )
     val estadoActividades by actividadesViewModel.estado.collectAsStateWithLifecycle()
 
