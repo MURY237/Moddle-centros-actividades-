@@ -4,10 +4,20 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- Anillo abierto: el mismo progreso que la app enseña en su cabecera. -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M34,30h34a4,4 0,0 1,4 4v40a4,4 0,0 1,-4 4h-34a4,4 0,0 1,-4 -4v-40a4,4 0,0 1,4 -4zM36,36v36h30v-36z" />
+        android:pathData="M54,30 A24,24 0 1 1 30,54"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M41,45h20v4h-20zM41,53h20v4h-20zM41,61h13v4h-13z" />
+        android:pathData="M42,54 l8,8 l17,-18"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
 </vector>

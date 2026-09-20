@@ -1,6 +1,7 @@
 package com.asir.moodleactividades.ui.login
 
 import android.content.Intent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,15 +18,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -40,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -47,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.asir.moodleactividades.BuildConfig
+import com.asir.moodleactividades.R
 import com.asir.moodleactividades.ui.theme.DegradadoCabecera
 
 @Composable
@@ -88,15 +88,14 @@ fun LoginScreen(
 
             Box(
                 modifier = Modifier
-                    .size(68.dp)
-                    .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(22.dp)),
+                    .size(78.dp)
+                    .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(26.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Assignment,
+                Image(
+                    painter = painterResource(R.drawable.ic_launcher_foreground),
                     contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier.size(78.dp)
                 )
             }
 
