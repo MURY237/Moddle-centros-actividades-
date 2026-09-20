@@ -56,6 +56,7 @@ import com.asir.moodleactividades.notificaciones.RecordatoriosWorker
 import com.asir.moodleactividades.ui.acercade.AcercaDeScreen
 import com.asir.moodleactividades.ui.actualizacion.ActualizacionViewModel
 import com.asir.moodleactividades.ui.ajustes.AjustesViewModel
+import com.asir.moodleactividades.ui.asistencia.AsistenciaViewModel
 import com.asir.moodleactividades.ui.avisos.AvisosScreen
 import com.asir.moodleactividades.ui.avisos.AvisosViewModel
 import com.asir.moodleactividades.ui.horario.HorarioScreen
@@ -189,6 +190,12 @@ private fun PantallaPrincipal(
     )
     val ajustes by ajustesViewModel.estado.collectAsStateWithLifecycle()
 
+    val asistenciaViewModel: AsistenciaViewModel = viewModel(
+        key = "asistencia-$generacion",
+        factory = fabrica { AsistenciaViewModel(repositorio) }
+    )
+    val asistencia by asistenciaViewModel.estado.collectAsStateWithLifecycle()
+
     // Vive fuera de la pestaña porque el contador de no leídos se pinta en la barra inferior.
     val avisosViewModel: AvisosViewModel = viewModel(
         factory = fabrica { AvisosViewModel(HistorialAvisos(contexto)) }
@@ -318,6 +325,8 @@ private fun PantallaPrincipal(
                 alCambiarAntelacion = { ajustesViewModel.cambiarAntelacion(it, contexto) },
                 alCambiarFrecuencia = { ajustesViewModel.cambiarFrecuencia(it, contexto) },
                 alCambiarHora = { ajustesViewModel.cambiarHora(it, contexto) },
+                asistencia = asistencia,
+                alComprobarAsistencia = asistenciaViewModel::comprobar,
                 modifier = Modifier.padding(relleno)
             )
         }

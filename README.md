@@ -95,6 +95,22 @@ total del curso también queda fuera, porque se mueve con cada nota y duplicarí
 Todo lo notificado queda en la pestaña «Avisos», con un contador de no leídos en la barra
 inferior. Se guardan los últimos cien y cada uno abre su actividad en Moodle.
 
+## Faltas de asistencia
+
+En los centros de Andalucía las faltas se llevan en **Séneca**, no en Moodle, y Séneca
+no publica ninguna API: ni oficial ni documentada. Lo único que existe son los endpoints
+internos de iPASEN, obtenidos por ingeniería inversa, que no están soportados, cambian
+sin aviso y obligarían a guardar la contraseña de Séneca en el móvil.
+
+Antes de dar eso por perdido, Ajustes incluye una comprobación que pregunta al Moodle del
+centro qué funciones abre a la app (`core_webservice_get_site_info` devuelve la lista) y
+busca las del módulo de asistencia. Hay institutos que lo tienen instalado, y en ese caso
+las faltas se pueden leer por la misma vía que todo lo demás, con el token que ya existe
+y sin credenciales nuevas.
+
+El resultado se puede copiar como texto plano. El diagnóstico lleva el nombre del sitio,
+la versión de Moodle y las funciones encontradas: **ningún token ni dato personal**.
+
 ## Cómo se clasifica cada actividad
 
 1. **Entregada**: la entrega existe y su estado es `submitted`.
