@@ -43,14 +43,25 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.asir.moodleactividades.BuildConfig
 import com.asir.moodleactividades.R
+import com.asir.moodleactividades.data.AjustesAvisos
 import com.asir.moodleactividades.data.net.Actualizaciones
+import com.asir.moodleactividades.ui.ajustes.AjustesAvisosSeccion
 import com.asir.moodleactividades.ui.theme.DegradadoCabecera
 
 private const val AUTOR = "Mury237"
 private const val URL_REPOSITORIO = "https://github.com/${Actualizaciones.REPOSITORIO}"
 
 @Composable
-fun AcercaDeScreen(modifier: Modifier = Modifier) {
+fun AcercaDeScreen(
+    ajustes: AjustesAvisos,
+    puedeNotificar: Boolean,
+    alCambiarEntregas: (Boolean) -> Unit,
+    alCambiarNuevas: (Boolean) -> Unit,
+    alCambiarAntelacion: (Int) -> Unit,
+    alCambiarFrecuencia: (Int) -> Unit,
+    alCambiarHora: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val contexto = LocalContext.current
 
     Column(
@@ -102,6 +113,18 @@ fun AcercaDeScreen(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            AjustesAvisosSeccion(
+                ajustes = ajustes,
+                puedeNotificar = puedeNotificar,
+                alCambiarEntregas = alCambiarEntregas,
+                alCambiarNuevas = alCambiarNuevas,
+                alCambiarAntelacion = alCambiarAntelacion,
+                alCambiarFrecuencia = alCambiarFrecuencia,
+                alCambiarHora = alCambiarHora
+            )
+
+            Spacer(Modifier.height(12.dp))
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -141,7 +164,7 @@ fun AcercaDeScreen(modifier: Modifier = Modifier) {
                 text = "Qué hace",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp, start = 4.dp)
+                modifier = Modifier.padding(start = 4.dp)
             )
 
             FilaInformacion(
