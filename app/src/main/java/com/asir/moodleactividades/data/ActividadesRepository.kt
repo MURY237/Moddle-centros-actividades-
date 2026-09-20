@@ -22,6 +22,7 @@ import com.asir.moodleactividades.domain.Calificacion
 import com.asir.moodleactividades.domain.Clasificador
 import com.asir.moodleactividades.domain.EstadoActividad
 import com.asir.moodleactividades.domain.NotasDeCurso
+import com.asir.moodleactividades.domain.SondeoAsistencia
 import com.asir.moodleactividades.domain.TipoActividad
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -56,6 +57,26 @@ class ActividadesRepository(
     fun instantaneaGuardada(): Instantanea? = cache.leer()
 
     fun notasGuardadas(): InstantaneaNotas? = cacheNotas.leer()
+
+    /**
+     * Pregunta al centro qué funciones abre a la app móvil y se queda con las de asistencia.
+     * En Moodle Centros las faltas suelen estar en Séneca, que no publica API, así que esto
+     * sirve para saber si hay una vía por Moodle en lugar de darlo por hecho.
+     */
+    suspend fun sondearAsistencia(): SondeoAsistencia {
+        val sesion = sesionStore.leer()
+            ?: throw MoodleException(null, "No hay ninguna sesión iniciada.")
+        val cliente = MoodleClient(sesion.urlSitio, sesion.token)
+        val info: SiteInfoDto = cliente.decodificar(cliente.invocar("core_webservice_get_site_info"))
+
+        val nombres = info.functions.map { it.name }.filter { it.isNotBlank() }
+        return SondeoAsistencia(
+            sitio = info.sitename.ifBlank { sesion.nombreSitio },
+            version = info.release,
+            totalFunciones = nombres.size,
+            funcionesAsistencia = nombres.filter { SondeoAsistencia.esDeAsistencia(it) }.sorted()
+        )
+    }
 
     fun cerrarSesion() {
         sesionStore.borrar()

@@ -7,7 +7,17 @@ data class SiteInfoDto(
     val sitename: String = "",
     val username: String = "",
     val fullname: String = "",
-    val userid: Long = 0
+    val userid: Long = 0,
+    val release: String = "",
+    // Cada sitio decide qué funciones abre a la app móvil, así que la única forma de saber
+    // qué se puede pedir es preguntárselo a él.
+    val functions: List<FuncionDto> = emptyList()
+)
+
+@Serializable
+data class FuncionDto(
+    val name: String = "",
+    val version: String = ""
 )
 
 @Serializable

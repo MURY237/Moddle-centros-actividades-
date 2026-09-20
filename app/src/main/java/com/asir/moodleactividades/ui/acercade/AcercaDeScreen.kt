@@ -46,6 +46,8 @@ import com.asir.moodleactividades.R
 import com.asir.moodleactividades.data.AjustesAvisos
 import com.asir.moodleactividades.data.net.Actualizaciones
 import com.asir.moodleactividades.ui.ajustes.AjustesAvisosSeccion
+import com.asir.moodleactividades.ui.asistencia.AsistenciaUiState
+import com.asir.moodleactividades.ui.asistencia.SeccionAsistencia
 import com.asir.moodleactividades.ui.theme.DegradadoCabecera
 
 private const val AUTOR = "Mury237"
@@ -61,6 +63,8 @@ fun AcercaDeScreen(
     alCambiarAntelacion: (Int) -> Unit,
     alCambiarFrecuencia: (Int) -> Unit,
     alCambiarHora: (Int) -> Unit,
+    asistencia: AsistenciaUiState,
+    alComprobarAsistencia: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val contexto = LocalContext.current
@@ -124,6 +128,10 @@ fun AcercaDeScreen(
                 alCambiarFrecuencia = alCambiarFrecuencia,
                 alCambiarHora = alCambiarHora
             )
+
+            Spacer(Modifier.height(12.dp))
+
+            SeccionAsistencia(estado = asistencia, alComprobar = alComprobarAsistencia)
 
             Spacer(Modifier.height(12.dp))
 
