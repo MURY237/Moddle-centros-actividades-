@@ -79,6 +79,7 @@ data class Calificacion(
     val calificada: Boolean get() = nota.isNotBlank()
 }
 
+@Serializable
 data class NotasDeCurso(
     val curso: String,
     val total: Calificacion?,

@@ -47,8 +47,11 @@ Para generar un token manualmente en Moodle:
 - Guarda la última carga correcta: al abrir la app se ven las actividades al
   instante, y si el centro no responde sale un aviso indicando de cuándo son los
   datos, en lugar de una pantalla vacía.
-- Avisa con notificaciones de las entregas próximas y de las actividades recién
-  publicadas, con la antelación, la frecuencia y la hora que elija el usuario.
+- Avisa con notificaciones de las entregas próximas, de las actividades recién
+  publicadas y de las notas que acaba de subir el profesorado, con la antelación,
+  la frecuencia y la hora que elija el usuario.
+- Guarda todos esos avisos en la pestaña «Avisos», para poder consultarlos aunque
+  se haya descartado la notificación del sistema.
 - Guarda el horario de clase en PDF o imagen y lo muestra con zoom, sin conexión.
 - Abre la ficha de cada tarea con su enunciado y sus documentos adjuntos, que se
   descargan y se abren desde la propia app, sin entrar en Moodle.
@@ -72,6 +75,25 @@ descarga los adjuntos a su caché para abrirlos con el visor del móvil.
 Los archivos se sirven por `webservice/pluginfile.php`, que exige el token en la
 propia URL. Ese token se añade **solo en el momento de la descarga**: en la copia
 guardada de las actividades queda la URL limpia, sin credencial alguna.
+
+## Avisos
+
+Hay tres canales de notificación independientes, para poder silenciar uno sin perder
+los otros:
+
+| Canal | Cuándo avisa |
+|---|---|
+| Entregas próximas | La tarea sigue sin entregar y su plazo entra en la antelación elegida |
+| Actividades nuevas | Aparece una actividad que no estaba en la comprobación anterior |
+| Notas publicadas | Una actividad ya conocida pasa a tener nota, o esa nota cambia |
+
+La nota nueva se detecta comparando la consulta de calificaciones con la copia de la
+anterior. Lo que aparece por primera vez no genera aviso de nota: eso es una actividad
+nueva, y si contara, la primera sincronización avisaría del curso entero de golpe. El
+total del curso también queda fuera, porque se mueve con cada nota y duplicaría el aviso.
+
+Todo lo notificado queda en la pestaña «Avisos», con un contador de no leídos en la barra
+inferior. Se guardan los últimos cien y cada uno abre su actividad en Moodle.
 
 ## Cómo se clasifica cada actividad
 

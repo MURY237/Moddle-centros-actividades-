@@ -7,7 +7,8 @@ data class AjustesAvisos(
     val antelacionHoras: Int = 48,
     val comprobacionesDiarias: Int = 4,
     val horaPreferida: Int = 8,
-    val avisarNuevas: Boolean = true
+    val avisarNuevas: Boolean = true,
+    val avisarNotas: Boolean = true
 ) {
     val horasEntreComprobaciones: Long
         get() = (24L / comprobacionesDiarias.coerceIn(1, 24)).coerceAtLeast(1L)
@@ -44,7 +45,8 @@ class PreferenciasAvisos(contexto: Context) {
             antelacionHoras = prefs.getInt(ANTELACION, porDefecto.antelacionHoras),
             comprobacionesDiarias = prefs.getInt(FRECUENCIA, porDefecto.comprobacionesDiarias),
             horaPreferida = prefs.getInt(HORA, porDefecto.horaPreferida),
-            avisarNuevas = prefs.getBoolean(NUEVAS, porDefecto.avisarNuevas)
+            avisarNuevas = prefs.getBoolean(NUEVAS, porDefecto.avisarNuevas),
+            avisarNotas = prefs.getBoolean(NOTAS, porDefecto.avisarNotas)
         )
     }
 
@@ -55,6 +57,7 @@ class PreferenciasAvisos(contexto: Context) {
             .putInt(FRECUENCIA, ajustes.comprobacionesDiarias)
             .putInt(HORA, ajustes.horaPreferida)
             .putBoolean(NUEVAS, ajustes.avisarNuevas)
+            .putBoolean(NOTAS, ajustes.avisarNotas)
             .apply()
     }
 
@@ -64,5 +67,6 @@ class PreferenciasAvisos(contexto: Context) {
         const val FRECUENCIA = "comprobaciones_diarias"
         const val HORA = "hora_preferida"
         const val NUEVAS = "avisar_nuevas"
+        const val NOTAS = "avisar_notas"
     }
 }

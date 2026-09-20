@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.Card
@@ -38,6 +39,7 @@ fun AjustesAvisosSeccion(
     puedeNotificar: Boolean,
     alCambiarEntregas: (Boolean) -> Unit,
     alCambiarNuevas: (Boolean) -> Unit,
+    alCambiarNotas: (Boolean) -> Unit,
     alCambiarAntelacion: (Int) -> Unit,
     alCambiarFrecuencia: (Int) -> Unit,
     alCambiarHora: (Int) -> Unit,
@@ -96,6 +98,14 @@ fun AjustesAvisosSeccion(
             detalle = "Notifica cuando un profesor publica una tarea o un examen.",
             activo = ajustes.avisarNuevas,
             alCambiar = alCambiarNuevas
+        )
+
+        TarjetaInterruptor(
+            icono = Icons.Default.Grade,
+            titulo = "Avisar de las notas publicadas",
+            detalle = "Notifica en cuanto un profesor califica una tarea o un examen.",
+            activo = ajustes.avisarNotas,
+            alCambiar = alCambiarNotas
         )
 
         TarjetaOpciones(

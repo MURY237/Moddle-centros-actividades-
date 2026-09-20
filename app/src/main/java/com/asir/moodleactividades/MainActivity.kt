@@ -16,7 +16,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Grade
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -41,7 +45,9 @@ import com.asir.moodleactividades.data.ActividadesRepository
 import com.asir.moodleactividades.data.AlmacenHorario
 import com.asir.moodleactividades.data.CacheActividades
 import com.asir.moodleactividades.data.Conectividad
+import com.asir.moodleactividades.data.CacheCalificaciones
 import com.asir.moodleactividades.data.DescargaAdjuntos
+import com.asir.moodleactividades.data.HistorialAvisos
 import com.asir.moodleactividades.data.PreferenciasAvisos
 import com.asir.moodleactividades.data.SesionStore
 import com.asir.moodleactividades.data.net.SsoLogin
@@ -50,6 +56,8 @@ import com.asir.moodleactividades.notificaciones.RecordatoriosWorker
 import com.asir.moodleactividades.ui.acercade.AcercaDeScreen
 import com.asir.moodleactividades.ui.actualizacion.ActualizacionViewModel
 import com.asir.moodleactividades.ui.ajustes.AjustesViewModel
+import com.asir.moodleactividades.ui.avisos.AvisosScreen
+import com.asir.moodleactividades.ui.avisos.AvisosViewModel
 import com.asir.moodleactividades.ui.horario.HorarioScreen
 import com.asir.moodleactividades.ui.horario.HorarioViewModel
 import com.asir.moodleactividades.ui.actividades.ActividadesScreen
@@ -94,8 +102,9 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class Seccion(val etiqueta: String) {
-    ACTIVIDADES("Actividades"),
+    ACTIVIDADES("Tareas"),
     NOTAS("Notas"),
+    AVISOS("Avisos"),
     HORARIO("Horario"),
     AJUSTES("Ajustes")
 }
@@ -104,7 +113,11 @@ private enum class Seccion(val etiqueta: String) {
 private fun App(enlaceSso: String?, alConsumirEnlace: () -> Unit) {
     val contexto = LocalContext.current
     val repositorio = remember {
-        ActividadesRepository(SesionStore(contexto), CacheActividades(contexto))
+        ActividadesRepository(
+            SesionStore(contexto),
+            CacheActividades(contexto),
+            CacheCalificaciones(contexto)
+        )
     }
     val conectividad = remember { Conectividad(contexto) }
 
@@ -149,6 +162,7 @@ private fun App(enlaceSso: String?, alConsumirEnlace: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PantallaPrincipal(
     repositorio: ActividadesRepository,
@@ -174,6 +188,16 @@ private fun PantallaPrincipal(
         factory = fabrica { AjustesViewModel(PreferenciasAvisos(contexto)) }
     )
     val ajustes by ajustesViewModel.estado.collectAsStateWithLifecycle()
+
+    // Vive fuera de la pestaña porque el contador de no leídos se pinta en la barra inferior.
+    val avisosViewModel: AvisosViewModel = viewModel(
+        factory = fabrica { AvisosViewModel(HistorialAvisos(contexto)) }
+    )
+    val avisos by avisosViewModel.estado.collectAsStateWithLifecycle()
+
+    LaunchedEffect(seccion) {
+        if (seccion == Seccion.AVISOS) avisosViewModel.marcarLeidos()
+    }
 
     val pedirPermiso = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -220,6 +244,22 @@ private fun PantallaPrincipal(
                     label = { Text(Seccion.NOTAS.etiqueta) }
                 )
                 NavigationBarItem(
+                    selected = seccion == Seccion.AVISOS,
+                    onClick = { seccion = Seccion.AVISOS },
+                    icon = {
+                        BadgedBox(
+                            badge = {
+                                if (avisos.sinLeer > 0) {
+                                    Badge { Text(avisos.sinLeer.coerceAtMost(99).toString()) }
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.Notifications, contentDescription = null)
+                        }
+                    },
+                    label = { Text(Seccion.AVISOS.etiqueta) }
+                )
+                NavigationBarItem(
                     selected = seccion == Seccion.HORARIO,
                     onClick = { seccion = Seccion.HORARIO },
                     icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
@@ -254,6 +294,11 @@ private fun PantallaPrincipal(
                 )
             }
 
+            Seccion.AVISOS -> AvisosScreen(
+                viewModel = avisosViewModel,
+                modifier = Modifier.padding(relleno)
+            )
+
             Seccion.HORARIO -> {
                 val horarioViewModel: HorarioViewModel = viewModel(
                     factory = fabrica { HorarioViewModel(AlmacenHorario(contexto)) }
@@ -269,6 +314,7 @@ private fun PantallaPrincipal(
                 puedeNotificar = Recordatorios.puedeNotificar(contexto),
                 alCambiarEntregas = { ajustesViewModel.cambiarAvisoEntregas(it, contexto) },
                 alCambiarNuevas = { ajustesViewModel.cambiarAvisoNuevas(it, contexto) },
+                alCambiarNotas = { ajustesViewModel.cambiarAvisoNotas(it, contexto) },
                 alCambiarAntelacion = { ajustesViewModel.cambiarAntelacion(it, contexto) },
                 alCambiarFrecuencia = { ajustesViewModel.cambiarFrecuencia(it, contexto) },
                 alCambiarHora = { ajustesViewModel.cambiarHora(it, contexto) },
