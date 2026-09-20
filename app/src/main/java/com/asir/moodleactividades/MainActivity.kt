@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -37,6 +38,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.asir.moodleactividades.data.ActividadesRepository
+import com.asir.moodleactividades.data.AlmacenHorario
 import com.asir.moodleactividades.data.CacheActividades
 import com.asir.moodleactividades.data.Conectividad
 import com.asir.moodleactividades.data.PreferenciasAvisos
@@ -47,6 +49,8 @@ import com.asir.moodleactividades.notificaciones.RecordatoriosWorker
 import com.asir.moodleactividades.ui.acercade.AcercaDeScreen
 import com.asir.moodleactividades.ui.actualizacion.ActualizacionViewModel
 import com.asir.moodleactividades.ui.ajustes.AjustesViewModel
+import com.asir.moodleactividades.ui.horario.HorarioScreen
+import com.asir.moodleactividades.ui.horario.HorarioViewModel
 import com.asir.moodleactividades.ui.actividades.ActividadesScreen
 import com.asir.moodleactividades.ui.actividades.ActividadesViewModel
 import com.asir.moodleactividades.ui.login.LoginScreen
@@ -91,6 +95,7 @@ class MainActivity : ComponentActivity() {
 private enum class Seccion(val etiqueta: String) {
     ACTIVIDADES("Actividades"),
     NOTAS("Notas"),
+    HORARIO("Horario"),
     AJUSTES("Ajustes")
 }
 
@@ -212,6 +217,12 @@ private fun PantallaPrincipal(
                     label = { Text(Seccion.NOTAS.etiqueta) }
                 )
                 NavigationBarItem(
+                    selected = seccion == Seccion.HORARIO,
+                    onClick = { seccion = Seccion.HORARIO },
+                    icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
+                    label = { Text(Seccion.HORARIO.etiqueta) }
+                )
+                NavigationBarItem(
                     selected = seccion == Seccion.AJUSTES,
                     onClick = { seccion = Seccion.AJUSTES },
                     icon = { Icon(Icons.Default.Settings, contentDescription = null) },
@@ -236,6 +247,16 @@ private fun PantallaPrincipal(
                 )
                 NotasScreen(
                     viewModel = notasViewModel,
+                    modifier = Modifier.padding(relleno)
+                )
+            }
+
+            Seccion.HORARIO -> {
+                val horarioViewModel: HorarioViewModel = viewModel(
+                    factory = fabrica { HorarioViewModel(AlmacenHorario(contexto)) }
+                )
+                HorarioScreen(
+                    viewModel = horarioViewModel,
                     modifier = Modifier.padding(relleno)
                 )
             }

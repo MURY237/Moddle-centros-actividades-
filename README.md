@@ -47,8 +47,9 @@ Para generar un token manualmente en Moodle:
 - Guarda la última carga correcta: al abrir la app se ven las actividades al
   instante, y si el centro no responde sale un aviso indicando de cuándo son los
   datos, en lugar de una pantalla vacía.
-- Avisa con una notificación de las tareas sin entregar que vencen en menos de
-  48 horas, comprobándolo en segundo plano cada 6 horas.
+- Avisa con notificaciones de las entregas próximas y de las actividades recién
+  publicadas, con la antelación, la frecuencia y la hora que elija el usuario.
+- Guarda el horario de clase en PDF o imagen y lo muestra con zoom, sin conexión.
 
 ## Funciones de la API usadas
 
