@@ -16,6 +16,27 @@ object NavegadorFaltas {
             return texto.normalize('NFD').replace(/[̀-ͯ]/g, '');
           }
 
+          // El menú de Séneca vive en un marco lateral, así que hay que recorrerlos todos.
+          function documentos() {
+            var lista = [document];
+            for (var nivel = 0; nivel < lista.length && nivel < 12; nivel++) {
+              var marcos = [];
+              try {
+                marcos = [].concat(
+                  [].slice.call(lista[nivel].getElementsByTagName('iframe')),
+                  [].slice.call(lista[nivel].getElementsByTagName('frame'))
+                );
+              } catch (e) { marcos = []; }
+              for (var m = 0; m < marcos.length; m++) {
+                try {
+                  var dentro = marcos[m].contentDocument;
+                  if (dentro && lista.indexOf(dentro) < 0) lista.push(dentro);
+                } catch (e) { /* de otro origen */ }
+              }
+            }
+            return lista;
+          }
+
           function pulsable(elemento) {
             // El texto puede colgar de un nodo interior; el enlace suele ser un ancestro.
             var actual = elemento;
@@ -26,8 +47,9 @@ object NavegadorFaltas {
             return elemento;
           }
 
-          function buscar(objetivo, margen) {
-            var nodos = document.querySelectorAll('a, span, li, td, div');
+          function buscar(doc, objetivo, margen) {
+            var nodos;
+            try { nodos = doc.querySelectorAll('a, span, li, td, div'); } catch (e) { return false; }
             for (var i = 0; i < nodos.length; i++) {
               var texto = limpio(nodos[i]);
               if (texto.indexOf(objetivo) < 0) continue;
@@ -39,12 +61,18 @@ object NavegadorFaltas {
             return false;
           }
 
-          if (buscar('faltas de asistencia', 10)) {
-            return JSON.stringify({ pulsado: true, destino: 'faltas' });
+          var docs = documentos();
+
+          for (var d = 0; d < docs.length; d++) {
+            if (buscar(docs[d], 'faltas de asistencia', 10)) {
+              return JSON.stringify({ pulsado: true, destino: 'faltas' });
+            }
           }
           // Si la entrada no se ve, el apartado que la contiene está plegado.
-          if (buscar('seguimiento del curso', 10)) {
-            return JSON.stringify({ pulsado: true, destino: 'menu' });
+          for (var e2 = 0; e2 < docs.length; e2++) {
+            if (buscar(docs[e2], 'seguimiento del curso', 10)) {
+              return JSON.stringify({ pulsado: true, destino: 'menu' });
+            }
           }
           return JSON.stringify({ pulsado: false, destino: '' });
         })();
