@@ -44,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -81,13 +82,13 @@ fun FaltasScreen(
 ) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
 
-    BackHandler(enabled = !estado.navegando, onBack = alVolver)
+    BackHandler(enabled = estado.modo == ModoSeneca.NINGUNO, onBack = alVolver)
 
-    if (estado.navegando) {
+    if (estado.modo != ModoSeneca.NINGUNO) {
         NavegadorSeneca(
+            visible = estado.modo == ModoSeneca.VISIBLE,
             alExtraer = { crudo, aMano -> viewModel.procesarPagina(crudo, aMano) },
-            alBuscarSolo = viewModel::buscandoSolo,
-            buscandoSolo = estado.buscandoSolo,
+            alNecesitarIdentificacion = viewModel::pedirIdentificacion,
             sinExito = estado.buscadaSinExito,
             diagnostico = estado.diagnostico,
             alCerrar = viewModel::cerrarSeneca,
@@ -102,7 +103,7 @@ fun FaltasScreen(
             injustificadas = estado.injustificadas,
             momento = estado.momento,
             alVolver = alVolver,
-            alActualizar = viewModel::abrirSeneca
+            alActualizar = viewModel::actualizar
         )
 
         if (estado.porAsignatura.isEmpty()) {
@@ -111,11 +112,12 @@ fun FaltasScreen(
                     icono = Icons.Default.EventBusy,
                     titulo = "Aún no hay faltas guardadas",
                     detalle = "Séneca no ofrece ninguna forma de consultarlo desde fuera, así " +
-                        "que la app abre Séneca para que entres tú. Cuando llegues a «Faltas " +
-                        "de asistencia», guarda la tabla sola. Tu contraseña no pasa por la app."
+                        "que la app entra por ti. Solo tendrás que identificarte la primera " +
+                        "vez; a partir de ahí las faltas se leen sin salir de aquí. Tu " +
+                        "contraseña no pasa por la aplicación."
                 ) {
-                    Button(onClick = viewModel::abrirSeneca, shape = RoundedCornerShape(14.dp)) {
-                        Text("Entrar en Séneca")
+                    Button(onClick = viewModel::actualizar, shape = RoundedCornerShape(14.dp)) {
+                        Text("Traer mis faltas")
                     }
                 }
             }
@@ -311,9 +313,9 @@ private fun TarjetaAsignatura(asignatura: FaltasDeAsignatura) {
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun NavegadorSeneca(
+    visible: Boolean,
     alExtraer: (String?, Boolean) -> Boolean,
-    alBuscarSolo: (Boolean) -> Unit,
-    buscandoSolo: Boolean,
+    alNecesitarIdentificacion: () -> Unit,
     sinExito: Boolean,
     diagnostico: List<String>,
     alCerrar: () -> Unit,
@@ -321,127 +323,166 @@ private fun NavegadorSeneca(
 ) {
     val contenedor = remember { ContenedorWeb() }
 
-    // Dentro de Séneca, atrás navega por el historial de la web antes de salir de ella.
     BackHandler(enabled = true) {
         val web = contenedor.web
-        if (web != null && web.canGoBack()) web.goBack() else alCerrar()
+        if (visible && web != null && web.canGoBack()) web.goBack() else alCerrar()
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(DegradadoCabecera)
-                .statusBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = alCerrar) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Salir de Séneca", tint = Color.White)
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Séneca",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White
-                )
-                Text(
-                    text = if (buscandoSolo) {
-                        "Identifícate; el resto lo hace la app"
-                    } else {
-                        "Ve a Seguimiento del curso → Faltas de asistencia"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.85f)
-                )
-            }
-            if (buscandoSolo) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.dp,
-                    color = Color.White
-                )
-                Spacer(Modifier.size(12.dp))
-            } else {
-                IconButton(
-                    onClick = {
-                        contenedor.web?.evaluateJavascript(ExtractorFaltas.GUION) {
-                            alExtraer(it, true)
-                        }
-                    }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Buscar la tabla en esta página",
-                        tint = Color.White
-                    )
-                }
-            }
-        }
+    Box(modifier = modifier.fillMaxSize()) {
 
-        if (sinExito) {
-            Card(
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (visible) {
+                BarraSeneca(contenedor, alExtraer, alCerrar)
+                if (sinExito) AvisoSinTabla(diagnostico)
+            }
+
+            AndroidView(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = fondoDeEstado(AmbarPendienteFondo, AmbarPendienteOscuro)
-                )
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = "En esta página no hay ninguna tabla de faltas",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = AmbarPendiente
-                    )
-                    Text(
-                        text = "Ve a «Faltas de asistencia» y vuelve a pulsar el botón de buscar.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AmbarPendiente
-                    )
-                    if (diagnostico.isNotEmpty()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            text = "Tablas vistas: " + diagnostico.joinToString(" / "),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontFamily = FontFamily.Monospace,
-                            color = AmbarPendiente
-                        )
+                    .fillMaxSize()
+                    // Oculto no se quita de la pantalla: un WebView sin medidas no carga
+                    // la página, y sin cargarla no hay nada que leer.
+                    .alpha(if (visible) 1f else 0f)
+                    .navigationBarsPadding(),
+                factory = { contexto ->
+                    WebView(contexto).apply {
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        settings.builtInZoomControls = true
+                        settings.displayZoomControls = false
+                        settings.useWideViewPort = true
+                        settings.loadWithOverviewMode = true
+                        // Sin cookies persistentes habría que identificarse en cada apertura.
+                        CookieManager.getInstance().setAcceptCookie(true)
+                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                        webViewClient = object : WebViewClient() {
+                            override fun onPageFinished(vistaWeb: WebView?, url: String?) {
+                                // Cada página nueva estrena presupuesto de intentos: así la
+                                // portada tras identificarse vuelve a probar desde cero.
+                                contenedor.intentos = 0
+                                CookieManager.getInstance().flush()
+                                buscarFaltas(contenedor, alExtraer, alNecesitarIdentificacion)
+                            }
+                        }
+                        // La referencia se guarda antes de cargar: onPageFinished la necesita.
+                        contenedor.web = this
+                        loadUrl(INICIO_SENECA)
                     }
                 }
-            }
+            )
         }
 
-        AndroidView(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding(),
-            factory = { contexto ->
-                WebView(contexto).apply {
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.builtInZoomControls = true
-                    settings.displayZoomControls = false
-                    settings.useWideViewPort = true
-                    settings.loadWithOverviewMode = true
-                    // Sin cookies persistentes habría que identificarse en cada apertura.
-                    CookieManager.getInstance().setAcceptCookie(true)
-                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(vistaWeb: WebView?, url: String?) {
-                            // Cada página nueva estrena presupuesto de intentos: así la
-                            // portada tras identificarse vuelve a probar desde cero.
-                            contenedor.intentos = 0
-                            CookieManager.getInstance().flush()
-                            buscarFaltas(contenedor, alExtraer, alBuscarSolo)
-                        }
-                    }
-                    // La referencia se guarda antes de cargar: onPageFinished la necesita.
-                    contenedor.web = this
-                    loadUrl(INICIO_SENECA)
+        if (!visible) {
+            PantallaEspera(alCerrar)
+        }
+    }
+}
+
+/** Lo único que ve el alumno mientras la app recorre Séneca por su cuenta. */
+@Composable
+private fun PantallaEspera(alCancelar: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator()
+            Spacer(Modifier.height(18.dp))
+            Text(
+                text = "Consultando tus faltas",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "Si tu sesión de Séneca sigue abierta, no tendrás que hacer nada.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(20.dp))
+            OutlinedButton(onClick = alCancelar, shape = RoundedCornerShape(14.dp)) {
+                Text("Cancelar")
+            }
+        }
+    }
+}
+
+@Composable
+private fun BarraSeneca(
+    contenedor: ContenedorWeb,
+    alExtraer: (String?, Boolean) -> Boolean,
+    alCerrar: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DegradadoCabecera)
+            .statusBarsPadding()
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = alCerrar) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Salir de Séneca", tint = Color.White)
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Identifícate en Séneca",
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White
+            )
+            Text(
+                text = "Solo esta vez: después la app entrará sola",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.85f)
+            )
+        }
+        IconButton(
+            onClick = {
+                contenedor.web?.evaluateJavascript(ExtractorFaltas.GUION) {
+                    alExtraer(it, true)
                 }
             }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = "Buscar la tabla en esta página",
+                tint = Color.White
+            )
+        }
+    }
+}
+
+@Composable
+private fun AvisoSinTabla(diagnostico: List<String>) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = fondoDeEstado(AmbarPendienteFondo, AmbarPendienteOscuro)
         )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "En esta página no hay ninguna tabla de faltas",
+                style = MaterialTheme.typography.titleSmall,
+                color = AmbarPendiente
+            )
+            Text(
+                text = "Ve a «Faltas de asistencia» y vuelve a pulsar el botón de buscar.",
+                style = MaterialTheme.typography.bodySmall,
+                color = AmbarPendiente
+            )
+            if (diagnostico.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "Tablas vistas: " + diagnostico.joinToString(" / "),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = AmbarPendiente
+                )
+            }
+        }
     }
 }
 
@@ -453,37 +494,52 @@ private class ContenedorWeb {
 
 /**
  * Busca la tabla en la página actual y, si no está, pulsa la entrada del menú que lleva a
- * ella y lo vuelve a intentar. El tope de intentos evita quedarse dando vueltas cuando el
- * texto que se pulsa no lleva a ninguna parte.
+ * ella y lo vuelve a intentar. Cuando no queda nada que pulsar, es que Séneca está pidiendo
+ * identificarse: entonces, y solo entonces, se le enseña la web al alumno.
  */
 private fun buscarFaltas(
     contenedor: ContenedorWeb,
     alExtraer: (String?, Boolean) -> Boolean,
-    alBuscarSolo: (Boolean) -> Unit
+    alNecesitarIdentificacion: () -> Unit
 ) {
     val web = contenedor.web ?: return
 
     web.evaluateJavascript(ExtractorFaltas.GUION) { crudo ->
         if (alExtraer(crudo, false)) return@evaluateJavascript
 
+        // Cambiar el filtro a «Todas» recarga la tabla sin recargar la página.
+        if (RespuestaJs.leerExtraccion(crudo)?.ajustado == true &&
+            contenedor.intentos < MAX_INTENTOS
+        ) {
+            contenedor.intentos++
+            web.postDelayed(
+                { buscarFaltas(contenedor, alExtraer, alNecesitarIdentificacion) },
+                ESPERA_MS
+            )
+            return@evaluateJavascript
+        }
+
         if (contenedor.intentos >= MAX_INTENTOS) {
-            alBuscarSolo(false)
+            alNecesitarIdentificacion()
             return@evaluateJavascript
         }
         contenedor.intentos++
 
         web.evaluateJavascript(NavegadorFaltas.GUION) { respuesta ->
             if (RespuestaJs.leerNavegacion(respuesta)?.pulsado == true) {
-                alBuscarSolo(true)
                 // Al desplegar un menú no hay carga de página que avise, así que se
                 // espera un momento y se vuelve a mirar.
-                web.postDelayed({ buscarFaltas(contenedor, alExtraer, alBuscarSolo) }, ESPERA_MS)
+                web.postDelayed(
+                    { buscarFaltas(contenedor, alExtraer, alNecesitarIdentificacion) },
+                    ESPERA_MS
+                )
             } else {
-                alBuscarSolo(false)
+                // Ni tabla ni menú: lo que hay delante es la pantalla de acceso.
+                alNecesitarIdentificacion()
             }
         }
     }
 }
 
-private const val MAX_INTENTOS = 3
+private const val MAX_INTENTOS = 4
 private const val ESPERA_MS = 1200L
