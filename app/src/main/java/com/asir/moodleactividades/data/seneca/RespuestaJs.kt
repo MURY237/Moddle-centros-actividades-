@@ -23,4 +23,9 @@ object RespuestaJs {
         val contenido = desenvolver(crudo) ?: return null
         return runCatching { json.decodeFromString<ResultadoExtraccion>(contenido) }.getOrNull()
     }
+
+    fun leerNavegacion(crudo: String?): ResultadoNavegacion? {
+        val contenido = desenvolver(crudo) ?: return null
+        return runCatching { json.decodeFromString<ResultadoNavegacion>(contenido) }.getOrNull()
+    }
 }

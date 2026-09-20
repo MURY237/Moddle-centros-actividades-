@@ -46,5 +46,23 @@ class RespuestaJsTest {
     @Test
     fun `una respuesta que no es json no rompe nada`() {
         assertNull(RespuestaJs.leerExtraccion("esto no es json"))
+        assertNull(RespuestaJs.leerNavegacion("esto no es json"))
+    }
+
+    @Test
+    fun `lee que se ha pulsado la entrada del menu`() {
+        val crudo = "\"{\\\"pulsado\\\":true,\\\"destino\\\":\\\"faltas\\\"}\""
+
+        val resultado = RespuestaJs.leerNavegacion(crudo)
+
+        assertEquals(true, resultado?.pulsado)
+        assertEquals("faltas", resultado?.destino)
+    }
+
+    @Test
+    fun `lee que no habia nada que pulsar`() {
+        val resultado = RespuestaJs.leerNavegacion("{\"pulsado\":false,\"destino\":\"\"}")
+
+        assertEquals(false, resultado?.pulsado)
     }
 }

@@ -119,11 +119,18 @@ credenciales:
 
 1. Abre Séneca en un navegador incrustado. **El alumno se identifica en la web real**, no
    en un formulario de la app.
-2. Al terminar de cargar cada página se inyecta un guion que busca una tabla cuyos
+2. Tras identificarse, Séneca deja al alumno en su portada. La app busca en el menú la
+   entrada «Faltas de asistencia» por su texto y la pulsa sola; si el apartado está plegado,
+   despliega antes «Seguimiento del curso».
+3. Al terminar de cargar cada página se inyecta un guion que busca una tabla cuyos
    encabezados hablen de fecha y de ausencia. La tabla se localiza por sus encabezados,
    nunca por su posición ni por un identificador interno: Séneca los genera por sesión.
-3. Cuando aparece, sus filas se guardan en el móvil y se muestran agrupadas por asignatura,
-   separando justificadas de injustificadas.
+4. Cuando aparece, la app cierra el navegador y muestra las filas agrupadas por asignatura,
+   separando justificadas de injustificadas, con las mismas tarjetas que el resto de la app.
+
+Tanto la entrada del menú como la tabla se buscan por el texto visible, y los intentos
+automáticos están topados para no quedarse dando vueltas si algo no lleva a ninguna parte.
+Las cookies se conservan entre aperturas, así que no hay que identificarse cada vez.
 
 La app **nunca ve ni guarda la contraseña**: la sesión vive en las cookies del navegador
 incrustado, y el botón «Borrar faltas y cerrar la sesión de Séneca» las elimina junto con
