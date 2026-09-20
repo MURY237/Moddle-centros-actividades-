@@ -1,6 +1,7 @@
 package com.asir.moodleactividades.ui.faltas
 
 import android.annotation.SuppressLint
+import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.asir.moodleactividades.data.seneca.ExtractorFaltas
+import com.asir.moodleactividades.data.seneca.NavegadorFaltas
+import com.asir.moodleactividades.data.seneca.RespuestaJs
 import com.asir.moodleactividades.domain.FaltasDeAsignatura
 import com.asir.moodleactividades.ui.componentes.EstadoVacio
 import com.asir.moodleactividades.ui.componentes.Etiqueta
@@ -82,6 +86,8 @@ fun FaltasScreen(
     if (estado.navegando) {
         NavegadorSeneca(
             alExtraer = { crudo, aMano -> viewModel.procesarPagina(crudo, aMano) },
+            alBuscarSolo = viewModel::buscandoSolo,
+            buscandoSolo = estado.buscandoSolo,
             sinExito = estado.buscadaSinExito,
             diagnostico = estado.diagnostico,
             alCerrar = viewModel::cerrarSeneca,
@@ -305,7 +311,9 @@ private fun TarjetaAsignatura(asignatura: FaltasDeAsignatura) {
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun NavegadorSeneca(
-    alExtraer: (String?, Boolean) -> Unit,
+    alExtraer: (String?, Boolean) -> Boolean,
+    alBuscarSolo: (Boolean) -> Unit,
+    buscandoSolo: Boolean,
     sinExito: Boolean,
     diagnostico: List<String>,
     alCerrar: () -> Unit,
@@ -338,19 +346,36 @@ private fun NavegadorSeneca(
                     color = Color.White
                 )
                 Text(
-                    text = "Entra y ve a Seguimiento del curso → Faltas de asistencia",
+                    text = if (buscandoSolo) {
+                        "Identifícate; el resto lo hace la app"
+                    } else {
+                        "Ve a Seguimiento del curso → Faltas de asistencia"
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White.copy(alpha = 0.85f)
                 )
             }
-            IconButton(
-                onClick = {
-                    contenedor.web?.evaluateJavascript(ExtractorFaltas.GUION) {
-                        alExtraer(it, true)
+            if (buscandoSolo) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                    color = Color.White
+                )
+                Spacer(Modifier.size(12.dp))
+            } else {
+                IconButton(
+                    onClick = {
+                        contenedor.web?.evaluateJavascript(ExtractorFaltas.GUION) {
+                            alExtraer(it, true)
+                        }
                     }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Buscar la tabla en esta página",
+                        tint = Color.White
+                    )
                 }
-            ) {
-                Icon(Icons.Default.Refresh, "Buscar la tabla en esta página", tint = Color.White)
             }
         }
 
@@ -399,17 +424,21 @@ private fun NavegadorSeneca(
                     settings.displayZoomControls = false
                     settings.useWideViewPort = true
                     settings.loadWithOverviewMode = true
+                    // Sin cookies persistentes habría que identificarse en cada apertura.
+                    CookieManager.getInstance().setAcceptCookie(true)
+                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                     webViewClient = object : WebViewClient() {
                         override fun onPageFinished(vistaWeb: WebView?, url: String?) {
-                            // Se prueba en cada página: la mayoría no son la de faltas y el
-                            // guion simplemente no encuentra la tabla, que no es un error.
-                            vistaWeb?.evaluateJavascript(ExtractorFaltas.GUION) {
-                                alExtraer(it, false)
-                            }
+                            // Cada página nueva estrena presupuesto de intentos: así la
+                            // portada tras identificarse vuelve a probar desde cero.
+                            contenedor.intentos = 0
+                            CookieManager.getInstance().flush()
+                            buscarFaltas(contenedor, alExtraer, alBuscarSolo)
                         }
                     }
-                    loadUrl(INICIO_SENECA)
+                    // La referencia se guarda antes de cargar: onPageFinished la necesita.
                     contenedor.web = this
+                    loadUrl(INICIO_SENECA)
                 }
             }
         )
@@ -419,4 +448,42 @@ private fun NavegadorSeneca(
 /** Guarda la referencia al WebView sin ser estado de Compose: cambiarla no repinta nada. */
 private class ContenedorWeb {
     var web: WebView? = null
+    var intentos = 0
 }
+
+/**
+ * Busca la tabla en la página actual y, si no está, pulsa la entrada del menú que lleva a
+ * ella y lo vuelve a intentar. El tope de intentos evita quedarse dando vueltas cuando el
+ * texto que se pulsa no lleva a ninguna parte.
+ */
+private fun buscarFaltas(
+    contenedor: ContenedorWeb,
+    alExtraer: (String?, Boolean) -> Boolean,
+    alBuscarSolo: (Boolean) -> Unit
+) {
+    val web = contenedor.web ?: return
+
+    web.evaluateJavascript(ExtractorFaltas.GUION) { crudo ->
+        if (alExtraer(crudo, false)) return@evaluateJavascript
+
+        if (contenedor.intentos >= MAX_INTENTOS) {
+            alBuscarSolo(false)
+            return@evaluateJavascript
+        }
+        contenedor.intentos++
+
+        web.evaluateJavascript(NavegadorFaltas.GUION) { respuesta ->
+            if (RespuestaJs.leerNavegacion(respuesta)?.pulsado == true) {
+                alBuscarSolo(true)
+                // Al desplegar un menú no hay carga de página que avise, así que se
+                // espera un momento y se vuelve a mirar.
+                web.postDelayed({ buscarFaltas(contenedor, alExtraer, alBuscarSolo) }, ESPERA_MS)
+            } else {
+                alBuscarSolo(false)
+            }
+        }
+    }
+}
+
+private const val MAX_INTENTOS = 3
+private const val ESPERA_MS = 1200L

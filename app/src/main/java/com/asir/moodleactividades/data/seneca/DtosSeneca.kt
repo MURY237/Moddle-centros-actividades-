@@ -9,3 +9,9 @@ data class ResultadoExtraccion(
     val faltas: List<Falta> = emptyList(),
     val cabeceras: List<String> = emptyList()
 )
+
+@Serializable
+data class ResultadoNavegacion(
+    val pulsado: Boolean = false,
+    val destino: String = ""
+)

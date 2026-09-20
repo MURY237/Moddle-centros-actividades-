@@ -19,7 +19,8 @@ data class FaltasUiState(
     val navegando: Boolean = false,
     /** Lo que se vio en la última página cuando no había tabla de faltas. */
     val diagnostico: List<String> = emptyList(),
-    val buscadaSinExito: Boolean = false
+    val buscadaSinExito: Boolean = false,
+    val buscandoSolo: Boolean = false
 ) {
     val total: Int get() = faltas.size
     val injustificadas: Int get() = ResumenFaltas.totalInjustificadas(faltas)
@@ -41,16 +42,21 @@ class FaltasViewModel(private val almacen: AlmacenFaltas) : ViewModel() {
     }
 
     fun abrirSeneca() = _estado.update {
-        it.copy(navegando = true, diagnostico = emptyList(), buscadaSinExito = false)
+        it.copy(
+            navegando = true,
+            diagnostico = emptyList(),
+            buscadaSinExito = false,
+            buscandoSolo = true
+        )
     }
 
-    fun cerrarSeneca() = _estado.update { it.copy(navegando = false) }
+    fun cerrarSeneca() = _estado.update { it.copy(navegando = false, buscandoSolo = false) }
 
     /**
      * Se llama al terminar de cargar cada página. La mayoría no son la de faltas, así que
      * sin tabla no se toca nada: solo se anota lo visto por si hace falta diagnosticar.
      */
-    fun procesarPagina(crudo: String?, buscadaAMano: Boolean = false) {
+    fun procesarPagina(crudo: String?, buscadaAMano: Boolean = false): Boolean {
         val resultado = RespuestaJs.leerExtraccion(crudo)
 
         if (resultado == null || !resultado.encontrada) {
@@ -58,11 +64,12 @@ class FaltasViewModel(private val almacen: AlmacenFaltas) : ViewModel() {
                 _estado.update {
                     it.copy(
                         diagnostico = resultado?.cabeceras.orEmpty(),
-                        buscadaSinExito = true
+                        buscadaSinExito = true,
+                        buscandoSolo = false
                     )
                 }
             }
-            return
+            return false
         }
 
         almacen.guardar(resultado.faltas)
@@ -72,7 +79,11 @@ class FaltasViewModel(private val almacen: AlmacenFaltas) : ViewModel() {
             momento = System.currentTimeMillis() / 1000,
             navegando = false
         )
+        return true
     }
+
+    /** La app está pulsando sola por el menú de Séneca; sirve para avisarlo en pantalla. */
+    fun buscandoSolo(activo: Boolean) = _estado.update { it.copy(buscandoSolo = activo) }
 
     /** Borra las faltas guardadas y la sesión del navegador incrustado. */
     fun desconectar() {
