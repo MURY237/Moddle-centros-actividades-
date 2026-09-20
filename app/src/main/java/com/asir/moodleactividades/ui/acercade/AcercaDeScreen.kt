@@ -65,6 +65,7 @@ fun AcercaDeScreen(
     alCambiarHora: (Int) -> Unit,
     asistencia: AsistenciaUiState,
     alComprobarAsistencia: () -> Unit,
+    alVerFaltasSeneca: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val contexto = LocalContext.current
@@ -131,7 +132,11 @@ fun AcercaDeScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            SeccionAsistencia(estado = asistencia, alComprobar = alComprobarAsistencia)
+            SeccionAsistencia(
+                estado = asistencia,
+                alComprobar = alComprobarAsistencia,
+                alVerFaltasSeneca = alVerFaltasSeneca
+            )
 
             Spacer(Modifier.height(12.dp))
 

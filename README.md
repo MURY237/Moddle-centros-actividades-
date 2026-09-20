@@ -111,6 +111,27 @@ y sin credenciales nuevas.
 El resultado se puede copiar como texto plano. El diagnóstico lleva el nombre del sitio,
 la versión de Moodle y las funciones encontradas: **ningún token ni dato personal**.
 
+### Leerlas de Séneca
+
+Que no haya API no significa que no haya datos: la página de faltas de Séneca es una tabla
+HTML corriente dentro de la sesión que el alumno abre. La app aprovecha eso sin pedir
+credenciales:
+
+1. Abre Séneca en un navegador incrustado. **El alumno se identifica en la web real**, no
+   en un formulario de la app.
+2. Al terminar de cargar cada página se inyecta un guion que busca una tabla cuyos
+   encabezados hablen de fecha y de ausencia. La tabla se localiza por sus encabezados,
+   nunca por su posición ni por un identificador interno: Séneca los genera por sesión.
+3. Cuando aparece, sus filas se guardan en el móvil y se muestran agrupadas por asignatura,
+   separando justificadas de injustificadas.
+
+La app **nunca ve ni guarda la contraseña**: la sesión vive en las cookies del navegador
+incrustado, y el botón «Borrar faltas y cerrar la sesión de Séneca» las elimina junto con
+los datos guardados. Nada sale del teléfono.
+
+Si Séneca cambia la página, el guion deja de encontrar la tabla y lo dice, mostrando los
+encabezados que sí ha visto —solo los encabezados, nunca el contenido— para poder ajustarlo.
+
 ## Cómo se clasifica cada actividad
 
 1. **Entregada**: la entrega existe y su estado es `submitted`.
