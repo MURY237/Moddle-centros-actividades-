@@ -35,7 +35,8 @@ import java.util.Locale
 
 class ActividadesRepository(
     private val sesionStore: SesionStore,
-    private val cache: CacheActividades
+    private val cache: CacheActividades,
+    private val cacheNotas: CacheCalificaciones
 ) {
 
     fun sesionGuardada(): Sesion? = sesionStore.leer()
@@ -54,9 +55,12 @@ class ActividadesRepository(
 
     fun instantaneaGuardada(): Instantanea? = cache.leer()
 
+    fun notasGuardadas(): InstantaneaNotas? = cacheNotas.leer()
+
     fun cerrarSesion() {
         sesionStore.borrar()
         cache.borrar()
+        cacheNotas.borrar()
     }
 
     suspend fun iniciarSesion(url: String, usuario: String, contrasena: String): Sesion {
@@ -219,7 +223,17 @@ class ActividadesRepository(
 
     private fun claveDe(tipo: TipoActividad, id: Long) = "${tipo.name}-$id"
 
-    suspend fun cargarCalificaciones(): List<NotasDeCurso> = coroutineScope {
+    /**
+     * Guarda cada consulta correcta: sin esa copia no habría forma de distinguir una nota
+     * recién publicada de una que ya estaba ahí.
+     */
+    suspend fun cargarCalificaciones(): List<NotasDeCurso> {
+        val cursos = consultarCalificaciones()
+        if (cursos.isNotEmpty()) cacheNotas.guardar(cursos)
+        return cursos
+    }
+
+    private suspend fun consultarCalificaciones(): List<NotasDeCurso> = coroutineScope {
         val sesion = sesionStore.leer() ?: throw MoodleException(null, "No hay ninguna sesión iniciada.")
         val cliente = MoodleClient(sesion.urlSitio, sesion.token)
 

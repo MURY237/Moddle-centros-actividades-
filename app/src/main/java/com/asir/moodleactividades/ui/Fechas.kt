@@ -34,3 +34,16 @@ fun textoRelativo(
         else -> "Venció hace ${-dias} días"
     }
 }
+
+/** Para el historial de avisos, donde lo que importa es cuánto hace que llegó. */
+fun haceCuanto(epochSegundos: Long, ahora: Long = System.currentTimeMillis() / 1000): String {
+    val segundos = (ahora - epochSegundos).coerceAtLeast(0)
+    return when {
+        segundos < 60 -> "Ahora mismo"
+        segundos < 3600 -> "Hace ${segundos / 60} min"
+        segundos < 86_400 -> "Hace ${segundos / 3600} h"
+        segundos < 172_800 -> "Ayer"
+        segundos < 2_592_000 -> "Hace ${segundos / 86_400} días"
+        else -> formatearFecha(epochSegundos)
+    }
+}

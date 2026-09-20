@@ -43,6 +43,11 @@ class NotasViewModel(
     val estado: StateFlow<NotasUiState> = _estado.asStateFlow()
 
     init {
+        // Lo guardado se pinta al instante; si la consulta falla, al menos hay notas en
+        // pantalla en vez de un error a secas.
+        repositorio.notasGuardadas()?.let { guardadas ->
+            _estado.update { aplicarFiltro(it.copy(todos = guardadas.cursos)) }
+        }
         refrescar()
     }
 

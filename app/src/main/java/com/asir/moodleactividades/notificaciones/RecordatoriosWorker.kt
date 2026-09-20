@@ -11,10 +11,12 @@ import androidx.work.WorkerParameters
 import com.asir.moodleactividades.data.ActividadesRepository
 import com.asir.moodleactividades.data.AjustesAvisos
 import com.asir.moodleactividades.data.CacheActividades
+import com.asir.moodleactividades.data.CacheCalificaciones
 import com.asir.moodleactividades.data.PreferenciasAvisos
 import com.asir.moodleactividades.data.SesionStore
 import com.asir.moodleactividades.domain.Actividad
 import com.asir.moodleactividades.domain.Clasificador
+import com.asir.moodleactividades.domain.ComparadorNotas
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -29,12 +31,17 @@ class RecordatoriosWorker(
         if (sesionStore.leer() == null) return Result.success()
 
         val ajustes = PreferenciasAvisos(contexto).leer()
-        if (!ajustes.avisarEntregas && !ajustes.avisarNuevas) return Result.success()
+        if (!ajustes.avisarEntregas && !ajustes.avisarNuevas && !ajustes.avisarNotas) {
+            return Result.success()
+        }
 
         val cache = CacheActividades(contexto)
+        val cacheNotas = CacheCalificaciones(contexto)
+        // Las dos copias se leen antes de consultar: la consulta las sobrescribe.
         val anteriores = cache.leer()?.actividades.orEmpty()
+        val notasAnteriores = cacheNotas.leer()?.cursos
 
-        val repositorio = ActividadesRepository(sesionStore, cache)
+        val repositorio = ActividadesRepository(sesionStore, cache, cacheNotas)
         val actuales = runCatching { repositorio.cargarActividades() }
             .getOrElse { return Result.retry() }
 
@@ -44,6 +51,18 @@ class RecordatoriosWorker(
 
         if (ajustes.avisarEntregas) {
             avisarDeEntregasProximas(contexto, actuales, ajustes)
+        }
+
+        if (ajustes.avisarNotas) {
+            // Que falle el libro de calificaciones no invalida el resto de la comprobación.
+            runCatching { repositorio.cargarCalificaciones() }.getOrNull()?.let { notasActuales ->
+                if (notasAnteriores != null) {
+                    Recordatorios.avisarDeNotas(
+                        contexto,
+                        ComparadorNotas.recienPublicadas(notasAnteriores, notasActuales)
+                    )
+                }
+            }
         }
 
         return Result.success()
@@ -80,7 +99,7 @@ class RecordatoriosWorker(
         private const val TRABAJO = "recordatorios-entregas"
 
         fun programar(contexto: Context, ajustes: AjustesAvisos = PreferenciasAvisos(contexto).leer()) {
-            if (!ajustes.avisarEntregas && !ajustes.avisarNuevas) {
+            if (!ajustes.avisarEntregas && !ajustes.avisarNuevas && !ajustes.avisarNotas) {
                 cancelar(contexto)
                 return
             }

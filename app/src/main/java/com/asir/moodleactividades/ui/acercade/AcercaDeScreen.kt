@@ -57,6 +57,7 @@ fun AcercaDeScreen(
     puedeNotificar: Boolean,
     alCambiarEntregas: (Boolean) -> Unit,
     alCambiarNuevas: (Boolean) -> Unit,
+    alCambiarNotas: (Boolean) -> Unit,
     alCambiarAntelacion: (Int) -> Unit,
     alCambiarFrecuencia: (Int) -> Unit,
     alCambiarHora: (Int) -> Unit,
@@ -118,6 +119,7 @@ fun AcercaDeScreen(
                 puedeNotificar = puedeNotificar,
                 alCambiarEntregas = alCambiarEntregas,
                 alCambiarNuevas = alCambiarNuevas,
+                alCambiarNotas = alCambiarNotas,
                 alCambiarAntelacion = alCambiarAntelacion,
                 alCambiarFrecuencia = alCambiarFrecuencia,
                 alCambiarHora = alCambiarHora

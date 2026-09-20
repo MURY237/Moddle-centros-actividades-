@@ -20,6 +20,9 @@ class AjustesViewModel(private val preferencias: PreferenciasAvisos) : ViewModel
     fun cambiarAvisoNuevas(activo: Boolean, contexto: Context) =
         aplicar(_estado.value.copy(avisarNuevas = activo), contexto)
 
+    fun cambiarAvisoNotas(activo: Boolean, contexto: Context) =
+        aplicar(_estado.value.copy(avisarNotas = activo), contexto)
+
     fun cambiarAntelacion(horas: Int, contexto: Context) =
         aplicar(_estado.value.copy(antelacionHoras = horas), contexto)
 
