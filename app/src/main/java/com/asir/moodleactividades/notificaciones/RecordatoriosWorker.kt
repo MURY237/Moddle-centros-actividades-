@@ -9,9 +9,13 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.asir.moodleactividades.data.ActividadesRepository
+import com.asir.moodleactividades.data.AjustesAvisos
 import com.asir.moodleactividades.data.CacheActividades
+import com.asir.moodleactividades.data.PreferenciasAvisos
 import com.asir.moodleactividades.data.SesionStore
+import com.asir.moodleactividades.domain.Actividad
 import com.asir.moodleactividades.domain.Clasificador
+import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
 class RecordatoriosWorker(
@@ -24,30 +28,68 @@ class RecordatoriosWorker(
         val sesionStore = SesionStore(contexto)
         if (sesionStore.leer() == null) return Result.success()
 
-        val repositorio = ActividadesRepository(sesionStore, CacheActividades(contexto))
-        val actividades = runCatching { repositorio.cargarActividades() }
+        val ajustes = PreferenciasAvisos(contexto).leer()
+        if (!ajustes.avisarEntregas && !ajustes.avisarNuevas) return Result.success()
+
+        val cache = CacheActividades(contexto)
+        val anteriores = cache.leer()?.actividades.orEmpty()
+
+        val repositorio = ActividadesRepository(sesionStore, cache)
+        val actuales = runCatching { repositorio.cargarActividades() }
             .getOrElse { return Result.retry() }
 
+        if (ajustes.avisarNuevas && anteriores.isNotEmpty()) {
+            Recordatorios.avisarDeNovedades(contexto, reciénPublicadas(anteriores, actuales))
+        }
+
+        if (ajustes.avisarEntregas) {
+            avisarDeEntregasProximas(contexto, actuales, ajustes)
+        }
+
+        return Result.success()
+    }
+
+    /** Lo que no estaba en la carga anterior. Con la caché vacía no hay con qué comparar. */
+    private fun reciénPublicadas(
+        anteriores: List<Actividad>,
+        actuales: List<Actividad>
+    ): List<Actividad> {
+        val conocidas = anteriores.mapTo(mutableSetOf()) { "${it.tipo.name}-${it.id}" }
+        return actuales.filterNot { "${it.tipo.name}-${it.id}" in conocidas }
+    }
+
+    private fun avisarDeEntregasProximas(
+        contexto: Context,
+        actividades: List<Actividad>,
+        ajustes: AjustesAvisos
+    ) {
         val yaAvisadas = AvisosEnviados(contexto)
         Clasificador.porVencer(
             actividades,
             System.currentTimeMillis() / 1000,
-            Recordatorios.VENTANA_AVISO_SEGUNDOS
+            ajustes.antelacionSegundos
         )
             .filterNot { yaAvisadas.contiene(it.id, it.fechaLimite) }
             .forEach { actividad ->
-                Recordatorios.avisar(contexto, actividad)
+                Recordatorios.avisarDeEntrega(contexto, actividad)
                 yaAvisadas.marcar(actividad.id, actividad.fechaLimite)
             }
-
-        return Result.success()
     }
 
     companion object {
         private const val TRABAJO = "recordatorios-entregas"
 
-        fun programar(contexto: Context) {
-            val peticion = PeriodicWorkRequestBuilder<RecordatoriosWorker>(6, TimeUnit.HOURS)
+        fun programar(contexto: Context, ajustes: AjustesAvisos = PreferenciasAvisos(contexto).leer()) {
+            if (!ajustes.avisarEntregas && !ajustes.avisarNuevas) {
+                cancelar(contexto)
+                return
+            }
+
+            val peticion = PeriodicWorkRequestBuilder<RecordatoriosWorker>(
+                ajustes.horasEntreComprobaciones,
+                TimeUnit.HOURS
+            )
+                .setInitialDelay(minutosHastaLaHora(ajustes.horaPreferida), TimeUnit.MINUTES)
                 .setConstraints(
                     Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -57,13 +99,27 @@ class RecordatoriosWorker(
 
             WorkManager.getInstance(contexto).enqueueUniquePeriodicWork(
                 TRABAJO,
-                ExistingPeriodicWorkPolicy.KEEP,
+                // Al cambiar los ajustes hay que rehacer el trabajo, no conservar el anterior.
+                ExistingPeriodicWorkPolicy.UPDATE,
                 peticion
             )
         }
 
         fun cancelar(contexto: Context) {
             WorkManager.getInstance(contexto).cancelUniqueWork(TRABAJO)
+        }
+
+        /** Alinea la primera comprobación con la hora elegida; las siguientes van por periodo. */
+        private fun minutosHastaLaHora(hora: Int): Long {
+            val ahora = Calendar.getInstance()
+            val objetivo = (ahora.clone() as Calendar).apply {
+                set(Calendar.HOUR_OF_DAY, hora.coerceIn(0, 23))
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                if (before(ahora)) add(Calendar.DAY_OF_YEAR, 1)
+            }
+            return (objetivo.timeInMillis - ahora.timeInMillis) / 60_000
         }
     }
 }

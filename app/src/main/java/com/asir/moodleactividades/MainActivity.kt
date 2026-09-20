@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Grade
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -39,12 +39,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.asir.moodleactividades.data.ActividadesRepository
 import com.asir.moodleactividades.data.CacheActividades
 import com.asir.moodleactividades.data.Conectividad
+import com.asir.moodleactividades.data.PreferenciasAvisos
 import com.asir.moodleactividades.data.SesionStore
 import com.asir.moodleactividades.data.net.SsoLogin
 import com.asir.moodleactividades.notificaciones.Recordatorios
 import com.asir.moodleactividades.notificaciones.RecordatoriosWorker
 import com.asir.moodleactividades.ui.acercade.AcercaDeScreen
 import com.asir.moodleactividades.ui.actualizacion.ActualizacionViewModel
+import com.asir.moodleactividades.ui.ajustes.AjustesViewModel
 import com.asir.moodleactividades.ui.actividades.ActividadesScreen
 import com.asir.moodleactividades.ui.actividades.ActividadesViewModel
 import com.asir.moodleactividades.ui.login.LoginScreen
@@ -89,7 +91,7 @@ class MainActivity : ComponentActivity() {
 private enum class Seccion(val etiqueta: String) {
     ACTIVIDADES("Actividades"),
     NOTAS("Notas"),
-    ACERCA_DE("Acerca de")
+    AJUSTES("Ajustes")
 }
 
 @Composable
@@ -160,6 +162,11 @@ private fun PantallaPrincipal(
     val actualizacionViewModel: ActualizacionViewModel = viewModel()
     val actualizacion by actualizacionViewModel.estado.collectAsStateWithLifecycle()
 
+    val ajustesViewModel: AjustesViewModel = viewModel(
+        factory = fabrica { AjustesViewModel(PreferenciasAvisos(contexto)) }
+    )
+    val ajustes by ajustesViewModel.estado.collectAsStateWithLifecycle()
+
     val pedirPermiso = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { concedido ->
@@ -170,7 +177,7 @@ private fun PantallaPrincipal(
     // sección, volviendo a pedir el permiso y a consultar la API de GitHub.
     LaunchedEffect(Unit) {
         actualizacionViewModel.comprobar()
-        Recordatorios.crearCanal(contexto)
+        Recordatorios.crearCanales(contexto)
         if (Recordatorios.puedeNotificar(contexto)) {
             RecordatoriosWorker.programar(contexto)
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -205,10 +212,10 @@ private fun PantallaPrincipal(
                     label = { Text(Seccion.NOTAS.etiqueta) }
                 )
                 NavigationBarItem(
-                    selected = seccion == Seccion.ACERCA_DE,
-                    onClick = { seccion = Seccion.ACERCA_DE },
-                    icon = { Icon(Icons.Default.Info, contentDescription = null) },
-                    label = { Text(Seccion.ACERCA_DE.etiqueta) }
+                    selected = seccion == Seccion.AJUSTES,
+                    onClick = { seccion = Seccion.AJUSTES },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                    label = { Text(Seccion.AJUSTES.etiqueta) }
                 )
             }
         }
@@ -233,7 +240,16 @@ private fun PantallaPrincipal(
                 )
             }
 
-            Seccion.ACERCA_DE -> AcercaDeScreen(modifier = Modifier.padding(relleno))
+            Seccion.AJUSTES -> AcercaDeScreen(
+                ajustes = ajustes,
+                puedeNotificar = Recordatorios.puedeNotificar(contexto),
+                alCambiarEntregas = { ajustesViewModel.cambiarAvisoEntregas(it, contexto) },
+                alCambiarNuevas = { ajustesViewModel.cambiarAvisoNuevas(it, contexto) },
+                alCambiarAntelacion = { ajustesViewModel.cambiarAntelacion(it, contexto) },
+                alCambiarFrecuencia = { ajustesViewModel.cambiarFrecuencia(it, contexto) },
+                alCambiarHora = { ajustesViewModel.cambiarHora(it, contexto) },
+                modifier = Modifier.padding(relleno)
+            )
         }
     }
 }

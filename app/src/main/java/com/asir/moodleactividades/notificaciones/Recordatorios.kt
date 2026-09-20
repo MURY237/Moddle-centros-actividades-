@@ -18,18 +18,25 @@ import com.asir.moodleactividades.ui.textoRelativo
 
 object Recordatorios {
 
-    const val CANAL = "entregas"
-    const val VENTANA_AVISO_SEGUNDOS = 60L * 60 * 48
+    const val CANAL_ENTREGAS = "entregas"
+    const val CANAL_NOVEDADES = "novedades"
 
-    fun crearCanal(contexto: Context) {
-        val canal = NotificationChannel(
-            CANAL,
-            "Entregas próximas",
-            NotificationManager.IMPORTANCE_DEFAULT
-        ).apply {
-            description = "Avisos de las tareas cuyo plazo está a punto de terminar"
-        }
-        NotificationManagerCompat.from(contexto).createNotificationChannel(canal)
+    fun crearCanales(contexto: Context) {
+        val gestor = NotificationManagerCompat.from(contexto)
+        gestor.createNotificationChannel(
+            NotificationChannel(
+                CANAL_ENTREGAS,
+                "Entregas próximas",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply { description = "Avisos de las tareas cuyo plazo está a punto de terminar" }
+        )
+        gestor.createNotificationChannel(
+            NotificationChannel(
+                CANAL_NOVEDADES,
+                "Actividades nuevas",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply { description = "Avisos cuando un profesor publica una actividad" }
+        )
     }
 
     fun puedeNotificar(contexto: Context): Boolean =
@@ -37,28 +44,58 @@ object Recordatorios {
             ActivityCompat.checkSelfPermission(contexto, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
 
-    fun avisar(contexto: Context, actividad: Actividad) {
+    fun avisarDeEntrega(contexto: Context, actividad: Actividad) {
+        notificar(
+            contexto = contexto,
+            canal = CANAL_ENTREGAS,
+            id = actividad.id.toInt(),
+            titulo = actividad.nombre,
+            texto = "${actividad.curso} · ${textoRelativo(actividad.fechaLimite)}"
+        )
+    }
+
+    fun avisarDeNovedades(contexto: Context, nuevas: List<Actividad>) {
+        if (nuevas.isEmpty()) return
+
+        val (titulo, texto) = if (nuevas.size == 1) {
+            val unica = nuevas.first()
+            "Nueva actividad: ${unica.nombre}" to unica.curso
+        } else {
+            val asignaturas = nuevas.map { it.curso }.filter { it.isNotBlank() }.distinct()
+            "${nuevas.size} actividades nuevas" to asignaturas.take(3).joinToString(", ")
+        }
+
+        notificar(contexto, CANAL_NOVEDADES, ID_NOVEDADES, titulo, texto)
+    }
+
+    private fun notificar(
+        contexto: Context,
+        canal: String,
+        id: Int,
+        titulo: String,
+        texto: String
+    ) {
         if (!puedeNotificar(contexto)) return
 
         val abrirApp = PendingIntent.getActivity(
             contexto,
-            actividad.id.toInt(),
-            Intent(contexto, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            id,
+            Intent(contexto, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val aviso = NotificationCompat.Builder(contexto, CANAL)
+        val aviso = NotificationCompat.Builder(contexto, canal)
             .setSmallIcon(R.drawable.ic_aviso)
-            .setContentTitle(actividad.nombre)
-            .setContentText("${actividad.curso} · ${textoRelativo(actividad.fechaLimite)}")
+            .setContentTitle(titulo)
+            .setContentText(texto)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(texto))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(abrirApp)
             .build()
 
-        runCatching {
-            NotificationManagerCompat.from(contexto).notify(actividad.id.toInt(), aviso)
-        }
+        runCatching { NotificationManagerCompat.from(contexto).notify(id, aviso) }
     }
+
+    private const val ID_NOVEDADES = 90_001
 }
