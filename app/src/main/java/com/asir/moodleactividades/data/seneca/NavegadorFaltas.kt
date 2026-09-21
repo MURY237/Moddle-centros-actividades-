@@ -4,8 +4,11 @@ package com.asir.moodleactividades.data.seneca
  * Tras identificarse, Séneca deja al alumno en su portada, no en las faltas. Este guion busca
  * la entrada del menú por su texto y la pulsa, para que no haya que navegar a mano cada vez.
  *
- * Se guía por el texto visible porque los identificadores internos de Séneca se generan por
- * sesión: cualquier referencia a ellos duraría lo que dura la sesión.
+ * En móvil el menú viene plegado tras el icono de las tres rayas, y sus entradas ni siquiera
+ * existen en la página hasta que se abre: por eso hay que desplegarlo antes de buscarlas.
+ *
+ * Todo se guía por el texto visible y por los atributos, nunca por los identificadores
+ * internos de Séneca: esos se generan por sesión y duran lo que dura ella.
  */
 object NavegadorFaltas {
 
@@ -47,6 +50,13 @@ object NavegadorFaltas {
             return elemento;
           }
 
+          function visible(elemento) {
+            try {
+              var caja = elemento.getBoundingClientRect();
+              return caja.width > 0 && caja.height > 0;
+            } catch (e) { return true; }
+          }
+
           function buscar(doc, objetivo, margen) {
             var nodos;
             try { nodos = doc.querySelectorAll('a, span, li, td, div'); } catch (e) { return false; }
@@ -55,6 +65,44 @@ object NavegadorFaltas {
               if (texto.indexOf(objetivo) < 0) continue;
               // Sin este tope se pulsaría el contenedor del menú entero en lugar de la entrada.
               if (texto.length > objetivo.length + margen) continue;
+              if (!visible(nodos[i])) continue;
+              pulsable(nodos[i]).click();
+              return true;
+            }
+            return false;
+          }
+
+          function atributos(elemento) {
+            var clases = elemento.className;
+            // En un SVG className no es una cadena, sino un objeto con la cadena dentro.
+            if (clases && typeof clases !== 'string') clases = clases.baseVal || '';
+            return [
+              elemento.id || '',
+              clases || '',
+              elemento.getAttribute('aria-label') || '',
+              elemento.getAttribute('title') || '',
+              elemento.getAttribute('alt') || '',
+              elemento.getAttribute('src') || ''
+            ].join(' ').toLowerCase();
+          }
+
+          /**
+           * La hamburguesa no tiene texto, así que se reconoce por sus atributos. Se descartan
+           * los elementos grandes: eso sería el contenedor de la barra, no el botón.
+           */
+          function abrirMenu(doc) {
+            var nodos;
+            try {
+              nodos = doc.querySelectorAll('a, button, div, span, img, i, svg');
+            } catch (e) { return false; }
+            for (var i = 0; i < nodos.length; i++) {
+              var pistas = atributos(nodos[i]);
+              if (!/menu|hamburg|toggle|navbar|barras|desplegar/.test(pistas)) continue;
+              if (!visible(nodos[i])) continue;
+              try {
+                var caja = nodos[i].getBoundingClientRect();
+                if (caja.width > 120 || caja.height > 120) continue;
+              } catch (e) { /* sin medidas: se intenta igual */ }
               pulsable(nodos[i]).click();
               return true;
             }
@@ -62,16 +110,23 @@ object NavegadorFaltas {
           }
 
           var docs = documentos();
+          var d;
 
-          for (var d = 0; d < docs.length; d++) {
+          for (d = 0; d < docs.length; d++) {
             if (buscar(docs[d], 'faltas de asistencia', 10)) {
               return JSON.stringify({ pulsado: true, destino: 'faltas' });
             }
           }
           // Si la entrada no se ve, el apartado que la contiene está plegado.
-          for (var e2 = 0; e2 < docs.length; e2++) {
-            if (buscar(docs[e2], 'seguimiento del curso', 10)) {
+          for (d = 0; d < docs.length; d++) {
+            if (buscar(docs[d], 'seguimiento del curso', 10)) {
               return JSON.stringify({ pulsado: true, destino: 'menu' });
+            }
+          }
+          // Y si no hay ni apartado, es que el menú entero sigue detrás de la hamburguesa.
+          for (d = 0; d < docs.length; d++) {
+            if (abrirMenu(docs[d])) {
+              return JSON.stringify({ pulsado: true, destino: 'hamburguesa' });
             }
           }
           return JSON.stringify({ pulsado: false, destino: '' });
