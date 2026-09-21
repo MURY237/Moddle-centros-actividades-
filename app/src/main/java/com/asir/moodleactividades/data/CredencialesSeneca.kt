@@ -3,7 +3,7 @@ package com.asir.moodleactividades.data
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
+import androidx.security.crypto.MasterKeys
 
 data class Credenciales(val usuario: String, val clave: String) {
     val completas: Boolean get() = usuario.isNotBlank() && clave.isNotBlank()
@@ -27,13 +27,13 @@ class CredencialesSeneca(contexto: Context) {
      */
     private val prefs: SharedPreferences? by lazy {
         runCatching {
-            val maestra = MasterKey.Builder(app)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
+            // La clave maestra se crea dentro del almacén de claves del dispositivo; aquí
+            // solo se maneja su alias, nunca el material de la clave.
+            val alias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
             EncryptedSharedPreferences.create(
-                app,
                 "credenciales_seneca",
-                maestra,
+                alias,
+                app,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
