@@ -203,9 +203,13 @@ de quedarse sin asignaturas.
 2. **No entregada**: no hay entrega y la fecha límite ya pasó.
 3. **Pendiente**: el resto, incluidos los borradores (`draft`) sin enviar.
 
-El filtro temporal recorta solo lo que aún no ha vencido: una tarea caducada sin
-entregar sigue apareciendo aunque filtres por «7 días», porque sigue siendo
-accionable.
+El filtro temporal recorta solo lo que aún no ha vencido, y tiene dos excepciones, las dos
+por el mismo motivo: lo que sigue estando por hacer no debe esconderse.
+
+- Una tarea **caducada sin entregar** aparece aunque filtres por «7 días».
+- Una tarea **sin fecha límite** aparece con cualquier filtro. No vence nunca, así que
+  ningún recorte temporal puede dejarla fuera; va a su propio grupo, «Sin fecha límite»,
+  al final de la lista.
 
 ## Compilar
 

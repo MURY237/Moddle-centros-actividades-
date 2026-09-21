@@ -44,8 +44,10 @@ object Clasificador {
         if (rango.dias == null) return true
         if (actividad.estado == EstadoActividad.NO_ENTREGADA) return true
 
-        val limite = actividad.fechaLimite ?: return false
-        if (limite <= 0) return false
+        // Una tarea sin fecha límite no vence nunca, así que ningún recorte temporal debería
+        // hacerla desaparecer: sigue estando por hacer. Va a su propio grupo, al final.
+        val limite = actividad.fechaLimite ?: return true
+        if (limite <= 0) return true
 
         val hoy = Instant.ofEpochSecond(ahora).atZone(zona).toLocalDate()
         val dia = Instant.ofEpochSecond(limite).atZone(zona).toLocalDate()

@@ -78,6 +78,39 @@ class ClasificadorTest {
     }
 
     @Test
+    fun `una tarea sin fecha limite no la esconde ningun rango`() {
+        val sinFecha = actividad(null, EstadoActividad.PENDIENTE)
+
+        assertTrue(Clasificador.dentroDelRango(sinFecha, RangoTiempo.HOY, ahora, zona))
+        assertTrue(Clasificador.dentroDelRango(sinFecha, RangoTiempo.SEMANA, ahora, zona))
+        assertTrue(Clasificador.dentroDelRango(sinFecha, RangoTiempo.MES, ahora, zona))
+        assertTrue(Clasificador.dentroDelRango(sinFecha, RangoTiempo.TODO, ahora, zona))
+    }
+
+    @Test
+    fun `una fecha limite a cero cuenta como no tenerla`() {
+        val sinFecha = actividad(0, EstadoActividad.PENDIENTE)
+
+        assertTrue(Clasificador.dentroDelRango(sinFecha, RangoTiempo.SEMANA, ahora, zona))
+        assertEquals(GrupoPlazo.SIN_FECHA, Clasificador.grupo(0, ahora, zona))
+    }
+
+    @Test
+    fun `las tareas sin fecha van a su propio grupo y al final`() {
+        val secciones = Clasificador.agrupar(
+            listOf(
+                actividad(null, EstadoActividad.PENDIENTE),
+                actividad(ahora + 3600, EstadoActividad.PENDIENTE)
+            ),
+            ahora,
+            zona
+        )
+
+        assertEquals(GrupoPlazo.HOY, secciones.first().grupo)
+        assertEquals(GrupoPlazo.SIN_FECHA, secciones.last().grupo)
+    }
+
+    @Test
     fun `el filtro de hoy deja pasar lo que vence hoy y nada mas`() {
         val hoy = actividad(ahora + 3600, EstadoActividad.PENDIENTE)
         val manana = actividad(ahora + unDia, EstadoActividad.PENDIENTE)
