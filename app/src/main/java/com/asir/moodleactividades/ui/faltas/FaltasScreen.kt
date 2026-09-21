@@ -94,9 +94,11 @@ fun FaltasScreen(
         alVolver?.invoke()
     }
 
-    if (estado.modo != ModoSeneca.NINGUNO) {
+    // Solo el acceso ocupa la pantalla. El refresco de cortesía trabaja en un navegador
+    // diminuto detrás de la lista: quitarle al alumno lo que está mirando no es refrescar.
+    if (estado.modo == ModoSeneca.VISIBLE) {
         NavegadorSeneca(
-            visible = estado.modo == ModoSeneca.VISIBLE,
+            visible = true,
             sesion = sesion,
             alExtraer = { crudo, url, aMano -> viewModel.procesarPagina(crudo, url, aMano) },
             alCargarPagina = viewModel::anotarPagina,
@@ -109,14 +111,32 @@ fun FaltasScreen(
         return
     }
 
+    if (estado.modo == ModoSeneca.OCULTO) {
+        NavegadorSeneca(
+            visible = false,
+            sesion = sesion,
+            alExtraer = { crudo, url, aMano -> viewModel.procesarPagina(crudo, url, aMano) },
+            alCargarPagina = viewModel::anotarPagina,
+            alNecesitarIdentificacion = viewModel::pedirIdentificacion,
+            sinExito = false,
+            diagnostico = emptyList(),
+            alCerrar = viewModel::cerrarSeneca
+        )
+    }
+
     Column(modifier = modifier.fillMaxSize()) {
         Cabecera(
             total = estado.total,
             injustificadas = estado.injustificadas,
             momento = estado.momento,
+            consultando = estado.modo == ModoSeneca.OCULTO,
             alVolver = alVolver,
-            alActualizar = viewModel::actualizar
+            alActualizar = { viewModel.actualizar() }
         )
+
+        if (estado.necesitaAcceso) {
+            AvisoSesionCaducada { viewModel.actualizar() }
+        }
 
         if (estado.porAsignatura.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -179,6 +199,7 @@ private fun Cabecera(
     total: Int,
     injustificadas: Int,
     momento: Long?,
+    consultando: Boolean,
     alVolver: (() -> Unit)?,
     alActualizar: () -> Unit
 ) {
@@ -225,8 +246,17 @@ private fun Cabecera(
                     )
                 }
             }
-            IconButton(onClick = alActualizar) {
-                Icon(Icons.Default.Refresh, "Volver a leer de Séneca", tint = Color.White)
+            if (consultando) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                    color = Color.White
+                )
+                Spacer(Modifier.size(12.dp))
+            } else {
+                IconButton(onClick = alActualizar) {
+                    Icon(Icons.Default.Refresh, "Volver a leer de Séneca", tint = Color.White)
+                }
             }
         }
     }
@@ -361,21 +391,22 @@ private fun NavegadorSeneca(
         if (visible && web != null && web.canGoBack()) web.goBack() else alCerrar()
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = if (visible) modifier.fillMaxSize() else Modifier.size(1.dp)) {
 
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = if (visible) Modifier.fillMaxSize() else Modifier) {
             if (visible) {
                 BarraSeneca(contenedor, alExtraer, alCerrar)
                 if (sinExito) AvisoSinTabla(diagnostico)
             }
 
             AndroidView(
-                modifier = Modifier
-                    .fillMaxSize()
-                    // Oculto no se quita de la pantalla: un WebView sin medidas no carga
-                    // la página, y sin cargarla no hay nada que leer.
-                    .alpha(if (visible) 1f else 0f)
-                    .navigationBarsPadding(),
+                modifier = if (visible) {
+                    Modifier.fillMaxSize().navigationBarsPadding()
+                } else {
+                    // Un WebView sin medidas no carga la página, así que oculto no se quita:
+                    // se queda en un punto invisible que no tapa ni recoge toques.
+                    Modifier.size(1.dp).alpha(0f)
+                },
                 factory = { contexto ->
                     WebView(contexto).apply {
                         settings.javaScriptEnabled = true
@@ -410,39 +441,6 @@ private fun NavegadorSeneca(
             )
         }
 
-        if (!visible) {
-            PantallaEspera(alCerrar)
-        }
-    }
-}
-
-/** Lo único que ve el alumno mientras la app recorre Séneca por su cuenta. */
-@Composable
-private fun PantallaEspera(alCancelar: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator()
-            Spacer(Modifier.height(18.dp))
-            Text(
-                text = "Consultando tus faltas",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = "Si tu sesión de Séneca sigue abierta, no tendrás que hacer nada.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(20.dp))
-            OutlinedButton(onClick = alCancelar, shape = RoundedCornerShape(14.dp)) {
-                Text("Cancelar")
-            }
-        }
     }
 }
 
@@ -488,6 +486,45 @@ private fun BarraSeneca(
                 contentDescription = "Buscar la tabla en esta página",
                 tint = Color.White
             )
+        }
+    }
+}
+
+/**
+ * La sesión de Séneca ha caducado. Se avisa y se ofrece entrar, pero no se entra solo: el
+ * alumno estaba mirando sus faltas y quitárselas de delante sin pedirlo es peor que no
+ * actualizar.
+ */
+@Composable
+private fun AvisoSesionCaducada(alEntrar: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = fondoDeEstado(AmbarPendienteFondo, AmbarPendienteOscuro)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "La sesión de Séneca ha caducado",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = AmbarPendiente
+                )
+                Text(
+                    text = "Estas faltas son las de la última consulta.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AmbarPendiente
+                )
+            }
+            TextButton(onClick = alEntrar) {
+                Text("Entrar", color = AmbarPendiente)
+            }
         }
     }
 }
