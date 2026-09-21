@@ -148,9 +148,16 @@ class ActividadesRepository(
         // El id de una tarea puede coincidir con el de un evento del calendario, así que la
         // clave lleva el tipo: sin él, un evento pisaba la tarea y le borraba estado y nota.
         val previas = cache.leer()?.actividades?.associateBy { claveDe(it.tipo, it.id) }.orEmpty()
-        val actividades = cargarTareas(cliente, ahora, previas, idUsuario(cliente, sesion)) +
+        val idUsuario = idUsuario(cliente, sesion)
+        val actividades = cargarTareas(cliente, ahora, previas, idUsuario) +
             cargarEventosNoTarea(cliente, ahora)
-        cache.guardar(actividades, ahora)
+
+        // La matrícula manda sobre lo deducido de las actividades: si el centro no responde
+        // a esta consulta se conserva la lista anterior en vez de perder las asignaturas.
+        val asignaturas = nombresDeMisCursos(cliente, sesion)
+            .ifEmpty { cache.leer()?.asignaturas.orEmpty() }
+
+        cache.guardar(actividades, ahora, asignaturas)
         return actividades
     }
 
@@ -254,16 +261,30 @@ class ActividadesRepository(
         return cursos
     }
 
+    /** Las asignaturas en las que está matriculado, que no siempre tienen actividades. */
+    private suspend fun misCursos(
+        cliente: MoodleClient,
+        sesion: Sesion
+    ): List<CursoMatriculadoDto> = cliente.decodificar(
+        cliente.invocar(
+            "core_enrol_get_users_courses",
+            mapOf("userid" to idUsuario(cliente, sesion).toString())
+        )
+    )
+
+    /** Que falle esta consulta no debe tumbar la carga entera de actividades. */
+    private suspend fun nombresDeMisCursos(cliente: MoodleClient, sesion: Sesion): List<String> =
+        runCatching { misCursos(cliente, sesion) }
+            .getOrDefault(emptyList())
+            .map { it.fullname.ifBlank { it.shortname } }
+            .filter { it.isNotBlank() }
+            .distinct()
+
     private suspend fun consultarCalificaciones(): List<NotasDeCurso> = coroutineScope {
         val sesion = sesionStore.leer() ?: throw MoodleException(null, "No hay ninguna sesión iniciada.")
         val cliente = MoodleClient(sesion.urlSitio, sesion.token)
 
-        val cursos: List<CursoMatriculadoDto> = cliente.decodificar(
-            cliente.invocar(
-                "core_enrol_get_users_courses",
-                mapOf("userid" to idUsuario(cliente, sesion).toString())
-            )
-        )
+        val cursos = misCursos(cliente, sesion)
 
         val limitador = Semaphore(MAX_PETICIONES_SIMULTANEAS)
         val resultados = cursos.map { curso ->
@@ -276,11 +297,20 @@ class ActividadesRepository(
             }
         }.awaitAll()
 
+        // El filtro decide si el libro de calificaciones ha respondido; las asignaturas sin
+        // nada se añaden después, para que una recién creada no desaparezca de la lista.
         val obtenidos = resultados.mapNotNull { it.getOrNull() }
             .filter { it.calificaciones.isNotEmpty() || it.total != null }
-            .sortedByDescending { it.fechaMasReciente }
 
-        if (obtenidos.isNotEmpty()) return@coroutineScope obtenidos
+        if (obtenidos.isNotEmpty()) {
+            val conNotas = obtenidos.mapTo(mutableSetOf()) { it.curso }
+            val vacias = cursos
+                .map { it.fullname.ifBlank { it.shortname } }
+                .filter { it.isNotBlank() && it !in conNotas }
+                .map { NotasDeCurso(curso = it, total = null, calificaciones = emptyList()) }
+
+            return@coroutineScope (obtenidos + vacias).sortedByDescending { it.fechaMasReciente }
+        }
 
         // Si el centro no deja leer su libro de calificaciones, al menos se enseña lo que ya
         // se sabe por las propias tareas antes de darse por vencido.
