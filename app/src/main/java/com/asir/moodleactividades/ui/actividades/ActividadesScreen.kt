@@ -176,13 +176,29 @@ fun ActividadesScreen(
             }
 
             estado.secciones.isEmpty() -> Caja {
+                // Una asignatura recién creada aparece en el filtro sin tener nada dentro:
+                // decir «ninguna actividad encaja» ahí sería engañoso.
+                val asignaturaVacia = estado.asignatura != null &&
+                    estado.todas.none { it.curso == estado.asignatura }
+
                 EstadoVacio(
-                    icono = if (estado.todas.isEmpty()) Icons.Default.DoneAll else Icons.Default.SearchOff,
-                    titulo = if (estado.todas.isEmpty()) "Nada pendiente" else "Sin resultados",
-                    detalle = if (estado.todas.isEmpty()) {
-                        "No hay ninguna actividad en tu Moodle ahora mismo."
-                    } else {
-                        "Ninguna actividad encaja con estos filtros. Prueba con «Todo»."
+                    icono = when {
+                        asignaturaVacia -> Icons.Default.SearchOff
+                        estado.todas.isEmpty() -> Icons.Default.DoneAll
+                        else -> Icons.Default.SearchOff
+                    },
+                    titulo = when {
+                        asignaturaVacia -> "Asignatura sin actividades"
+                        estado.todas.isEmpty() -> "Nada pendiente"
+                        else -> "Sin resultados"
+                    },
+                    detalle = when {
+                        asignaturaVacia ->
+                            "«${estado.asignatura}» todavía no tiene ninguna actividad publicada."
+                        estado.todas.isEmpty() ->
+                            "No hay ninguna actividad en tu Moodle ahora mismo."
+                        else ->
+                            "Ninguna actividad encaja con estos filtros. Prueba con «Todo»."
                     }
                 )
             }

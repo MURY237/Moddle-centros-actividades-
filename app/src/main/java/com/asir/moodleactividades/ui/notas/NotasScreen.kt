@@ -273,7 +273,11 @@ private fun CabeceraCurso(curso: NotasDeCurso) {
                     )
                 }
                 Text(
-                    text = "${curso.calificadas} de ${curso.calificaciones.size} con nota",
+                    text = if (curso.calificaciones.isEmpty()) {
+                        "Todavía sin actividades evaluables"
+                    } else {
+                        "${curso.calificadas} de ${curso.calificaciones.size} con nota"
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
                 )

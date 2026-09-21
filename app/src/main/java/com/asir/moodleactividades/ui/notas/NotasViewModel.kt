@@ -70,7 +70,13 @@ class NotasViewModel(
                     FiltroNotas.CALIFICADAS -> curso.calificaciones.filter { it.calificada }
                     FiltroNotas.SIN_CALIFICAR -> curso.calificaciones.filterNot { it.calificada }
                 }
-                if (visibles.isEmpty()) null else curso.copy(calificaciones = visibles)
+                // Se descarta la asignatura cuyas notas no encajan con el filtro, pero no la
+                // que no tiene ninguna: esa es una asignatura nueva y debe verse igual.
+                when {
+                    visibles.isNotEmpty() -> curso.copy(calificaciones = visibles)
+                    curso.calificaciones.isEmpty() && estado.filtro == FiltroNotas.TODAS -> curso
+                    else -> null
+                }
             }
 
         return estado.copy(cursos = cursos, asignaturas = asignaturas, asignatura = asignatura)

@@ -184,6 +184,19 @@ El diagnóstico lleva **solo nombres de cookies, nunca sus valores** —que son 
 ruta con su parte variable recortada, porque el identificador de sesión de Séneca viaja
 dentro de la propia URL.
 
+## De dónde salen las asignaturas
+
+La lista de asignaturas no se deduce de las actividades, sino de la matrícula
+(`core_enrol_get_users_courses`). La diferencia importa cuando el centro añade una
+asignatura nueva: hasta que alguien publique su primera tarea no aparecería en ninguna
+actividad, y deducirla de ahí la haría invisible justo cuando más se quiere comprobar que
+está.
+
+Una asignatura sin nada dentro sale igual: en «Tareas» se puede elegir en el filtro y
+explica que aún no tiene actividades, y en «Notas» aparece como «Todavía sin actividades
+evaluables». Si el centro no responde a esa consulta se conserva la lista anterior, en vez
+de quedarse sin asignaturas.
+
 ## Cómo se clasifica cada actividad
 
 1. **Entregada**: la entrega existe y su estado es `submitted`.

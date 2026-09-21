@@ -37,6 +37,8 @@ data class ActividadesUiState(
     val secciones: List<SeccionActividades> = emptyList(),
     val resumen: ResumenActividades = ResumenActividades(0, 0, 0),
     val asignaturas: List<String> = emptyList(),
+    /** Lo que dice la matrícula, que incluye asignaturas que aún no tienen ni una actividad. */
+    val matriculadas: List<String> = emptyList(),
     val asignatura: String? = null,
     val filtroEstado: FiltroEstado = FiltroEstado.TODAS,
     val rango: RangoTiempo = RangoTiempo.MES,
@@ -72,6 +74,7 @@ class ActividadesViewModel(
                 recalcular(
                     it.copy(
                         todas = guardada.actividades,
+                        matriculadas = guardada.asignaturas,
                         datosDeCache = true,
                         momentoDatos = guardada.momento
                     )
@@ -151,11 +154,14 @@ class ActividadesViewModel(
         viewModelScope.launch {
             runCatching { repositorio.cargarActividades() }.fold(
                 onSuccess = { lista ->
+                    // La matrícula se guarda junto a las actividades en la misma carga.
+                    val matriculadas = repositorio.instantaneaGuardada()?.asignaturas.orEmpty()
                     _estado.update { previo ->
                         recalcular(
                             previo.copy(
                                 cargando = false,
                                 todas = lista,
+                                matriculadas = matriculadas,
                                 // La ficha abierta se queda con los datos de la carga anterior
                                 // si no se vuelve a buscar en la lista recién traída.
                                 detalle = previo.detalle?.let { abierta ->
@@ -190,7 +196,12 @@ class ActividadesViewModel(
 
     private fun recalcular(estado: ActividadesUiState): ActividadesUiState {
         val ahora = System.currentTimeMillis() / 1000
-        val asignaturas = estado.todas.map { it.curso }.filter { it.isNotBlank() }.distinct().sorted()
+        // Se unen las dos fuentes: una asignatura recién creada está en la matrícula pero
+        // todavía no en ninguna actividad, y aun así tiene que poder elegirse.
+        val asignaturas = (estado.todas.map { it.curso } + estado.matriculadas)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sorted()
         val asignatura = estado.asignatura?.takeIf { it in asignaturas }
 
         val deLaAsignatura = estado.todas.filter { asignatura == null || it.curso == asignatura }
