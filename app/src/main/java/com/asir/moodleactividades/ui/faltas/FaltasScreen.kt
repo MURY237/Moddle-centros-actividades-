@@ -102,6 +102,7 @@ fun FaltasScreen(
             sesion = sesion,
             alExtraer = { crudo, url, aMano -> viewModel.procesarPagina(crudo, url, aMano) },
             alCargarPagina = viewModel::anotarPagina,
+            alNavegar = viewModel::anotarNavegacion,
             alNecesitarIdentificacion = viewModel::pedirIdentificacion,
             sinExito = estado.buscadaSinExito,
             diagnostico = estado.diagnostico,
@@ -117,6 +118,7 @@ fun FaltasScreen(
             sesion = sesion,
             alExtraer = { crudo, url, aMano -> viewModel.procesarPagina(crudo, url, aMano) },
             alCargarPagina = viewModel::anotarPagina,
+            alNavegar = viewModel::anotarNavegacion,
             alNecesitarIdentificacion = viewModel::pedirIdentificacion,
             sinExito = false,
             diagnostico = emptyList(),
@@ -374,6 +376,7 @@ private fun NavegadorSeneca(
     sesion: SesionSeneca,
     alExtraer: (String?, String?, Boolean) -> Boolean,
     alCargarPagina: (String?) -> Unit,
+    alNavegar: (String) -> Unit,
     alNecesitarIdentificacion: () -> Unit,
     sinExito: Boolean,
     diagnostico: List<String>,
@@ -428,7 +431,10 @@ private fun NavegadorSeneca(
                                 // formulario, no en la que trae la tabla.
                                 sesion.guardar()
                                 alCargarPagina(url)
-                                buscarFaltas(contenedor, url, alExtraer, alNecesitarIdentificacion)
+                                buscarFaltas(
+                                    contenedor, url, alExtraer, alNavegar,
+                                    alNecesitarIdentificacion
+                                )
                             }
                         }
                         // La referencia se guarda antes de cargar: onPageFinished la necesita.
@@ -463,12 +469,12 @@ private fun BarraSeneca(
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Identifícate en Séneca",
+                text = "Séneca",
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.White
             )
             Text(
-                text = "Solo esta vez: después la app entrará sola",
+                text = "Si no entra sola, abre el menú (☰) → Faltas de asistencia",
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.85f)
             )
@@ -546,7 +552,8 @@ private fun AvisoSinTabla(diagnostico: List<String>) {
                 color = AmbarPendiente
             )
             Text(
-                text = "Ve a «Faltas de asistencia» y vuelve a pulsar el botón de buscar.",
+                text = "Abre el menú (☰), entra en Seguimiento del curso → Faltas de " +
+                    "asistencia y vuelve a pulsar el botón de buscar.",
                 style = MaterialTheme.typography.bodySmall,
                 color = AmbarPendiente
             )
@@ -578,6 +585,7 @@ private fun buscarFaltas(
     contenedor: ContenedorWeb,
     url: String?,
     alExtraer: (String?, String?, Boolean) -> Boolean,
+    alNavegar: (String) -> Unit,
     alNecesitarIdentificacion: () -> Unit
 ) {
     val web = contenedor.web ?: return
@@ -591,7 +599,7 @@ private fun buscarFaltas(
         ) {
             contenedor.intentos++
             web.postDelayed(
-                { buscarFaltas(contenedor, url, alExtraer, alNecesitarIdentificacion) },
+                { buscarFaltas(contenedor, url, alExtraer, alNavegar, alNecesitarIdentificacion) },
                 ESPERA_MS
             )
             return@evaluateJavascript
@@ -604,11 +612,13 @@ private fun buscarFaltas(
         contenedor.intentos++
 
         web.evaluateJavascript(NavegadorFaltas.GUION) { respuesta ->
-            if (RespuestaJs.leerNavegacion(respuesta)?.pulsado == true) {
+            val navegacion = RespuestaJs.leerNavegacion(respuesta)
+            alNavegar(navegacion?.destino.orEmpty())
+            if (navegacion?.pulsado == true) {
                 // Al desplegar un menú no hay carga de página que avise, así que se
                 // espera un momento y se vuelve a mirar.
                 web.postDelayed(
-                    { buscarFaltas(contenedor, url, alExtraer, alNecesitarIdentificacion) },
+                    { buscarFaltas(contenedor, url, alExtraer, alNavegar, alNecesitarIdentificacion) },
                     ESPERA_MS
                 )
             } else {
@@ -619,7 +629,11 @@ private fun buscarFaltas(
     }
 }
 
-private const val MAX_INTENTOS = 4
+/**
+ * El recorrido puede necesitar tres pulsaciones —hamburguesa, apartado y entrada— y cada una
+ * cuenta como intento, así que el tope tiene que dar margen para todas y alguna repetición.
+ */
+private const val MAX_INTENTOS = 8
 private const val ESPERA_MS = 1200L
 
 /**

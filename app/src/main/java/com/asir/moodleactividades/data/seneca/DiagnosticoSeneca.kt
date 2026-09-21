@@ -15,7 +15,9 @@ data class DiagnosticoSeneca(
     val urlUltimaPagina: String = "",
     val tablaEncontrada: Boolean = false,
     val pidioAcceso: Boolean = false,
-    val paginasVistas: Int = 0
+    val paginasVistas: Int = 0,
+    /** Qué fue lo último que la app consiguió pulsar del menú de Séneca. */
+    val ultimoPaso: String = ""
 ) {
     fun comoTexto(): String = buildString {
         appendLine("Cookies guardadas: " + if (cookiesGuardadas.isEmpty()) "ninguna" else
@@ -23,6 +25,7 @@ data class DiagnosticoSeneca(
         appendLine("Cookies vivas en el navegador: $cookiesVivas")
         appendLine("Páginas cargadas en el intento: $paginasVistas")
         appendLine("Última página: ${urlUltimaPagina.ifBlank { "ninguna" }}")
+        appendLine("Último paso del menú: ${ultimoPaso.ifBlank { "ninguno" }}")
         appendLine("Tabla encontrada: " + if (tablaEncontrada) "sí" else "no")
         appendLine("Pidió identificarse: " + if (pidioAcceso) "sí" else "no")
     }.trim()

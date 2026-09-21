@@ -120,9 +120,12 @@ credenciales:
 1. Carga Séneca en un navegador incrustado **que no se muestra**. Si la sesión sigue viva
    —lo normal salvo la primera vez—, el alumno no llega a ver ninguna página web: solo un
    «Consultando tus faltas» y, acto seguido, sus tarjetas.
-2. Busca en el menú la entrada «Faltas de asistencia» por su texto y la pulsa; si el
-   apartado está plegado, despliega antes «Seguimiento del curso». Séneca monta su interfaz
-   con marcos, así que se recorren todos, no solo el documento principal.
+2. Busca en el menú la entrada «Faltas de asistencia» por su texto y la pulsa. Si no está,
+   despliega «Seguimiento del curso»; y si tampoco está, abre el menú lateral, que en móvil
+   viene plegado tras el icono de las tres rayas y cuyas entradas ni siquiera existen en la
+   página hasta abrirlo. La hamburguesa no tiene texto, así que se reconoce por sus
+   atributos, descartando los elementos grandes para no pulsar la barra entera. Séneca monta
+   su interfaz con marcos, así que se recorren todos, no solo el documento principal.
 3. Pone el desplegable «Mostrar» en «Todas»: sin eso se leerían solo algunas faltas.
 4. Busca una tabla cuyos encabezados hablen de fecha y de ausencia. Se localiza por sus
    encabezados, nunca por su posición ni por un identificador interno: Séneca los genera

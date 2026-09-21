@@ -118,6 +118,11 @@ class FaltasViewModel(
         }
     }
 
+    /** Qué consiguió pulsar del menú: dice dónde se atasca el recorrido si no llega. */
+    fun anotarNavegacion(destino: String) = _estado.update {
+        it.copy(diagnosticoSeneca = it.diagnosticoSeneca.copy(ultimoPaso = destino))
+    }
+
     /** Cada página cargada, para poder contar dónde se queda el recorrido cuando falla. */
     fun anotarPagina(url: String?) = _estado.update {
         it.copy(
