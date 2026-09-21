@@ -4,6 +4,8 @@ import android.webkit.CookieManager
 import androidx.lifecycle.ViewModel
 import com.asir.moodleactividades.data.AlmacenFaltas
 import com.asir.moodleactividades.data.Aviso
+import com.asir.moodleactividades.data.Credenciales
+import com.asir.moodleactividades.data.CredencialesSeneca
 import com.asir.moodleactividades.data.HistorialAvisos
 import com.asir.moodleactividades.data.SesionSeneca
 import com.asir.moodleactividades.data.TipoAviso
@@ -34,6 +36,12 @@ data class FaltasUiState(
     val leidoAlgunaVez: Boolean = false,
     /** El intento a oscuras no llegó: hace falta identificarse, pero se pide, no se impone. */
     val necesitaAcceso: Boolean = false,
+    /** Con qué cuenta entrará sola la app; vacío si no hay ninguna guardada. */
+    val usuarioGuardado: String = "",
+    /** Sin almacén cifrado no se ofrece guardar nada: no se guarda una clave en claro. */
+    val almacenSeguroDisponible: Boolean = true,
+    /** Se entró con lo guardado y Séneca volvió a pedir acceso: algo no cuadra. */
+    val credencialesRechazadas: Boolean = false,
     val diagnosticoSeneca: DiagnosticoSeneca = DiagnosticoSeneca()
 ) {
     val total: Int get() = faltas.size
@@ -43,7 +51,8 @@ data class FaltasUiState(
 class FaltasViewModel(
     private val almacen: AlmacenFaltas,
     private val sesion: SesionSeneca,
-    private val historial: HistorialAvisos
+    private val historial: HistorialAvisos,
+    private val credenciales: CredencialesSeneca
 ) : ViewModel() {
 
     private val _estado = MutableStateFlow(FaltasUiState())
@@ -62,7 +71,39 @@ class FaltasViewModel(
             )
         }
 
+        anotarCuenta()
         actualizarSiConviene()
+    }
+
+    private fun anotarCuenta() = _estado.update {
+        it.copy(
+            usuarioGuardado = credenciales.usuario(),
+            almacenSeguroDisponible = credenciales.disponible
+        )
+    }
+
+    /** Lo que el navegador necesita para entrar solo; null si no hay nada guardado. */
+    fun credencialesGuardadas(): Credenciales? = credenciales.leer()
+
+    fun guardarCredenciales(usuario: String, clave: String) {
+        credenciales.guardar(Credenciales(usuario, clave))
+        _estado.update { it.copy(credencialesRechazadas = false) }
+        anotarCuenta()
+        actualizar()
+    }
+
+    fun olvidarCredenciales() {
+        credenciales.borrar()
+        _estado.update { it.copy(credencialesRechazadas = false) }
+        anotarCuenta()
+    }
+
+    /**
+     * Séneca ha vuelto a pedir acceso después de entrar con lo guardado. Se avisa en vez de
+     * reintentar: insistir con una contraseña que no vale acaba bloqueando la cuenta.
+     */
+    fun marcarCredencialesRechazadas() = _estado.update {
+        it.copy(credencialesRechazadas = true)
     }
 
     /**
@@ -70,10 +111,13 @@ class FaltasViewModel(
      * hace nada, porque lo único que conseguiría es plantar la pantalla de acceso por sorpresa.
      */
     fun actualizarSiConviene() {
-        if (!sesion.hay()) return
+        if (!sesion.hay() && !credenciales.hay()) return
         if (_estado.value.modo != ModoSeneca.NINGUNO) return
-        // Si ya se sabe que la sesión no vale, insistir solo gasta batería y datos.
-        if (_estado.value.necesitaAcceso) return
+        // Sin nada con que entrar, insistir solo gasta batería y datos. Con credenciales
+        // guardadas sí merece la pena: el acceso se rehace solo.
+        if (_estado.value.necesitaAcceso && !credenciales.hay()) return
+        // Si la contraseña guardada no vale, reintentar en bucle bloquearía la cuenta.
+        if (_estado.value.credencialesRechazadas) return
         if (!caducado(_estado.value.momento)) return
         actualizar(explicito = false)
     }
@@ -195,15 +239,17 @@ class FaltasViewModel(
         }
     }
 
-    /** Borra las faltas guardadas y la sesión del navegador incrustado. */
+    /** Borra las faltas, la sesión del navegador y la cuenta guardada. Todo, de un toque. */
     fun desconectar() {
         almacen.borrar()
         sesion.borrar()
+        credenciales.borrar()
         runCatching {
             CookieManager.getInstance().removeAllCookies(null)
             CookieManager.getInstance().flush()
         }
         _estado.value = FaltasUiState()
+        anotarCuenta()
     }
 
     private companion object {

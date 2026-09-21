@@ -17,3 +17,11 @@ data class ResultadoNavegacion(
     val pulsado: Boolean = false,
     val destino: String = ""
 )
+
+@Serializable
+data class ResultadoAcceso(
+    /** Qué hizo el guion: «aviso», «enviado», «sin-boton» o nada. */
+    val accion: String = ""
+) {
+    val actuo: Boolean get() = accion == "aviso" || accion == "enviado"
+}
