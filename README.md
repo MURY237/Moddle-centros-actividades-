@@ -133,6 +133,10 @@ credenciales:
 **Séneca solo se enseña cuando hay que identificarse**, que es lo que ocurre si no quedan ni
 tabla ni menú que pulsar.
 
+Séneca ata la sesión a dos cosas: sus cookies y la ruta `/seneca/nav/<algo>` que genera al
+entrar. Por eso se guarda también la última página donde se encontró la tabla y se vuelve
+directamente a ella, en lugar de empezar por la portada.
+
 Las cookies de Séneca no llevan caducidad, así que el navegador incrustado las tira al
 cerrarse la app y habría que identificarse en cada arranque. Para evitarlo se guardan en las
 preferencias privadas y se reponen antes de cargar la página: la sesión continúa donde
@@ -159,6 +163,17 @@ los datos guardados. Nada sale del teléfono.
 
 Si Séneca cambia la página, el guion deja de encontrar la tabla y lo dice, mostrando los
 encabezados que sí ha visto —solo los encabezados, nunca el contenido— para poder ajustarlo.
+
+### Diagnóstico
+
+Séneca no se puede probar sin un móvil con sesión abierta, así que la pantalla de faltas
+lleva un desplegable con lo que la app vio en su último intento: cuántas cookies guardó y
+cuántas seguían vivas, cuántas páginas cargó, hasta qué ruta llegó y si acabó pidiendo el
+acceso. Se puede copiar como texto.
+
+El diagnóstico lleva **solo nombres de cookies, nunca sus valores** —que son la sesión—, y la
+ruta con su parte variable recortada, porque el identificador de sesión de Séneca viaja
+dentro de la propia URL.
 
 ## Cómo se clasifica cada actividad
 

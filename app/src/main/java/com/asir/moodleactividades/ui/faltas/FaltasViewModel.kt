@@ -7,6 +7,7 @@ import com.asir.moodleactividades.data.Aviso
 import com.asir.moodleactividades.data.HistorialAvisos
 import com.asir.moodleactividades.data.SesionSeneca
 import com.asir.moodleactividades.data.TipoAviso
+import com.asir.moodleactividades.data.seneca.DiagnosticoSeneca
 import com.asir.moodleactividades.data.seneca.RespuestaJs
 import com.asir.moodleactividades.domain.Falta
 import com.asir.moodleactividades.domain.FaltasDeAsignatura
@@ -30,7 +31,8 @@ data class FaltasUiState(
     /** Lo que se vio en la última página cuando no había tabla de faltas. */
     val diagnostico: List<String> = emptyList(),
     val buscadaSinExito: Boolean = false,
-    val leidoAlgunaVez: Boolean = false
+    val leidoAlgunaVez: Boolean = false,
+    val diagnosticoSeneca: DiagnosticoSeneca = DiagnosticoSeneca()
 ) {
     val total: Int get() = faltas.size
     val injustificadas: Int get() = ResumenFaltas.totalInjustificadas(faltas)
@@ -80,12 +82,29 @@ class FaltasViewModel(
      * después de la primera vez— el alumno no ve ninguna página web: solo sus faltas.
      */
     fun actualizar() = _estado.update {
-        it.copy(modo = ModoSeneca.OCULTO, diagnostico = emptyList(), buscadaSinExito = false)
+        it.copy(
+            modo = ModoSeneca.OCULTO,
+            diagnostico = emptyList(),
+            buscadaSinExito = false,
+            diagnosticoSeneca = DiagnosticoSeneca.de(sesion)
+        )
     }
 
     /** Solo cuando el intento a oscuras no llega a la tabla: hay que identificarse. */
     fun pedirIdentificacion() = _estado.update {
-        if (it.modo == ModoSeneca.OCULTO) it.copy(modo = ModoSeneca.VISIBLE) else it
+        val anotado = it.copy(diagnosticoSeneca = it.diagnosticoSeneca.copy(pidioAcceso = true))
+        if (anotado.modo == ModoSeneca.OCULTO) anotado.copy(modo = ModoSeneca.VISIBLE) else anotado
+    }
+
+    /** Cada página cargada, para poder contar dónde se queda el recorrido cuando falla. */
+    fun anotarPagina(url: String?) = _estado.update {
+        it.copy(
+            diagnosticoSeneca = it.diagnosticoSeneca.copy(
+                urlUltimaPagina = DiagnosticoSeneca.rutaSegura(url),
+                paginasVistas = it.diagnosticoSeneca.paginasVistas + 1,
+                cookiesVivas = sesion.vivasAhora()
+            )
+        )
     }
 
     fun cerrarSeneca() {
@@ -99,7 +118,7 @@ class FaltasViewModel(
      * Se llama al terminar de cargar cada página. La mayoría no son la de faltas, así que
      * sin tabla no se toca nada: solo se anota lo visto por si hace falta diagnosticar.
      */
-    fun procesarPagina(crudo: String?, buscadaAMano: Boolean = false): Boolean {
+    fun procesarPagina(crudo: String?, url: String? = null, buscadaAMano: Boolean = false): Boolean {
         val resultado = RespuestaJs.leerExtraccion(crudo)
 
         if (resultado == null || !resultado.encontrada) {
@@ -114,6 +133,8 @@ class FaltasViewModel(
         anotarLasNuevas(_estado.value.faltas, resultado.faltas)
 
         almacen.guardar(resultado.faltas)
+        // Volver a esta misma página es lo que permite saltarse el recorrido la próxima vez.
+        sesion.guardarUrl(url)
         // La sesión se guarda solo cuando ha servido para algo: así no se conserva una
         // caducada que obligaría a reintentar en balde en la próxima apertura.
         sesion.guardar()
@@ -123,7 +144,12 @@ class FaltasViewModel(
             porAsignatura = ResumenFaltas.porAsignatura(resultado.faltas),
             momento = System.currentTimeMillis() / 1000,
             modo = ModoSeneca.NINGUNO,
-            leidoAlgunaVez = true
+            leidoAlgunaVez = true,
+            diagnosticoSeneca = _estado.value.diagnosticoSeneca.copy(
+                tablaEncontrada = true,
+                cookiesGuardadas = sesion.nombres(),
+                cookiesVivas = sesion.vivasAhora()
+            )
         )
         return true
     }

@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EventBusy
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
@@ -37,6 +38,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,12 +49,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.asir.moodleactividades.data.SesionSeneca
+import com.asir.moodleactividades.data.seneca.DiagnosticoSeneca
 import com.asir.moodleactividades.data.seneca.ExtractorFaltas
 import com.asir.moodleactividades.data.seneca.NavegadorFaltas
 import com.asir.moodleactividades.data.seneca.RespuestaJs
@@ -93,7 +98,8 @@ fun FaltasScreen(
         NavegadorSeneca(
             visible = estado.modo == ModoSeneca.VISIBLE,
             sesion = sesion,
-            alExtraer = { crudo, aMano -> viewModel.procesarPagina(crudo, aMano) },
+            alExtraer = { crudo, url, aMano -> viewModel.procesarPagina(crudo, url, aMano) },
+            alCargarPagina = viewModel::anotarPagina,
             alNecesitarIdentificacion = viewModel::pedirIdentificacion,
             sinExito = estado.buscadaSinExito,
             diagnostico = estado.diagnostico,
@@ -122,8 +128,17 @@ fun FaltasScreen(
                         "vez; a partir de ahí las faltas se leen sin salir de aquí. Tu " +
                         "contraseña no pasa por la aplicación."
                 ) {
-                    Button(onClick = viewModel::actualizar, shape = RoundedCornerShape(14.dp)) {
-                        Text("Traer mis faltas")
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Button(
+                            onClick = viewModel::actualizar,
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text("Traer mis faltas")
+                        }
+                        if (estado.diagnosticoSeneca.paginasVistas > 0) {
+                            Spacer(Modifier.height(16.dp))
+                            TarjetaDiagnostico(estado.diagnosticoSeneca)
+                        }
                     }
                 }
             }
@@ -138,6 +153,8 @@ fun FaltasScreen(
                 TarjetaAsignatura(asignatura)
             }
             item {
+                Spacer(Modifier.height(8.dp))
+                TarjetaDiagnostico(estado.diagnosticoSeneca)
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = viewModel::desconectar,
@@ -325,7 +342,8 @@ private fun TarjetaAsignatura(asignatura: FaltasDeAsignatura) {
 private fun NavegadorSeneca(
     visible: Boolean,
     sesion: SesionSeneca,
-    alExtraer: (String?, Boolean) -> Boolean,
+    alExtraer: (String?, String?, Boolean) -> Boolean,
+    alCargarPagina: (String?) -> Unit,
     alNecesitarIdentificacion: () -> Unit,
     sinExito: Boolean,
     diagnostico: List<String>,
@@ -378,12 +396,15 @@ private fun NavegadorSeneca(
                                 // La cookie de acceso nace en la página que sigue al
                                 // formulario, no en la que trae la tabla.
                                 sesion.guardar()
-                                buscarFaltas(contenedor, alExtraer, alNecesitarIdentificacion)
+                                alCargarPagina(url)
+                                buscarFaltas(contenedor, url, alExtraer, alNecesitarIdentificacion)
                             }
                         }
                         // La referencia se guarda antes de cargar: onPageFinished la necesita.
                         contenedor.web = this
-                        loadUrl(INICIO_SENECA)
+                        // Séneca ata la sesión también a la ruta que genera al entrar, así que
+                        // se vuelve a la última página útil en lugar de empezar por la portada.
+                        loadUrl(sesion.urlGuardada() ?: INICIO_SENECA)
                     }
                 }
             )
@@ -428,7 +449,7 @@ private fun PantallaEspera(alCancelar: () -> Unit) {
 @Composable
 private fun BarraSeneca(
     contenedor: ContenedorWeb,
-    alExtraer: (String?, Boolean) -> Boolean,
+    alExtraer: (String?, String?, Boolean) -> Boolean,
     alCerrar: () -> Unit
 ) {
     Row(
@@ -456,8 +477,9 @@ private fun BarraSeneca(
         }
         IconButton(
             onClick = {
-                contenedor.web?.evaluateJavascript(ExtractorFaltas.GUION) {
-                    alExtraer(it, true)
+                val web = contenedor.web
+                web?.evaluateJavascript(ExtractorFaltas.GUION) {
+                    alExtraer(it, web.url, true)
                 }
             }
         ) {
@@ -517,13 +539,14 @@ private class ContenedorWeb {
  */
 private fun buscarFaltas(
     contenedor: ContenedorWeb,
-    alExtraer: (String?, Boolean) -> Boolean,
+    url: String?,
+    alExtraer: (String?, String?, Boolean) -> Boolean,
     alNecesitarIdentificacion: () -> Unit
 ) {
     val web = contenedor.web ?: return
 
     web.evaluateJavascript(ExtractorFaltas.GUION) { crudo ->
-        if (alExtraer(crudo, false)) return@evaluateJavascript
+        if (alExtraer(crudo, web.url ?: url, false)) return@evaluateJavascript
 
         // Cambiar el filtro a «Todas» recarga la tabla sin recargar la página.
         if (RespuestaJs.leerExtraccion(crudo)?.ajustado == true &&
@@ -531,7 +554,7 @@ private fun buscarFaltas(
         ) {
             contenedor.intentos++
             web.postDelayed(
-                { buscarFaltas(contenedor, alExtraer, alNecesitarIdentificacion) },
+                { buscarFaltas(contenedor, url, alExtraer, alNecesitarIdentificacion) },
                 ESPERA_MS
             )
             return@evaluateJavascript
@@ -548,7 +571,7 @@ private fun buscarFaltas(
                 // Al desplegar un menú no hay carga de página que avise, así que se
                 // espera un momento y se vuelve a mirar.
                 web.postDelayed(
-                    { buscarFaltas(contenedor, alExtraer, alNecesitarIdentificacion) },
+                    { buscarFaltas(contenedor, url, alExtraer, alNecesitarIdentificacion) },
                     ESPERA_MS
                 )
             } else {
@@ -561,3 +584,68 @@ private fun buscarFaltas(
 
 private const val MAX_INTENTOS = 4
 private const val ESPERA_MS = 1200L
+
+/**
+ * Séneca no se puede probar desde fuera de un móvil con sesión, así que la app cuenta qué vio
+ * en su último intento. Sin valores de sesión ni datos del alumno: solo nombres de cookies,
+ * cuántas había y hasta dónde llegó el recorrido.
+ */
+@Composable
+private fun TarjetaDiagnostico(diagnostico: DiagnosticoSeneca) {
+    var abierto by remember { mutableStateOf(false) }
+    val portapapeles = LocalClipboardManager.current
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { abierto = !abierto },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.size(10.dp))
+                Text(
+                    text = "Qué vio la app en Séneca",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = if (abierto) "Ocultar" else "Ver",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            if (abierto) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = diagnostico.comoTexto(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(4.dp))
+                TextButton(
+                    onClick = {
+                        portapapeles.setText(AnnotatedString(diagnostico.comoTexto()))
+                    }
+                ) {
+                    Text("Copiar")
+                }
+            }
+        }
+    }
+}
