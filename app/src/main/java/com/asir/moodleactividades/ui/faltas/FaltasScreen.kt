@@ -334,6 +334,10 @@ private fun NavegadorSeneca(
 ) {
     val contenedor = remember { ContenedorWeb() }
 
+    // Antes de crear el WebView: si se reponen dentro de su construcción, la primera
+    // petición puede salir sin ellas y Séneca contesta con la pantalla de acceso.
+    remember { sesion.restaurar() }
+
     BackHandler(enabled = true) {
         val web = contenedor.web
         if (visible && web != null && web.canGoBack()) web.goBack() else alCerrar()
@@ -365,15 +369,15 @@ private fun NavegadorSeneca(
                         // Sin cookies persistentes habría que identificarse en cada apertura.
                         CookieManager.getInstance().setAcceptCookie(true)
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-                        // Las cookies de Séneca no llevan caducidad, así que el navegador las
-                        // tira al cerrarse la app. Reponerlas evita volver a identificarse.
-                        sesion.restaurar()
                         webViewClient = object : WebViewClient() {
                             override fun onPageFinished(vistaWeb: WebView?, url: String?) {
                                 // Cada página nueva estrena presupuesto de intentos: así la
                                 // portada tras identificarse vuelve a probar desde cero.
                                 contenedor.intentos = 0
                                 CookieManager.getInstance().flush()
+                                // La cookie de acceso nace en la página que sigue al
+                                // formulario, no en la que trae la tabla.
+                                sesion.guardar()
                                 buscarFaltas(contenedor, alExtraer, alNecesitarIdentificacion)
                             }
                         }

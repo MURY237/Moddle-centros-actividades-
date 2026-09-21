@@ -134,6 +134,18 @@ class ActividadesViewModel(
         _estado.update { it.copy(sesionCaducada = true) }
     }
 
+    /**
+     * Al volver a la app se refresca, pero no en cada vistazo: los cortafuegos de centro
+     * cortan por exceso de peticiones seguidas y la lista se quedaría vacía.
+     */
+    fun refrescarSiConviene() {
+        val momento = _estado.value.momentoDatos
+        val reciente = momento != null &&
+            System.currentTimeMillis() / 1000 - momento < FRESCURA_SEGUNDOS
+        if (_estado.value.cargando || reciente) return
+        refrescar()
+    }
+
     fun refrescar() {
         _estado.update { it.copy(cargando = true, error = null) }
         viewModelScope.launch {
@@ -192,6 +204,10 @@ class ActividadesViewModel(
             secciones = Clasificador.agrupar(visibles, ahora),
             resumen = Clasificador.resumir(deLaAsignatura)
         )
+    }
+
+    private companion object {
+        const val FRESCURA_SEGUNDOS = 60L
     }
 
     private fun mensajeDeError(fallo: Throwable): String = when {

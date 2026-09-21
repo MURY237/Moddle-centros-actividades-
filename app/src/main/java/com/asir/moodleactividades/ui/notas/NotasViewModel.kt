@@ -42,6 +42,8 @@ class NotasViewModel(
     private val _estado = MutableStateFlow(NotasUiState())
     val estado: StateFlow<NotasUiState> = _estado.asStateFlow()
 
+    private var ultimaCarga = 0L
+
     init {
         // Lo guardado se pinta al instante; si la consulta falla, al menos hay notas en
         // pantalla en vez de un error a secas.
@@ -74,11 +76,19 @@ class NotasViewModel(
         return estado.copy(cursos = cursos, asignaturas = asignaturas, asignatura = asignatura)
     }
 
+    /** Igual que en actividades: se refresca al volver, pero no en cada vistazo. */
+    fun refrescarSiConviene() {
+        val reciente = System.currentTimeMillis() / 1000 - ultimaCarga < FRESCURA_SEGUNDOS
+        if (_estado.value.cargando || reciente) return
+        refrescar()
+    }
+
     fun refrescar() {
         _estado.update { it.copy(cargando = true, error = null) }
         viewModelScope.launch {
             runCatching { repositorio.cargarCalificaciones() }.fold(
                 onSuccess = { lista ->
+                    ultimaCarga = System.currentTimeMillis() / 1000
                     _estado.update {
                         aplicarFiltro(it.copy(cargando = false, todos = lista, error = null))
                     }
@@ -88,6 +98,10 @@ class NotasViewModel(
                 }
             )
         }
+    }
+
+    private companion object {
+        const val FRESCURA_SEGUNDOS = 60L
     }
 
     private fun mensajeDeError(fallo: Throwable): String = when {

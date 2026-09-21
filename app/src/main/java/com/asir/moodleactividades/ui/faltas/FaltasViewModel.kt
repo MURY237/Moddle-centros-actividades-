@@ -56,9 +56,18 @@ class FaltasViewModel(
             )
         }
 
-        // Al abrir la pestaña se refresca solo, sin pedir nada, siempre que haya una sesión
-        // guardada y lo que hay en pantalla se haya quedado viejo.
-        if (sesion.hay() && caducado(guardadas?.momento)) actualizar()
+        actualizarSiConviene()
+    }
+
+    /**
+     * Refresco de cortesía: al entrar en la app y al volver a ella. Sin sesión guardada no se
+     * hace nada, porque lo único que conseguiría es plantar la pantalla de acceso por sorpresa.
+     */
+    fun actualizarSiConviene() {
+        if (!sesion.hay()) return
+        if (_estado.value.modo != ModoSeneca.NINGUNO) return
+        if (!caducado(_estado.value.momento)) return
+        actualizar()
     }
 
     private fun caducado(momento: Long?): Boolean {
@@ -79,7 +88,12 @@ class FaltasViewModel(
         if (it.modo == ModoSeneca.OCULTO) it.copy(modo = ModoSeneca.VISIBLE) else it
     }
 
-    fun cerrarSeneca() = _estado.update { it.copy(modo = ModoSeneca.NINGUNO) }
+    fun cerrarSeneca() {
+        // Puede haberse identificado sin llegar a la tabla; esa cookie ya vale para la
+        // próxima vez y perderla obligaría a repetir el acceso.
+        sesion.guardar()
+        _estado.update { it.copy(modo = ModoSeneca.NINGUNO) }
+    }
 
     /**
      * Se llama al terminar de cargar cada página. La mayoría no son la de faltas, así que
@@ -140,7 +154,7 @@ class FaltasViewModel(
     }
 
     private companion object {
-        /** Media hora: lo justo para no repetir la consulta a cada vistazo. */
-        const val FRESCURA_SEGUNDOS = 30 * 60L
+        /** Un minuto: suficiente para no repetir la consulta al cambiar de pestaña. */
+        const val FRESCURA_SEGUNDOS = 60L
     }
 }
