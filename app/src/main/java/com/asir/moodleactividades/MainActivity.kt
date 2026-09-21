@@ -30,6 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -38,8 +39,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.asir.moodleactividades.data.ActividadesRepository
@@ -196,6 +200,11 @@ private fun PantallaPrincipal(
     )
     val ajustes by ajustesViewModel.estado.collectAsStateWithLifecycle()
 
+    val notasViewModel: NotasViewModel = viewModel(
+        key = "notas-$generacion",
+        factory = fabrica { NotasViewModel(repositorio, conectividad) }
+    )
+
     val sesionSeneca = remember { SesionSeneca(contexto) }
     val faltasViewModel: FaltasViewModel = viewModel(
         factory = fabrica {
@@ -228,13 +237,29 @@ private fun PantallaPrincipal(
     // Aquí y no en la pantalla: dentro de una pestaña esto se repetía en cada cambio de
     // sección, volviendo a pedir el permiso y a consultar la API de GitHub.
     LaunchedEffect(Unit) {
-        actualizacionViewModel.comprobar()
         Recordatorios.crearCanales(contexto)
         if (Recordatorios.puedeNotificar(contexto)) {
             RecordatoriosWorker.programar(contexto)
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             pedirPermiso.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+    }
+
+    // Volver a la app es el momento en que se quiere ver lo último, así que ahí se refresca
+    // todo. Cada pantalla decide si le toca: si acaba de cargar, no repite la consulta.
+    val cicloDeVida = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(cicloDeVida) {
+        val observador = LifecycleEventObserver { _, evento ->
+            if (evento == Lifecycle.Event.ON_RESUME) {
+                actividadesViewModel.refrescarSiConviene()
+                notasViewModel.refrescarSiConviene()
+                faltasViewModel.actualizarSiConviene()
+                avisosViewModel.recargar()
+                actualizacionViewModel.comprobar()
+            }
+        }
+        cicloDeVida.addObserver(observador)
+        onDispose { cicloDeVida.removeObserver(observador) }
     }
 
     LaunchedEffect(estadoActividades.sesionCaducada) {
@@ -309,17 +334,11 @@ private fun PantallaPrincipal(
                 modifier = Modifier.padding(relleno)
             )
 
-            Seccion.NOTAS -> {
-                val notasViewModel: NotasViewModel = viewModel(
-                    key = "notas-$generacion",
-                    factory = fabrica { NotasViewModel(repositorio, conectividad) }
-                )
-                NotasScreen(
-                    viewModel = notasViewModel,
-                    alAbrirFaltas = { seccion = Seccion.FALTAS },
-                    modifier = Modifier.padding(relleno)
-                )
-            }
+            Seccion.NOTAS -> NotasScreen(
+                viewModel = notasViewModel,
+                alAbrirFaltas = { seccion = Seccion.FALTAS },
+                modifier = Modifier.padding(relleno)
+            )
 
             Seccion.FALTAS -> FaltasScreen(
                 viewModel = faltasViewModel,

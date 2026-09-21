@@ -140,8 +140,18 @@ estaba hasta que Séneca la caduca por su cuenta, y entonces —solo entonces—
 pedir el acceso. Lo guardado equivale a una sesión abierta, **nunca a la contraseña**, y se
 borra al desconectar.
 
-Al abrir la pestaña «Faltas», si lo guardado tiene más de media hora la app se actualiza
-sola en segundo plano. Lo que aparezca de nuevo se apunta además en «Avisos».
+## Al volver a la aplicación
+
+Entrar en la app es el momento en que se quiere ver lo último, así que ahí se refrescan
+las actividades, las notas, las faltas y los avisos. Cada pantalla decide si le toca: si su
+última carga correcta tiene menos de un minuto, no repite la consulta. Ese tope no es
+cosmético —los cortafuegos de los centros cortan por exceso de peticiones seguidas y la
+pantalla se quedaría vacía—, pero es lo bastante corto para que al abrir la app se vea el
+estado real.
+
+Las faltas solo se refrescan solas si hay una sesión de Séneca guardada: sin ella lo único
+que se conseguiría es plantar la pantalla de acceso por sorpresa. Lo que aparezca de nuevo
+se apunta además en «Avisos».
 
 La app **nunca ve ni guarda la contraseña**: la sesión vive en las cookies del navegador
 incrustado, y el botón «Borrar faltas y cerrar la sesión de Séneca» las elimina junto con

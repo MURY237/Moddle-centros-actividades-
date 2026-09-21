@@ -18,10 +18,23 @@ class SesionSeneca(contexto: Context) {
         .getSharedPreferences("sesion_seneca", Context.MODE_PRIVATE)
 
     fun guardar() {
-        val cookies = runCatching { CookieManager.getInstance().getCookie(DOMINIO) }.getOrNull()
-        if (cookies.isNullOrBlank()) return
+        val gestor = runCatching { CookieManager.getInstance() }.getOrNull() ?: return
+
+        // Las cookies de Séneca cuelgan de /seneca, y preguntando solo por la raíz del
+        // dominio no se devuelven: hay que pedirlas por cada ruta donde pueden vivir.
+        val recogidas = RUTAS
+            .mapNotNull { runCatching { gestor.getCookie(it) }.getOrNull() }
+            .flatMap { it.split(';') }
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && '=' in it }
+            // Una misma cookie puede venir por dos rutas; se queda la última vista.
+            .associateBy { it.substringBefore('=') }
+            .values
+
+        if (recogidas.isEmpty()) return
+
         prefs.edit()
-            .putString(COOKIES, cookies)
+            .putString(COOKIES, recogidas.joinToString("; "))
             .putLong(MOMENTO, System.currentTimeMillis() / 1000)
             .apply()
     }
@@ -31,12 +44,12 @@ class SesionSeneca(contexto: Context) {
         runCatching {
             val gestor = CookieManager.getInstance()
             gestor.setAcceptCookie(true)
-            // getCookie devuelve «nombre=valor; nombre=valor», sin atributos: hay que
-            // volver a ponerlas una a una sobre el dominio.
+            // getCookie devuelve «nombre=valor; nombre=valor», sin atributos: se reponen una
+            // a una y en todas las rutas, porque no se sabe de cuál venía cada una.
             guardadas.split(';')
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
-                .forEach { gestor.setCookie(DOMINIO, it) }
+                .forEach { cookie -> RUTAS.forEach { ruta -> gestor.setCookie(ruta, cookie) } }
             gestor.flush()
         }
     }
@@ -46,7 +59,11 @@ class SesionSeneca(contexto: Context) {
     fun borrar() = prefs.edit().clear().apply()
 
     private companion object {
-        const val DOMINIO = "https://seneca.juntadeandalucia.es"
+        val RUTAS = listOf(
+            "https://seneca.juntadeandalucia.es/",
+            "https://seneca.juntadeandalucia.es/seneca/",
+            "https://seneca.juntadeandalucia.es/seneca/jsp/"
+        )
         const val COOKIES = "cookies"
         const val MOMENTO = "momento"
     }
