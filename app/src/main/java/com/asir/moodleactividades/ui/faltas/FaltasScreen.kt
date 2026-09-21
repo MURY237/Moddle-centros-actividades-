@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
@@ -37,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,13 +52,18 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.asir.moodleactividades.data.Credenciales
 import com.asir.moodleactividades.data.SesionSeneca
+import com.asir.moodleactividades.data.seneca.AutoAcceso
 import com.asir.moodleactividades.data.seneca.DiagnosticoSeneca
 import com.asir.moodleactividades.data.seneca.ExtractorFaltas
 import com.asir.moodleactividades.data.seneca.NavegadorFaltas
@@ -103,6 +110,8 @@ fun FaltasScreen(
             alExtraer = { crudo, url, aMano -> viewModel.procesarPagina(crudo, url, aMano) },
             alCargarPagina = viewModel::anotarPagina,
             alNavegar = viewModel::anotarNavegacion,
+            alEntrarSolo = viewModel::credencialesGuardadas,
+            alFallarElAcceso = viewModel::marcarCredencialesRechazadas,
             alNecesitarIdentificacion = viewModel::pedirIdentificacion,
             sinExito = estado.buscadaSinExito,
             diagnostico = estado.diagnostico,
@@ -119,6 +128,8 @@ fun FaltasScreen(
             alExtraer = { crudo, url, aMano -> viewModel.procesarPagina(crudo, url, aMano) },
             alCargarPagina = viewModel::anotarPagina,
             alNavegar = viewModel::anotarNavegacion,
+            alEntrarSolo = viewModel::credencialesGuardadas,
+            alFallarElAcceso = viewModel::marcarCredencialesRechazadas,
             alNecesitarIdentificacion = viewModel::pedirIdentificacion,
             sinExito = false,
             diagnostico = emptyList(),
@@ -146,9 +157,8 @@ fun FaltasScreen(
                     icono = Icons.Default.EventBusy,
                     titulo = "Aún no hay faltas guardadas",
                     detalle = "Séneca no ofrece ninguna forma de consultarlo desde fuera, así " +
-                        "que la app entra por ti. Solo tendrás que identificarte la primera " +
-                        "vez; a partir de ahí las faltas se leen sin salir de aquí. Tu " +
-                        "contraseña no pasa por la aplicación."
+                        "que la app entra por ti y te enseña aquí lo que encuentra. La " +
+                        "primera vez tendrás que identificarte en la web de Séneca."
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Button(
@@ -157,6 +167,14 @@ fun FaltasScreen(
                         ) {
                             Text("Traer mis faltas")
                         }
+                        Spacer(Modifier.height(16.dp))
+                        TarjetaCuentaSeneca(
+                            usuarioGuardado = estado.usuarioGuardado,
+                            almacenDisponible = estado.almacenSeguroDisponible,
+                            rechazadas = estado.credencialesRechazadas,
+                            alGuardar = viewModel::guardarCredenciales,
+                            alOlvidar = viewModel::olvidarCredenciales
+                        )
                         if (estado.diagnosticoSeneca.paginasVistas > 0) {
                             Spacer(Modifier.height(16.dp))
                             TarjetaDiagnostico(estado.diagnosticoSeneca)
@@ -175,6 +193,14 @@ fun FaltasScreen(
                 TarjetaAsignatura(asignatura)
             }
             item {
+                Spacer(Modifier.height(8.dp))
+                TarjetaCuentaSeneca(
+                    usuarioGuardado = estado.usuarioGuardado,
+                    almacenDisponible = estado.almacenSeguroDisponible,
+                    rechazadas = estado.credencialesRechazadas,
+                    alGuardar = viewModel::guardarCredenciales,
+                    alOlvidar = viewModel::olvidarCredenciales
+                )
                 Spacer(Modifier.height(8.dp))
                 TarjetaDiagnostico(estado.diagnosticoSeneca)
                 Spacer(Modifier.height(8.dp))
@@ -377,6 +403,8 @@ private fun NavegadorSeneca(
     alExtraer: (String?, String?, Boolean) -> Boolean,
     alCargarPagina: (String?) -> Unit,
     alNavegar: (String) -> Unit,
+    alEntrarSolo: () -> Credenciales?,
+    alFallarElAcceso: () -> Unit,
     alNecesitarIdentificacion: () -> Unit,
     sinExito: Boolean,
     diagnostico: List<String>,
@@ -432,8 +460,8 @@ private fun NavegadorSeneca(
                                 sesion.guardar()
                                 alCargarPagina(url)
                                 buscarFaltas(
-                                    contenedor, url, alExtraer, alNavegar,
-                                    alNecesitarIdentificacion
+                                    contenedor, url, alExtraer, alNavegar, alEntrarSolo,
+                                    alFallarElAcceso, alNecesitarIdentificacion
                                 )
                             }
                         }
@@ -570,25 +598,174 @@ private fun AvisoSinTabla(diagnostico: List<String>) {
     }
 }
 
+/**
+ * Séneca caduca la sesión por su cuenta, y sin una cuenta guardada no hay forma de volver a
+ * entrar solo. Guardar una contraseña nunca es inocuo, así que aquí se dice lo que implica
+ * en vez de esconderlo detrás de un interruptor.
+ */
+@Composable
+private fun TarjetaCuentaSeneca(
+    usuarioGuardado: String,
+    almacenDisponible: Boolean,
+    rechazadas: Boolean,
+    alGuardar: (String, String) -> Unit,
+    alOlvidar: () -> Unit
+) {
+    var abierto by remember { mutableStateOf(false) }
+    var usuario by remember { mutableStateOf("") }
+    var clave by remember { mutableStateOf("") }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { abierto = !abierto },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Key,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.size(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Entrar solo cuando caduque la sesión",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        text = when {
+                            !almacenDisponible -> "No disponible en este móvil"
+                            usuarioGuardado.isNotBlank() -> "Cuenta guardada: $usuarioGuardado"
+                            else -> "Sin configurar"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(
+                    text = if (abierto) "Ocultar" else "Ver",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            if (rechazadas) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Séneca ha rechazado la cuenta guardada. Vuelve a escribirla; no " +
+                        "se reintenta sola para no bloquearte la cuenta.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = RojoNoEntregada
+                )
+            }
+
+            if (!abierto) return@Column
+
+            Spacer(Modifier.height(12.dp))
+
+            if (!almacenDisponible) {
+                Text(
+                    text = "El almacén cifrado de Android no está disponible en este " +
+                        "dispositivo, y sin él no se guarda ninguna contraseña.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                return@Column
+            }
+
+            Text(
+                text = "La contraseña se guarda cifrada con el almacén de claves de Android " +
+                    "y solo se usa para rellenar el formulario de Séneca. Aun así, quedará " +
+                    "en este móvil: si lo pierdes, quien lo tenga podría entrar en tu " +
+                    "Séneca. Bórrala cuando quieras desde aquí.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = usuario,
+                onValueChange = { usuario = it },
+                label = { Text("Usuario de Séneca") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = clave,
+                onValueChange = { clave = it },
+                label = { Text("Contraseña") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = {
+                        alGuardar(usuario, clave)
+                        // No se conserva en memoria más de lo imprescindible.
+                        usuario = ""
+                        clave = ""
+                        abierto = false
+                    },
+                    enabled = usuario.isNotBlank() && clave.isNotBlank(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Guardar y entrar")
+                }
+                if (usuarioGuardado.isNotBlank()) {
+                    TextButton(onClick = alOlvidar) {
+                        Text("Borrar la cuenta", color = RojoNoEntregada)
+                    }
+                }
+            }
+        }
+    }
+}
+
 /** Guarda la referencia al WebView sin ser estado de Compose: cambiarla no repinta nada. */
 private class ContenedorWeb {
     var web: WebView? = null
     var intentos = 0
+    var accesosIntentados = 0
 }
 
 /**
  * Busca la tabla en la página actual y, si no está, pulsa la entrada del menú que lleva a
- * ella y lo vuelve a intentar. Cuando no queda nada que pulsar, es que Séneca está pidiendo
- * identificarse: entonces, y solo entonces, se le enseña la web al alumno.
+ * ella y lo vuelve a intentar. Cuando no queda nada que pulsar es que Séneca está pidiendo
+ * identificarse, y ahí entra el acceso automático si hay una cuenta guardada.
  */
 private fun buscarFaltas(
     contenedor: ContenedorWeb,
     url: String?,
     alExtraer: (String?, String?, Boolean) -> Boolean,
     alNavegar: (String) -> Unit,
+    alEntrarSolo: () -> Credenciales?,
+    alFallarElAcceso: () -> Unit,
     alNecesitarIdentificacion: () -> Unit
 ) {
     val web = contenedor.web ?: return
+    val seguir = {
+        buscarFaltas(
+            contenedor, url, alExtraer, alNavegar, alEntrarSolo,
+            alFallarElAcceso, alNecesitarIdentificacion
+        )
+    }
 
     web.evaluateJavascript(ExtractorFaltas.GUION) { crudo ->
         if (alExtraer(crudo, web.url ?: url, false)) return@evaluateJavascript
@@ -598,10 +775,7 @@ private fun buscarFaltas(
             contenedor.intentos < MAX_INTENTOS
         ) {
             contenedor.intentos++
-            web.postDelayed(
-                { buscarFaltas(contenedor, url, alExtraer, alNavegar, alNecesitarIdentificacion) },
-                ESPERA_MS
-            )
+            web.postDelayed(seguir, ESPERA_MS)
             return@evaluateJavascript
         }
 
@@ -617,14 +791,52 @@ private fun buscarFaltas(
             if (navegacion?.pulsado == true) {
                 // Al desplegar un menú no hay carga de página que avise, así que se
                 // espera un momento y se vuelve a mirar.
-                web.postDelayed(
-                    { buscarFaltas(contenedor, url, alExtraer, alNavegar, alNecesitarIdentificacion) },
-                    ESPERA_MS
-                )
-            } else {
-                // Ni tabla ni menú: lo que hay delante es la pantalla de acceso.
+                web.postDelayed(seguir, ESPERA_MS)
+                return@evaluateJavascript
+            }
+
+            // Ni tabla ni menú: lo que hay delante es la pantalla de acceso.
+            entrarSolo(contenedor, web, seguir, alEntrarSolo, alFallarElAcceso) {
                 alNecesitarIdentificacion()
             }
+        }
+    }
+}
+
+/**
+ * Séneca caduca la sesión por su cuenta —lo dice él mismo—, así que cuando aparece su
+ * pantalla de acceso se rellena con la cuenta guardada, si la hay.
+ *
+ * Se intenta **una sola vez por apertura**: si después de entrar Séneca vuelve a pedir
+ * acceso, la contraseña ya no vale, y reintentar en bucle bloquearía la cuenta del alumno.
+ */
+private fun entrarSolo(
+    contenedor: ContenedorWeb,
+    web: WebView,
+    seguir: () -> Unit,
+    alEntrarSolo: () -> Credenciales?,
+    alFallarElAcceso: () -> Unit,
+    alRendirse: () -> Unit
+) {
+    val cuenta = alEntrarSolo()
+    if (cuenta == null) {
+        alRendirse()
+        return
+    }
+    if (contenedor.accesosIntentados >= MAX_ACCESOS) {
+        alFallarElAcceso()
+        alRendirse()
+        return
+    }
+    contenedor.accesosIntentados++
+
+    web.evaluateJavascript(AutoAcceso.guion(cuenta.usuario, cuenta.clave)) { respuesta ->
+        if (RespuestaJs.leerAcceso(respuesta)?.actuo == true) {
+            // Cerrar el aviso o enviar el formulario recarga la página: hay que dar tiempo.
+            contenedor.intentos = 0
+            web.postDelayed(seguir, ESPERA_ACCESO_MS)
+        } else {
+            alRendirse()
         }
     }
 }
@@ -635,6 +847,13 @@ private fun buscarFaltas(
  */
 private const val MAX_INTENTOS = 8
 private const val ESPERA_MS = 1200L
+
+/**
+ * Dos: uno para cerrar el aviso de sesión caducada y otro para enviar el formulario. Más
+ * sería insistir con una contraseña que no vale, y eso termina bloqueando la cuenta.
+ */
+private const val MAX_ACCESOS = 2
+private const val ESPERA_ACCESO_MS = 2500L
 
 /**
  * Séneca no se puede probar desde fuera de un móvil con sesión, así que la app cuenta qué vio

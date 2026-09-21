@@ -136,6 +136,24 @@ credenciales:
 **Séneca solo se enseña cuando hay que identificarse**, que es lo que ocurre si no quedan ni
 tabla ni menú que pulsar.
 
+### La sesión caduca, y eso no lo arregla ninguna cookie
+
+Séneca cierra la sesión por su cuenta y lo dice con todas las letras: «se ha agotado el
+tiempo de sesión». Por eso la app puede, opcionalmente, guardar la cuenta y rellenar el
+formulario igual que haría el alumno: cierra el aviso, escribe usuario y contraseña y envía.
+
+Es lo único de la app que guarda una contraseña, así que:
+
+- Se cifra con el **almacén de claves de Android**, no en preferencias normales. Si ese
+  almacén no está disponible, no se guarda nada: antes eso que dejarla sin cifrar.
+- Es **opcional** y se borra desde la misma tarjeta, o con «Borrar faltas y cerrar la sesión».
+- Se intenta **como mucho dos veces por apertura**: una para cerrar el aviso y otra para
+  enviar el formulario. Si Séneca vuelve a pedir acceso, se avisa y se para, porque insistir
+  con una contraseña que no vale acaba bloqueando la cuenta del alumno.
+- Los datos se inyectan en el guion **codificados como literal de JavaScript**, nunca pegados
+  tal cual: una comilla o una barra en la contraseña romperían el código, y lo que rompe el
+  código también puede ejecutarlo.
+
 Séneca ata la sesión a dos cosas: sus cookies y la ruta `/seneca/nav/<algo>` que genera al
 entrar. Por eso se guarda también la última página donde se encontró la tabla y se vuelve
 directamente a ella, en lugar de empezar por la portada.

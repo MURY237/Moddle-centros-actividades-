@@ -52,6 +52,7 @@ import com.asir.moodleactividades.data.CacheActividades
 import com.asir.moodleactividades.data.Conectividad
 import com.asir.moodleactividades.data.AlmacenFaltas
 import com.asir.moodleactividades.data.CacheCalificaciones
+import com.asir.moodleactividades.data.CredencialesSeneca
 import com.asir.moodleactividades.data.DescargaAdjuntos
 import com.asir.moodleactividades.data.HistorialAvisos
 import com.asir.moodleactividades.data.PreferenciasAvisos
@@ -208,7 +209,12 @@ private fun PantallaPrincipal(
     val sesionSeneca = remember { SesionSeneca(contexto) }
     val faltasViewModel: FaltasViewModel = viewModel(
         factory = fabrica {
-            FaltasViewModel(AlmacenFaltas(contexto), sesionSeneca, HistorialAvisos(contexto))
+            FaltasViewModel(
+                AlmacenFaltas(contexto),
+                sesionSeneca,
+                HistorialAvisos(contexto),
+                CredencialesSeneca(contexto)
+            )
         }
     )
 
