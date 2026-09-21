@@ -9,7 +9,8 @@ import kotlinx.serialization.json.Json
 enum class TipoAviso(val etiqueta: String) {
     ENTREGA("Entrega cercana"),
     NUEVA("Actividad nueva"),
-    NOTA("Nota publicada")
+    NOTA("Nota publicada"),
+    FALTA("Falta nueva")
 }
 
 @Serializable

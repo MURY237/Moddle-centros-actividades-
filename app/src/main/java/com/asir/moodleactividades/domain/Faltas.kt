@@ -53,4 +53,18 @@ object ResumenFaltas {
             .sortedWith(compareByDescending<FaltasDeAsignatura> { it.total }.thenBy { it.asignatura })
 
     fun totalInjustificadas(faltas: List<Falta>): Int = faltas.count { !it.justificada }
+
+    /**
+     * Las faltas que no estaban en la consulta anterior. Sirve para avisar de lo nuevo sin
+     * repetir lo ya visto; con la lista previa vacía no hay nada con qué comparar.
+     */
+    fun recienPuestas(antes: List<Falta>, ahora: List<Falta>): List<Falta> {
+        if (antes.isEmpty()) return emptyList()
+        val conocidas = antes.mapTo(mutableSetOf()) { clave(it) }
+        return ahora.filterNot { clave(it) in conocidas }
+    }
+
+    /** Una falta no trae identificador: la distinguen su día, su hora y su asignatura. */
+    private fun clave(falta: Falta) =
+        falta.fecha + "|" + falta.tramo + "|" + falta.asignatura
 }

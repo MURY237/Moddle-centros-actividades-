@@ -52,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.asir.moodleactividades.data.SesionSeneca
 import com.asir.moodleactividades.data.seneca.ExtractorFaltas
 import com.asir.moodleactividades.data.seneca.NavegadorFaltas
 import com.asir.moodleactividades.data.seneca.RespuestaJs
@@ -77,16 +78,21 @@ private const val INICIO_SENECA = "https://seneca.juntadeandalucia.es/"
 @Composable
 fun FaltasScreen(
     viewModel: FaltasViewModel,
-    alVolver: () -> Unit,
+    sesion: SesionSeneca,
+    alVolver: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
 
-    BackHandler(enabled = estado.modo == ModoSeneca.NINGUNO, onBack = alVolver)
+    // Como pestaña no hay nada a lo que volver; solo se intercepta el atrás dentro de Séneca.
+    BackHandler(enabled = estado.modo == ModoSeneca.NINGUNO && alVolver != null) {
+        alVolver?.invoke()
+    }
 
     if (estado.modo != ModoSeneca.NINGUNO) {
         NavegadorSeneca(
             visible = estado.modo == ModoSeneca.VISIBLE,
+            sesion = sesion,
             alExtraer = { crudo, aMano -> viewModel.procesarPagina(crudo, aMano) },
             alNecesitarIdentificacion = viewModel::pedirIdentificacion,
             sinExito = estado.buscadaSinExito,
@@ -156,7 +162,7 @@ private fun Cabecera(
     total: Int,
     injustificadas: Int,
     momento: Long?,
-    alVolver: () -> Unit,
+    alVolver: (() -> Unit)?,
     alActualizar: () -> Unit
 ) {
     Box(
@@ -172,8 +178,12 @@ private fun Cabecera(
                 .padding(top = 12.dp, bottom = 20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = alVolver) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = Color.White)
+            if (alVolver != null) {
+                IconButton(onClick = alVolver) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = Color.White)
+                }
+            } else {
+                Spacer(Modifier.size(8.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -314,6 +324,7 @@ private fun TarjetaAsignatura(asignatura: FaltasDeAsignatura) {
 @Composable
 private fun NavegadorSeneca(
     visible: Boolean,
+    sesion: SesionSeneca,
     alExtraer: (String?, Boolean) -> Boolean,
     alNecesitarIdentificacion: () -> Unit,
     sinExito: Boolean,
@@ -354,6 +365,9 @@ private fun NavegadorSeneca(
                         // Sin cookies persistentes habría que identificarse en cada apertura.
                         CookieManager.getInstance().setAcceptCookie(true)
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                        // Las cookies de Séneca no llevan caducidad, así que el navegador las
+                        // tira al cerrarse la app. Reponerlas evita volver a identificarse.
+                        sesion.restaurar()
                         webViewClient = object : WebViewClient() {
                             override fun onPageFinished(vistaWeb: WebView?, url: String?) {
                                 // Cada página nueva estrena presupuesto de intentos: así la

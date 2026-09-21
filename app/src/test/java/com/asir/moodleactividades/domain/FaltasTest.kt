@@ -86,6 +86,43 @@ class FaltasTest {
     }
 
     @Test
+    fun `detecta las faltas que no estaban antes`() {
+        val antes = listOf(falta("Redes", fecha = "01/09/2026"))
+        val ahora = listOf(
+            falta("Redes", fecha = "01/09/2026"),
+            falta("Redes", fecha = "18/09/2026")
+        )
+
+        assertEquals(listOf("18/09/2026"), ResumenFaltas.recienPuestas(antes, ahora).map { it.fecha })
+    }
+
+    @Test
+    fun `la primera consulta no cuenta como faltas nuevas`() {
+        val ahora = listOf(falta("Redes"), falta("Bases de datos"))
+
+        assertEquals(emptyList<Falta>(), ResumenFaltas.recienPuestas(emptyList(), ahora))
+    }
+
+    @Test
+    fun `dos faltas del mismo dia en tramos distintos son faltas distintas`() {
+        val antes = listOf(falta("Redes"))
+        val ahora = listOf(
+            falta("Redes"),
+            Falta(fecha = "18/09/2026", tramo = "9:15 - 10:15", asignatura = "Redes", estado = "Injustificada")
+        )
+
+        assertEquals(1, ResumenFaltas.recienPuestas(antes, ahora).size)
+    }
+
+    @Test
+    fun `una falta que cambia a justificada no cuenta como nueva`() {
+        val antes = listOf(falta("Redes"))
+        val ahora = listOf(falta("Redes", estado = "Justificada"))
+
+        assertEquals(emptyList<Falta>(), ResumenFaltas.recienPuestas(antes, ahora))
+    }
+
+    @Test
     fun `cuenta el total de injustificadas`() {
         val faltas = listOf(
             falta("Redes"),

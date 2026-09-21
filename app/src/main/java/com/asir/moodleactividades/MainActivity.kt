@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
@@ -50,6 +51,7 @@ import com.asir.moodleactividades.data.CacheCalificaciones
 import com.asir.moodleactividades.data.DescargaAdjuntos
 import com.asir.moodleactividades.data.HistorialAvisos
 import com.asir.moodleactividades.data.PreferenciasAvisos
+import com.asir.moodleactividades.data.SesionSeneca
 import com.asir.moodleactividades.data.SesionStore
 import com.asir.moodleactividades.data.net.SsoLogin
 import com.asir.moodleactividades.notificaciones.Recordatorios
@@ -108,6 +110,7 @@ class MainActivity : ComponentActivity() {
 private enum class Seccion(val etiqueta: String) {
     ACTIVIDADES("Tareas"),
     NOTAS("Notas"),
+    FALTAS("Faltas"),
     AVISOS("Avisos"),
     HORARIO("Horario"),
     AJUSTES("Ajustes")
@@ -176,9 +179,6 @@ private fun PantallaPrincipal(
 ) {
     val contexto = LocalContext.current
     var seccion by remember { mutableStateOf(Seccion.ACTIVIDADES) }
-    // Las faltas se abren por encima de las pestañas: son una pantalla completa y no caben
-    // como sexta pestaña sin apretar el resto de la barra.
-    var viendoFaltas by remember { mutableStateOf(false) }
 
     val actividadesViewModel: ActividadesViewModel = viewModel(
         key = "actividades-$generacion",
@@ -196,8 +196,11 @@ private fun PantallaPrincipal(
     )
     val ajustes by ajustesViewModel.estado.collectAsStateWithLifecycle()
 
+    val sesionSeneca = remember { SesionSeneca(contexto) }
     val faltasViewModel: FaltasViewModel = viewModel(
-        factory = fabrica { FaltasViewModel(AlmacenFaltas(contexto)) }
+        factory = fabrica {
+            FaltasViewModel(AlmacenFaltas(contexto), sesionSeneca, HistorialAvisos(contexto))
+        }
     )
 
     val asistenciaViewModel: AsistenciaViewModel = viewModel(
@@ -238,15 +241,6 @@ private fun PantallaPrincipal(
         if (estadoActividades.sesionCaducada) alCerrarSesion()
     }
 
-    if (viendoFaltas) {
-        FaltasScreen(
-            viewModel = faltasViewModel,
-            alVolver = { viendoFaltas = false },
-            modifier = Modifier.fillMaxSize()
-        )
-        return
-    }
-
     Scaffold(
         // La cabecera de cada pantalla pinta bajo la barra de estado y aplica su propio inset.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -268,6 +262,12 @@ private fun PantallaPrincipal(
                     onClick = { seccion = Seccion.NOTAS },
                     icon = { Icon(Icons.Default.Grade, contentDescription = null) },
                     label = { Text(Seccion.NOTAS.etiqueta) }
+                )
+                NavigationBarItem(
+                    selected = seccion == Seccion.FALTAS,
+                    onClick = { seccion = Seccion.FALTAS },
+                    icon = { Icon(Icons.Default.EventBusy, contentDescription = null) },
+                    label = { Text(Seccion.FALTAS.etiqueta) }
                 )
                 NavigationBarItem(
                     selected = seccion == Seccion.AVISOS,
@@ -316,10 +316,16 @@ private fun PantallaPrincipal(
                 )
                 NotasScreen(
                     viewModel = notasViewModel,
-                    alAbrirFaltas = { viendoFaltas = true },
+                    alAbrirFaltas = { seccion = Seccion.FALTAS },
                     modifier = Modifier.padding(relleno)
                 )
             }
+
+            Seccion.FALTAS -> FaltasScreen(
+                viewModel = faltasViewModel,
+                sesion = sesionSeneca,
+                modifier = Modifier.padding(relleno)
+            )
 
             Seccion.AVISOS -> AvisosScreen(
                 viewModel = avisosViewModel,
@@ -347,7 +353,7 @@ private fun PantallaPrincipal(
                 alCambiarHora = { ajustesViewModel.cambiarHora(it, contexto) },
                 asistencia = asistencia,
                 alComprobarAsistencia = asistenciaViewModel::comprobar,
-                alVerFaltasSeneca = { viendoFaltas = true },
+                alVerFaltasSeneca = { seccion = Seccion.FALTAS },
                 modifier = Modifier.padding(relleno)
             )
         }
