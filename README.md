@@ -153,8 +153,14 @@ cosmético —los cortafuegos de los centros cortan por exceso de peticiones seg
 pantalla se quedaría vacía—, pero es lo bastante corto para que al abrir la app se vea el
 estado real.
 
-Las faltas solo se refrescan solas si hay una sesión de Séneca guardada: sin ella lo único
-que se conseguiría es plantar la pantalla de acceso por sorpresa. Lo que aparezca de nuevo
+Las faltas solo se refrescan solas si hay una sesión de Séneca guardada. El refresco
+trabaja en un navegador diminuto detrás de la lista: el alumno sigue viendo sus faltas
+mientras tanto, con un indicador en la cabecera, y lo nuevo aparece solo cuando llega.
+
+**El refresco automático nunca abre Séneca.** Si la sesión ha caducado, se deja un aviso con
+un botón para entrar y ahí decide el alumno; quitarle de delante lo que estaba mirando para
+plantarle un formulario es peor que no actualizar. Séneca solo ocupa la pantalla cuando el
+acceso se pide a mano. Lo que aparezca de nuevo
 se apunta además en «Avisos».
 
 La app **nunca ve ni guarda la contraseña**: la sesión vive en las cookies del navegador

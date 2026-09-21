@@ -32,6 +32,8 @@ data class FaltasUiState(
     val diagnostico: List<String> = emptyList(),
     val buscadaSinExito: Boolean = false,
     val leidoAlgunaVez: Boolean = false,
+    /** El intento a oscuras no llegó: hace falta identificarse, pero se pide, no se impone. */
+    val necesitaAcceso: Boolean = false,
     val diagnosticoSeneca: DiagnosticoSeneca = DiagnosticoSeneca()
 ) {
     val total: Int get() = faltas.size
@@ -46,6 +48,8 @@ class FaltasViewModel(
 
     private val _estado = MutableStateFlow(FaltasUiState())
     val estado: StateFlow<FaltasUiState> = _estado.asStateFlow()
+
+    private var intentoExplicito = true
 
     init {
         val guardadas = almacen.leer()
@@ -68,8 +72,10 @@ class FaltasViewModel(
     fun actualizarSiConviene() {
         if (!sesion.hay()) return
         if (_estado.value.modo != ModoSeneca.NINGUNO) return
+        // Si ya se sabe que la sesión no vale, insistir solo gasta batería y datos.
+        if (_estado.value.necesitaAcceso) return
         if (!caducado(_estado.value.momento)) return
-        actualizar()
+        actualizar(explicito = false)
     }
 
     private fun caducado(momento: Long?): Boolean {
@@ -81,19 +87,35 @@ class FaltasViewModel(
      * Siempre se prueba primero a oscuras. Si la sesión de Séneca sigue viva —lo normal
      * después de la primera vez— el alumno no ve ninguna página web: solo sus faltas.
      */
-    fun actualizar() = _estado.update {
-        it.copy(
-            modo = ModoSeneca.OCULTO,
-            diagnostico = emptyList(),
-            buscadaSinExito = false,
-            diagnosticoSeneca = DiagnosticoSeneca.de(sesion)
-        )
+    /**
+     * [explicito] distingue quién ha pedido la consulta. Si la pide el usuario y la sesión ha
+     * caducado, tiene sentido enseñarle Séneca para que entre; si es el refresco de cortesía,
+     * enseñarlo sería arrebatarle la pantalla mientras mira sus faltas.
+     */
+    fun actualizar(explicito: Boolean = true) {
+        intentoExplicito = explicito
+        _estado.update {
+            it.copy(
+                modo = ModoSeneca.OCULTO,
+                diagnostico = emptyList(),
+                buscadaSinExito = false,
+                necesitaAcceso = false,
+                diagnosticoSeneca = DiagnosticoSeneca.de(sesion)
+            )
+        }
     }
 
-    /** Solo cuando el intento a oscuras no llega a la tabla: hay que identificarse. */
+    /**
+     * El intento a oscuras no ha llegado a la tabla. Si lo pidió el usuario se le enseña
+     * Séneca; si no, se recoge todo y se deja un aviso: nunca se le quita lo que está viendo.
+     */
     fun pedirIdentificacion() = _estado.update {
         val anotado = it.copy(diagnosticoSeneca = it.diagnosticoSeneca.copy(pidioAcceso = true))
-        if (anotado.modo == ModoSeneca.OCULTO) anotado.copy(modo = ModoSeneca.VISIBLE) else anotado
+        when {
+            anotado.modo != ModoSeneca.OCULTO -> anotado
+            intentoExplicito -> anotado.copy(modo = ModoSeneca.VISIBLE)
+            else -> anotado.copy(modo = ModoSeneca.NINGUNO, necesitaAcceso = true)
+        }
     }
 
     /** Cada página cargada, para poder contar dónde se queda el recorrido cuando falla. */
@@ -180,7 +202,10 @@ class FaltasViewModel(
     }
 
     private companion object {
-        /** Un minuto: suficiente para no repetir la consulta al cambiar de pestaña. */
-        const val FRESCURA_SEGUNDOS = 60L
+        /**
+         * Dos minutos. Abrir la app debe traer lo nuevo, pero leer las faltas obliga a
+         * recorrer Séneca entero y no tiene sentido repetirlo al cambiar de pestaña.
+         */
+        const val FRESCURA_SEGUNDOS = 2 * 60L
     }
 }
