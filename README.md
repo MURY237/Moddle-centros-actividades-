@@ -53,6 +53,7 @@ Para generar un token manualmente en Moodle:
 - Guarda todos esos avisos en la pestaña «Avisos», para poder consultarlos aunque
   se haya descartado la notificación del sistema.
 - Guarda el horario de clase en PDF o imagen y lo muestra con zoom, sin conexión.
+- Guarda los horarios del autobús y dice cuánto falta para el siguiente.
 - Abre la ficha de cada tarea con su enunciado y sus documentos adjuntos, que se
   descargan y se abren desde la propia app, sin entrar en Moodle.
 
@@ -214,6 +215,24 @@ Una asignatura sin nada dentro sale igual: en «Tareas» se puede elegir en el f
 explica que aún no tiene actividades, y en «Notas» aparece como «Todavía sin actividades
 evaluables». Si el centro no responde a esa consulta se conserva la lista anterior, en vez
 de quedarse sin asignaturas.
+
+## El autobús
+
+Para quien viene de un pueblo, la pregunta diaria no es solo qué hay que entregar, sino si
+da tiempo a coger el autobús. La pestaña «Horario» tiene por eso dos vistas: las clases y el
+autobús.
+
+Los horarios los escribe el alumno —no hay ninguna API de transporte que valga para todos
+los pueblos— y se guardan en el móvil, así que funciona sin conexión. Se apuntan por
+trayecto, porque la ida y la vuelta suelen tener horas y días distintos.
+
+Arriba sale la próxima salida de todas las líneas, con cuánto falta, y en ámbar cuando
+quedan quince minutos o menos. Debajo, las salidas de hoy de cada línea: las que ya han
+pasado se apagan pero no se ocultan, porque sirven para hacerse una idea de la frecuencia.
+
+Las horas se guardan como minutos desde medianoche, no como texto: así se ordenan y se
+comparan sin volver a interpretarlas. Al escribirlas se acepta «7:15», «07.15» o «0715», y
+lo que no sea una hora válida no llega a guardarse.
 
 ## Cómo se clasifica cada actividad
 

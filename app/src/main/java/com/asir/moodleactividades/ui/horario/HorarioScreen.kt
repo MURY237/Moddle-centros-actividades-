@@ -23,12 +23,14 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -45,12 +47,31 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.asir.moodleactividades.ui.bus.BusScreen
+import com.asir.moodleactividades.ui.bus.BusViewModel
 import com.asir.moodleactividades.ui.componentes.EstadoVacio
 import com.asir.moodleactividades.ui.theme.DegradadoCabecera
 
+/** Las dos cosas que un alumno consulta a diario: a qué clase toca y a qué hora es el bus. */
+private enum class VistaHorario(val etiqueta: String) {
+    CLASES("Clases"),
+    BUS("Autobús")
+}
+
 @Composable
-fun HorarioScreen(viewModel: HorarioViewModel, modifier: Modifier = Modifier) {
+fun HorarioScreen(
+    viewModel: HorarioViewModel,
+    busViewModel: BusViewModel,
+    modifier: Modifier = Modifier
+) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
+    var vista by remember { mutableStateOf(VistaHorario.CLASES) }
+
+    // La cuenta atrás del bus se rehace al entrar: un temporizador para esto sería gastar
+    // batería por algo que se mira de pasada.
+    LaunchedEffect(vista) {
+        if (vista == VistaHorario.BUS) busViewModel.recalcular()
+    }
 
     val elegirArchivo = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -80,14 +101,18 @@ fun HorarioScreen(viewModel: HorarioViewModel, modifier: Modifier = Modifier) {
                         color = Color.White
                     )
                     Text(
-                        text = estado.horario?.nombre ?: "Sin horario guardado",
+                        text = if (vista == VistaHorario.BUS) {
+                            "Horarios de autobús"
+                        } else {
+                            estado.horario?.nombre ?: "Sin horario guardado"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.82f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                if (estado.horario != null) {
+                if (estado.horario != null && vista == VistaHorario.CLASES) {
                     IconButton(onClick = { elegirArchivo.launch(tiposAceptados) }) {
                         Icon(Icons.Default.SwapHoriz, "Cambiar horario", tint = Color.White)
                     }
@@ -96,6 +121,27 @@ fun HorarioScreen(viewModel: HorarioViewModel, modifier: Modifier = Modifier) {
                     }
                 }
             }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            VistaHorario.entries.forEach { opcion ->
+                FilterChip(
+                    selected = vista == opcion,
+                    onClick = { vista = opcion },
+                    label = { Text(opcion.etiqueta) },
+                    shape = RoundedCornerShape(14.dp)
+                )
+            }
+        }
+
+        if (vista == VistaHorario.BUS) {
+            BusScreen(viewModel = busViewModel, modifier = Modifier.fillMaxSize())
+            return@Column
         }
 
         Box(modifier = Modifier.fillMaxSize()) {

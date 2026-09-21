@@ -47,6 +47,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.asir.moodleactividades.data.ActividadesRepository
+import com.asir.moodleactividades.data.AlmacenBus
 import com.asir.moodleactividades.data.AlmacenHorario
 import com.asir.moodleactividades.data.CacheActividades
 import com.asir.moodleactividades.data.Conectividad
@@ -65,6 +66,7 @@ import com.asir.moodleactividades.ui.acercade.AcercaDeScreen
 import com.asir.moodleactividades.ui.actualizacion.ActualizacionViewModel
 import com.asir.moodleactividades.ui.ajustes.AjustesViewModel
 import com.asir.moodleactividades.ui.asistencia.AsistenciaViewModel
+import com.asir.moodleactividades.ui.bus.BusViewModel
 import com.asir.moodleactividades.ui.faltas.FaltasScreen
 import com.asir.moodleactividades.ui.faltas.FaltasViewModel
 import com.asir.moodleactividades.ui.avisos.AvisosScreen
@@ -361,8 +363,12 @@ private fun PantallaPrincipal(
                 val horarioViewModel: HorarioViewModel = viewModel(
                     factory = fabrica { HorarioViewModel(AlmacenHorario(contexto)) }
                 )
+                val busViewModel: BusViewModel = viewModel(
+                    factory = fabrica { BusViewModel(AlmacenBus(contexto)) }
+                )
                 HorarioScreen(
                     viewModel = horarioViewModel,
+                    busViewModel = busViewModel,
                     modifier = Modifier.padding(relleno)
                 )
             }
