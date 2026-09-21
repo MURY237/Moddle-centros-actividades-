@@ -131,8 +131,17 @@ credenciales:
    injustificadas, con las mismas tarjetas que el resto de la app.
 
 **Séneca solo se enseña cuando hay que identificarse**, que es lo que ocurre si no quedan ni
-tabla ni menú que pulsar. Hecho eso una vez, las cookies mantienen la sesión y las
-actualizaciones siguientes son invisibles.
+tabla ni menú que pulsar.
+
+Las cookies de Séneca no llevan caducidad, así que el navegador incrustado las tira al
+cerrarse la app y habría que identificarse en cada arranque. Para evitarlo se guardan en las
+preferencias privadas y se reponen antes de cargar la página: la sesión continúa donde
+estaba hasta que Séneca la caduca por su cuenta, y entonces —solo entonces— se vuelve a
+pedir el acceso. Lo guardado equivale a una sesión abierta, **nunca a la contraseña**, y se
+borra al desconectar.
+
+Al abrir la pestaña «Faltas», si lo guardado tiene más de media hora la app se actualiza
+sola en segundo plano. Lo que aparezca de nuevo se apunta además en «Avisos».
 
 La app **nunca ve ni guarda la contraseña**: la sesión vive en las cookies del navegador
 incrustado, y el botón «Borrar faltas y cerrar la sesión de Séneca» las elimina junto con

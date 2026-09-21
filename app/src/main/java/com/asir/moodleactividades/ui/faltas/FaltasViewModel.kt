@@ -3,6 +3,10 @@ package com.asir.moodleactividades.ui.faltas
 import android.webkit.CookieManager
 import androidx.lifecycle.ViewModel
 import com.asir.moodleactividades.data.AlmacenFaltas
+import com.asir.moodleactividades.data.Aviso
+import com.asir.moodleactividades.data.HistorialAvisos
+import com.asir.moodleactividades.data.SesionSeneca
+import com.asir.moodleactividades.data.TipoAviso
 import com.asir.moodleactividades.data.seneca.RespuestaJs
 import com.asir.moodleactividades.domain.Falta
 import com.asir.moodleactividades.domain.FaltasDeAsignatura
@@ -32,13 +36,18 @@ data class FaltasUiState(
     val injustificadas: Int get() = ResumenFaltas.totalInjustificadas(faltas)
 }
 
-class FaltasViewModel(private val almacen: AlmacenFaltas) : ViewModel() {
+class FaltasViewModel(
+    private val almacen: AlmacenFaltas,
+    private val sesion: SesionSeneca,
+    private val historial: HistorialAvisos
+) : ViewModel() {
 
     private val _estado = MutableStateFlow(FaltasUiState())
     val estado: StateFlow<FaltasUiState> = _estado.asStateFlow()
 
     init {
-        almacen.leer()?.let { guardadas ->
+        val guardadas = almacen.leer()
+        if (guardadas != null) {
             _estado.value = FaltasUiState(
                 faltas = guardadas.faltas,
                 porAsignatura = ResumenFaltas.porAsignatura(guardadas.faltas),
@@ -46,6 +55,15 @@ class FaltasViewModel(private val almacen: AlmacenFaltas) : ViewModel() {
                 leidoAlgunaVez = true
             )
         }
+
+        // Al abrir la pestaña se refresca solo, sin pedir nada, siempre que haya una sesión
+        // guardada y lo que hay en pantalla se haya quedado viejo.
+        if (sesion.hay() && caducado(guardadas?.momento)) actualizar()
+    }
+
+    private fun caducado(momento: Long?): Boolean {
+        if (momento == null) return true
+        return System.currentTimeMillis() / 1000 - momento > FRESCURA_SEGUNDOS
     }
 
     /**
@@ -79,7 +97,13 @@ class FaltasViewModel(private val almacen: AlmacenFaltas) : ViewModel() {
             return false
         }
 
+        anotarLasNuevas(_estado.value.faltas, resultado.faltas)
+
         almacen.guardar(resultado.faltas)
+        // La sesión se guarda solo cuando ha servido para algo: así no se conserva una
+        // caducada que obligaría a reintentar en balde en la próxima apertura.
+        sesion.guardar()
+
         _estado.value = FaltasUiState(
             faltas = resultado.faltas,
             porAsignatura = ResumenFaltas.porAsignatura(resultado.faltas),
@@ -90,13 +114,33 @@ class FaltasViewModel(private val almacen: AlmacenFaltas) : ViewModel() {
         return true
     }
 
+    /** Lo que llega nuevo se apunta en «Avisos», para enterarse aunque no se mire aquí. */
+    private fun anotarLasNuevas(antes: List<Falta>, ahora: List<Falta>) {
+        ResumenFaltas.recienPuestas(antes, ahora).forEach { falta ->
+            historial.anadir(
+                Aviso(
+                    momento = System.currentTimeMillis() / 1000,
+                    tipo = TipoAviso.FALTA,
+                    titulo = "Falta nueva en " + falta.asignatura,
+                    texto = falta.fecha + " · " + falta.tramo + " · " + falta.estado
+                )
+            )
+        }
+    }
+
     /** Borra las faltas guardadas y la sesión del navegador incrustado. */
     fun desconectar() {
         almacen.borrar()
+        sesion.borrar()
         runCatching {
             CookieManager.getInstance().removeAllCookies(null)
             CookieManager.getInstance().flush()
         }
         _estado.value = FaltasUiState()
+    }
+
+    private companion object {
+        /** Media hora: lo justo para no repetir la consulta a cada vistazo. */
+        const val FRESCURA_SEGUNDOS = 30 * 60L
     }
 }

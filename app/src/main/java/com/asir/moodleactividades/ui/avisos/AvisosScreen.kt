@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -51,6 +52,9 @@ import com.asir.moodleactividades.ui.theme.AmbarPendiente
 import com.asir.moodleactividades.ui.theme.AmbarPendienteFondo
 import com.asir.moodleactividades.ui.theme.AmbarPendienteOscuro
 import com.asir.moodleactividades.ui.theme.DegradadoCabecera
+import com.asir.moodleactividades.ui.theme.RojoNoEntregada
+import com.asir.moodleactividades.ui.theme.RojoNoEntregadaFondo
+import com.asir.moodleactividades.ui.theme.RojoNoEntregadaOscuro
 import com.asir.moodleactividades.ui.theme.VerdeEntregada
 import com.asir.moodleactividades.ui.theme.VerdeEntregadaFondo
 import com.asir.moodleactividades.ui.theme.VerdeEntregadaOscuro
@@ -221,16 +225,19 @@ private fun iconoDe(tipo: TipoAviso): ImageVector = when (tipo) {
     TipoAviso.ENTREGA -> Icons.Default.NotificationsActive
     TipoAviso.NUEVA -> Icons.Default.NewReleases
     TipoAviso.NOTA -> Icons.Default.Grade
+    TipoAviso.FALTA -> Icons.Default.EventBusy
 }
 
 private fun colorDe(tipo: TipoAviso): Color = when (tipo) {
     TipoAviso.ENTREGA -> AmbarPendiente
     TipoAviso.NUEVA -> AmbarPendiente
     TipoAviso.NOTA -> VerdeEntregada
+    TipoAviso.FALTA -> RojoNoEntregada
 }
 
 @Composable
 private fun fondoDe(tipo: TipoAviso): Color = when (tipo) {
     TipoAviso.NOTA -> fondoDeEstado(VerdeEntregadaFondo, VerdeEntregadaOscuro)
+    TipoAviso.FALTA -> fondoDeEstado(RojoNoEntregadaFondo, RojoNoEntregadaOscuro)
     else -> fondoDeEstado(AmbarPendienteFondo, AmbarPendienteOscuro)
 }
