@@ -13,8 +13,8 @@ android {
         applicationId = "com.asir.moodleactividades"
         minSdk = 26
         targetSdk = 35
-        versionCode = 35
-        versionName = "1.34"
+        versionCode = 36
+        versionName = "1.35"
     }
 
     // Firma fija en el repositorio: sin ella cada compilación firmaría distinto y Android
