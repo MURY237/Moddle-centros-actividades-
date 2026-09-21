@@ -1,5 +1,8 @@
 package com.asir.moodleactividades.ui.bus
 
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -18,7 +21,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material3.Button
@@ -45,6 +50,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.asir.moodleactividades.domain.HorariosBus
 import com.asir.moodleactividades.domain.LineaBus
 import com.asir.moodleactividades.ui.componentes.EstadoVacio
+import com.asir.moodleactividades.ui.horario.ControlesDePagina
+import com.asir.moodleactividades.ui.horario.HorarioViewModel
+import com.asir.moodleactividades.ui.horario.VisorConZoom
 import com.asir.moodleactividades.ui.theme.AmbarPendiente
 import com.asir.moodleactividades.ui.theme.AmbarPendienteFondo
 import com.asir.moodleactividades.ui.theme.AmbarPendienteOscuro
@@ -54,13 +62,57 @@ import com.asir.moodleactividades.ui.theme.VerdeEntregadaOscuro
 import com.asir.moodleactividades.ui.theme.fondoDeEstado
 
 @Composable
-fun BusScreen(viewModel: BusViewModel, modifier: Modifier = Modifier) {
+fun BusScreen(
+    viewModel: BusViewModel,
+    documento: HorarioViewModel,
+    modifier: Modifier = Modifier
+) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
+    val estadoDocumento by documento.estado.collectAsStateWithLifecycle()
     var anadiendo by remember { mutableStateOf(false) }
+    var viendoDocumento by remember { mutableStateOf(false) }
+
+    val elegirArchivo = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let(documento::elegir) }
+
+    val tiposAceptados = arrayOf("application/pdf", "image/*")
+
+    // El papel de la parada, a pantalla completa: mirarlo es justo para lo que se adjunta.
+    if (viendoDocumento && estadoDocumento.horario != null) {
+        BackHandler { viendoDocumento = false }
+        Column(modifier = modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { viendoDocumento = false }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver a los horarios")
+                }
+                Text(
+                    text = estadoDocumento.horario?.nombre.orEmpty(),
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            VisorConZoom(
+                estado = estadoDocumento,
+                modifier = Modifier.weight(1f).fillMaxWidth()
+            )
+            if (estadoDocumento.totalPaginas > 1) {
+                ControlesDePagina(estadoDocumento, documento::irAPagina)
+            }
+        }
+        return
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
 
-        if (estado.lineas.isEmpty() && !anadiendo) {
+        if (estado.lineas.isEmpty() && !anadiendo && estadoDocumento.horario == null) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 EstadoVacio(
                     icono = Icons.Default.DirectionsBus,
@@ -68,8 +120,14 @@ fun BusScreen(viewModel: BusViewModel, modifier: Modifier = Modifier) {
                     detalle = "Apunta las horas de tu autobús y la app te dirá cuánto falta " +
                         "para el siguiente. Funciona sin conexión: los horarios los escribes tú."
                 ) {
-                    Button(onClick = { anadiendo = true }, shape = RoundedCornerShape(14.dp)) {
-                        Text("Añadir una línea")
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Button(onClick = { anadiendo = true }, shape = RoundedCornerShape(14.dp)) {
+                            Text("Añadir una línea")
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        TextButton(onClick = { elegirArchivo.launch(tiposAceptados) }) {
+                            Text("O adjunta el horario en papel")
+                        }
                     }
                 }
             }
@@ -89,6 +147,15 @@ fun BusScreen(viewModel: BusViewModel, modifier: Modifier = Modifier) {
                     conSalida = conSalida,
                     minutoAhora = estado.minutoAhora,
                     alBorrar = { viewModel.borrar(conSalida.linea.id) }
+                )
+            }
+
+            item {
+                TarjetaDocumento(
+                    nombreArchivo = estadoDocumento.horario?.nombre,
+                    alElegir = { elegirArchivo.launch(tiposAceptados) },
+                    alVer = { viendoDocumento = true },
+                    alQuitar = documento::quitar
                 )
             }
 
@@ -338,6 +405,68 @@ private fun FormularioLinea(
                     Text("Guardar")
                 }
                 TextButton(onClick = alCancelar) { Text("Cancelar") }
+            }
+        }
+    }
+}
+
+/**
+ * Muchos horarios de pueblo son un papel en la parada o un PDF del ayuntamiento. Poder
+ * adjuntarlo evita tener que copiar a mano decenas de horas, y sirve de respaldo cuando lo
+ * escrito se queda corto: los festivos, los refuerzos, las notas al pie.
+ */
+@Composable
+private fun TarjetaDocumento(
+    nombreArchivo: String?,
+    alElegir: () -> Unit,
+    alVer: () -> Unit,
+    alQuitar: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.AttachFile,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp)
+            ) {
+                Text(
+                    text = "Horario en papel",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = nombreArchivo ?: "Adjunta el PDF o una foto de la parada",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (nombreArchivo == null) {
+                TextButton(onClick = alElegir) { Text("Adjuntar") }
+            } else {
+                TextButton(onClick = alVer) { Text("Ver") }
+                IconButton(onClick = alQuitar) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Quitar el documento",
+                        tint = MaterialTheme.colorScheme.outline
+                    )
+                }
             }
         }
     }

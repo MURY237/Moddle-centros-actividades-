@@ -15,13 +15,17 @@ data class HorarioGuardado(
  * El horario se copia dentro de la app en lugar de recordar el Uri elegido: los permisos
  * sobre un documento externo se pierden y el archivo original puede moverse o borrarse.
  */
-class AlmacenHorario(private val contexto: Context) {
+class AlmacenHorario(
+    private val contexto: Context,
+    /** Permite guardar varios documentos distintos: el de clase y el del autobús. */
+    private val clave: String = "horario"
+) {
 
     private val prefs = contexto.applicationContext
-        .getSharedPreferences("horario", Context.MODE_PRIVATE)
+        .getSharedPreferences(clave, Context.MODE_PRIVATE)
 
     private val destino: File
-        get() = File(contexto.applicationContext.filesDir, "horario.dat")
+        get() = File(contexto.applicationContext.filesDir, "$clave.dat")
 
     fun guardar(origen: Uri): HorarioGuardado? = runCatching {
         val tipo = contexto.contentResolver.getType(origen).orEmpty()

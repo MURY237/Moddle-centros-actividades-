@@ -366,9 +366,16 @@ private fun PantallaPrincipal(
                 val busViewModel: BusViewModel = viewModel(
                     factory = fabrica { BusViewModel(AlmacenBus(contexto)) }
                 )
+                // Un almacén aparte para el papel de la parada: es otro documento distinto
+                // del horario de clase y no debe pisarlo.
+                val documentoBus: HorarioViewModel = viewModel(
+                    key = "documento-bus",
+                    factory = fabrica { HorarioViewModel(AlmacenHorario(contexto, "horario_bus")) }
+                )
                 HorarioScreen(
                     viewModel = horarioViewModel,
                     busViewModel = busViewModel,
+                    documentoBus = documentoBus,
                     modifier = Modifier.padding(relleno)
                 )
             }

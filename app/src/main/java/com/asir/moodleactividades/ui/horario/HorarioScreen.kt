@@ -62,6 +62,7 @@ private enum class VistaHorario(val etiqueta: String) {
 fun HorarioScreen(
     viewModel: HorarioViewModel,
     busViewModel: BusViewModel,
+    documentoBus: HorarioViewModel,
     modifier: Modifier = Modifier
 ) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
@@ -140,7 +141,11 @@ fun HorarioScreen(
         }
 
         if (vista == VistaHorario.BUS) {
-            BusScreen(viewModel = busViewModel, modifier = Modifier.fillMaxSize())
+            BusScreen(
+                viewModel = busViewModel,
+                documento = documentoBus,
+                modifier = Modifier.fillMaxSize()
+            )
             return@Column
         }
 
@@ -184,7 +189,7 @@ fun HorarioScreen(
 }
 
 @Composable
-private fun VisorConZoom(estado: HorarioUiState, modifier: Modifier = Modifier) {
+internal fun VisorConZoom(estado: HorarioUiState, modifier: Modifier = Modifier) {
     var escala by remember { mutableFloatStateOf(1f) }
     var desplazamientoX by remember { mutableFloatStateOf(0f) }
     var desplazamientoY by remember { mutableFloatStateOf(0f) }
@@ -255,7 +260,7 @@ private fun VisorConZoom(estado: HorarioUiState, modifier: Modifier = Modifier) 
 }
 
 @Composable
-private fun ControlesDePagina(estado: HorarioUiState, alIr: (Int) -> Unit) {
+internal fun ControlesDePagina(estado: HorarioUiState, alIr: (Int) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(12.dp),
         horizontalArrangement = Arrangement.Center,

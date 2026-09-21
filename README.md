@@ -234,6 +234,12 @@ Las horas se guardan como minutos desde medianoche, no como texto: así se orden
 comparan sin volver a interpretarlas. Al escribirlas se acepta «7:15», «07.15» o «0715», y
 lo que no sea una hora válida no llega a guardarse.
 
+También se puede **adjuntar el horario en papel** —el PDF del ayuntamiento o una foto de la
+parada— y verlo con el mismo visor con zoom que el horario de clase. Copiar decenas de horas
+a mano no siempre compensa, y el papel recoge además lo que no cabe en una lista de horas:
+los festivos, los refuerzos y las notas al pie. Se guarda aparte del horario de clase, así
+que uno no pisa al otro.
+
 ## Cómo se clasifica cada actividad
 
 1. **Entregada**: la entrega existe y su estado es `submitted`.
