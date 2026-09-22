@@ -109,8 +109,29 @@ object NavegadorFaltas {
             return false;
           }
 
+          /**
+           * La pantalla de acceso también trae barra de navegación, y la hamburguesa se
+           * reconoce por sus atributos: sin esto se «pulsaba» ahí una y otra vez hasta agotar
+           * los intentos, y el acceso automático no llegaba a probarse nunca.
+           */
+          function pideAcceso(doc) {
+            var entradas;
+            try { entradas = doc.getElementsByTagName('input'); } catch (e) { return false; }
+            for (var i = 0; i < entradas.length; i++) {
+              if ((entradas[i].type || '').toLowerCase() !== 'password') continue;
+              if (visible(entradas[i])) return true;
+            }
+            return false;
+          }
+
           var docs = documentos();
           var d;
+
+          for (d = 0; d < docs.length; d++) {
+            if (pideAcceso(docs[d])) {
+              return JSON.stringify({ pulsado: false, destino: 'acceso' });
+            }
+          }
 
           for (d = 0; d < docs.length; d++) {
             if (buscar(docs[d], 'faltas de asistencia', 10)) {

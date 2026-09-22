@@ -102,6 +102,23 @@ class AutoAccesoTest {
     }
 
     @Test
+    fun `el sondeo mira si Seneca dice que los datos no valen`() {
+        // Sin esto se daba por mala una cuenta que sí valía, y tocaba escribirla otra vez.
+        assertTrue(AutoAcceso.SONDEO.contains("function hayError"))
+        assertTrue(AutoAcceso.SONDEO.contains("error: hayFallo"))
+    }
+
+    @Test
+    fun `el formulario se manda de varias maneras, no solo con un boton`() {
+        val guion = AutoAcceso.guion("alumno", "secreta")
+
+        // El botón de Séneca puede ser un enlace, y algunos formularios solo van con Intro.
+        assertTrue(guion.contains("input[type=image], button, a, [role=button]"))
+        assertTrue(guion.contains("requestSubmit"))
+        assertTrue(guion.contains("intro(par.clave)"))
+    }
+
+    @Test
     fun `solo se pulsa lo que es un control, no la palabra del mensaje`() {
         val guion = AutoAcceso.guion("alumno", "secreta")
 

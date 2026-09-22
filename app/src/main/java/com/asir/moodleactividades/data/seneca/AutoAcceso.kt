@@ -149,31 +149,68 @@ object AutoAcceso {
             return { usuario: usuarioCampo, clave: clave };
           }
 
+          /** Pulsa Intro en el campo: hay formularios que solo se mandan así. */
+          function intro(campo) {
+            var nombres = ['keydown', 'keypress', 'keyup'];
+            for (var i = 0; i < nombres.length; i++) {
+              try {
+                var evento = campo.ownerDocument.createEvent('Events');
+                evento.initEvent(nombres[i], true, true);
+                evento.keyCode = 13;
+                evento.which = 13;
+                evento.key = 'Enter';
+                campo.dispatchEvent(evento);
+              } catch (e) { /* el navegador no deja crearlo */ }
+            }
+          }
+
           function enviar(doc, par) {
-            // Primero un botón de verdad: el formulario puede llevar validación propia.
+            // Primero un control de verdad. El botón de Séneca no siempre es un <button>:
+            // puede ser un enlace o una imagen, y buscando solo botones no se encontraba.
             var botones;
             try {
-              botones = doc.querySelectorAll('input[type=submit], button, input[type=button]');
+              botones = doc.querySelectorAll(
+                'input[type=submit], input[type=button], input[type=image], button, a, [role=button]'
+              );
             } catch (e) { botones = []; }
             for (var i = 0; i < botones.length; i++) {
               if (!visible(botones[i])) continue;
-              var pista = (limpio(botones[i]) + ' ' + (botones[i].value || '')).toLowerCase();
-              if (!/entrar|acceder|iniciar|enviar|login/.test(pista)) continue;
+              var pista = limpio(botones[i]) + ' ' + atributos(botones[i]);
+              if (!/entrar|acceder|iniciar|enviar|login|aceptar/.test(pista)) continue;
               botones[i].click();
               return true;
             }
+
             var formulario = par.clave.form;
             if (formulario) {
-              formulario.submit();
-              return true;
+              // requestSubmit respeta la validación y el onsubmit del formulario; submit se
+              // los salta, y si Séneca prepara algo ahí el acceso se iría sin ello.
+              try {
+                if (formulario.requestSubmit) { formulario.requestSubmit(); return true; }
+              } catch (e) { /* se sigue con el clásico */ }
+              try { formulario.submit(); return true; } catch (e) { /* queda el Intro */ }
             }
-            return false;
+
+            intro(par.clave);
+            return true;
+          }
+
+          /**
+           * Lo que dice Séneca cuando la cuenta no vale. Es la única señal fiable de que la
+           * contraseña guardada está mal: cualquier otra cosa es un tropiezo del recorrido.
+           */
+          function hayError(doc) {
+            var texto;
+            try { texto = limpio(doc.body || doc.documentElement); } catch (e) { return false; }
+            if (texto.indexOf('usuario') < 0 && texto.indexOf('contrasena') < 0) return false;
+            return /incorrect|no son correct|erroneo|no es valid|no valid|no coincide/.test(texto);
           }
 
           var docs = documentos();
           var accion = '';
           var hayFormulario = false;
           var hayAviso = false;
+          var hayFallo = false;
           var d;
 
           // El formulario va primero: si ya está delante, cerrar avisos no hace falta.
@@ -181,6 +218,7 @@ object AutoAcceso {
             var par = campos(docs[d]);
             if (!par) continue;
             hayFormulario = true;
+            hayFallo = hayError(docs[d]);
             if (actuar) {
               escribir(par.usuario, usuario);
               escribir(par.clave, clave);
@@ -202,7 +240,8 @@ object AutoAcceso {
           return JSON.stringify({
             accion: accion,
             formulario: hayFormulario,
-            aviso: hayAviso
+            aviso: hayAviso,
+            error: hayFallo
           });
         })();
     """.trimIndent()

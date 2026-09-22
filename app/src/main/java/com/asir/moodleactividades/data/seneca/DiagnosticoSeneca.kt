@@ -17,7 +17,9 @@ data class DiagnosticoSeneca(
     val pidioAcceso: Boolean = false,
     val paginasVistas: Int = 0,
     /** Qué fue lo último que la app consiguió pulsar del menú de Séneca. */
-    val ultimoPaso: String = ""
+    val ultimoPaso: String = "",
+    /** En qué se quedó el acceso automático: es lo que dice por qué vuelve a pedir la clave. */
+    val acceso: String = ""
 ) {
     fun comoTexto(): String = buildString {
         appendLine("Cookies guardadas: " + if (cookiesGuardadas.isEmpty()) "ninguna" else
