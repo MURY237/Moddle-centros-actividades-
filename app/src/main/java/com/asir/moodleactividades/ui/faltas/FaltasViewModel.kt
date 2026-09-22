@@ -165,6 +165,11 @@ class FaltasViewModel(
         }
     }
 
+    /** En qué se quedó el acceso automático, para saber por qué vuelve a pedir la clave. */
+    fun anotarAcceso(paso: String) = _estado.update {
+        it.copy(diagnosticoSeneca = it.diagnosticoSeneca.copy(acceso = paso))
+    }
+
     /** Qué consiguió pulsar del menú: dice dónde se atasca el recorrido si no llega. */
     fun anotarNavegacion(destino: String) = _estado.update {
         it.copy(diagnosticoSeneca = it.diagnosticoSeneca.copy(ultimoPaso = destino))
