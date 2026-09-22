@@ -65,4 +65,31 @@ class RespuestaJsTest {
 
         assertEquals(false, resultado?.pulsado)
     }
+
+    @Test
+    fun `cerrar el aviso no cuenta como haber mandado la contrasena`() {
+        val resultado =
+            RespuestaJs.leerAcceso("{\"accion\":\"aviso\",\"formulario\":false,\"aviso\":true}")!!
+
+        assertTrue(resultado.cerroAviso)
+        assertEquals(false, resultado.enviado)
+        assertTrue(resultado.actuo)
+    }
+
+    @Test
+    fun `lee que se ha mandado el formulario`() {
+        val resultado =
+            RespuestaJs.leerAcceso("{\"accion\":\"enviado\",\"formulario\":true}")!!
+
+        assertTrue(resultado.enviado)
+        assertTrue(resultado.formulario)
+    }
+
+    @Test
+    fun `una pagina que no es la de acceso no delata a la contrasena`() {
+        val resultado = RespuestaJs.leerAcceso("{\"accion\":\"\"}")!!
+
+        assertEquals(false, resultado.formulario)
+        assertEquals(false, resultado.actuo)
+    }
 }

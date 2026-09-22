@@ -662,8 +662,9 @@ private fun TarjetaCuentaSeneca(
             if (rechazadas) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Séneca ha rechazado la cuenta guardada. Vuelve a escribirla; no " +
-                        "se reintenta sola para no bloquearte la cuenta.",
+                    text = "Séneca ha rechazado la cuenta guardada. Revísala si no era un " +
+                        "despiste suyo: sola no se reintenta, para no bloquearte la cuenta, " +
+                        "pero al recargar a mano se vuelve a probar una vez.",
                     style = MaterialTheme.typography.bodySmall,
                     color = RojoNoEntregada
                 )
@@ -742,7 +743,15 @@ private fun TarjetaCuentaSeneca(
 private class ContenedorWeb {
     var web: WebView? = null
     var intentos = 0
-    var accesosIntentados = 0
+
+    /** Veces que se ha mandado la contraseña: es lo único que puede bloquear la cuenta. */
+    var envios = 0
+
+    /** Cerrar el aviso de sesión caducada no manda ninguna contraseña, así que va aparte. */
+    var avisosCerrados = 0
+
+    /** Vueltas a la portada cuando la página se queda atascada sin aviso ni formulario. */
+    var reinicios = 0
 }
 
 /**
@@ -807,8 +816,10 @@ private fun buscarFaltas(
  * Séneca caduca la sesión por su cuenta —lo dice él mismo—, así que cuando aparece su
  * pantalla de acceso se rellena con la cuenta guardada, si la hay.
  *
- * Se intenta **una sola vez por apertura**: si después de entrar Séneca vuelve a pedir
- * acceso, la contraseña ya no vale, y reintentar en bucle bloquearía la cuenta del alumno.
+ * La contraseña se manda **una sola vez por apertura**: insistir con una que no valga
+ * bloquearía la cuenta del alumno. Quitar de en medio el aviso de sesión caducada no cuenta
+ * como intento —ahí no se manda nada—, y antes sí contaba: el aviso se comía el turno y el
+ * formulario no llegaba a enviarse nunca, que es por lo que había que entrar a mano.
  */
 private fun entrarSolo(
     contenedor: ContenedorWeb,
@@ -823,20 +834,44 @@ private fun entrarSolo(
         alRendirse()
         return
     }
-    if (contenedor.accesosIntentados >= MAX_ACCESOS) {
-        alFallarElAcceso()
-        alRendirse()
+
+    if (contenedor.envios >= MAX_ENVIOS) {
+        // Ya se mandó la contraseña. Que Séneca vuelva a enseñar el formulario es la única
+        // señal de que no valía; cualquier otra página es un tropiezo del recorrido, y por
+        // eso se mira antes de acusarla: acusarla obliga al alumno a escribirla de nuevo.
+        web.evaluateJavascript(AutoAcceso.SONDEO) { respuesta ->
+            if (RespuestaJs.leerAcceso(respuesta)?.formulario == true) alFallarElAcceso()
+            alRendirse()
+        }
         return
     }
-    contenedor.accesosIntentados++
 
     web.evaluateJavascript(AutoAcceso.guion(cuenta.usuario, cuenta.clave)) { respuesta ->
-        if (RespuestaJs.leerAcceso(respuesta)?.actuo == true) {
-            // Cerrar el aviso o enviar el formulario recarga la página: hay que dar tiempo.
-            contenedor.intentos = 0
-            web.postDelayed(seguir, ESPERA_ACCESO_MS)
-        } else {
-            alRendirse()
+        val resultado = RespuestaJs.leerAcceso(respuesta)
+        when {
+            resultado?.enviado == true -> {
+                contenedor.envios++
+                // Enviar el formulario recarga la página: hay que darle tiempo.
+                contenedor.intentos = 0
+                web.postDelayed(seguir, ESPERA_ACCESO_MS)
+            }
+
+            resultado?.cerroAviso == true && contenedor.avisosCerrados < MAX_AVISOS -> {
+                contenedor.avisosCerrados++
+                contenedor.intentos = 0
+                web.postDelayed(seguir, ESPERA_ACCESO_MS)
+            }
+
+            // Ni formulario que rellenar ni aviso que cerrar: la página está atascada.
+            // Volver a la portada devuelve un formulario limpio, que es lo que hace falta.
+            contenedor.reinicios < MAX_REINICIOS -> {
+                contenedor.reinicios++
+                contenedor.intentos = 0
+                contenedor.avisosCerrados = 0
+                web.loadUrl(INICIO_SENECA)
+            }
+
+            else -> alRendirse()
         }
     }
 }
@@ -849,10 +884,16 @@ private const val MAX_INTENTOS = 8
 private const val ESPERA_MS = 1200L
 
 /**
- * Dos: uno para cerrar el aviso de sesión caducada y otro para enviar el formulario. Más
- * sería insistir con una contraseña que no vale, y eso termina bloqueando la cuenta.
+ * Una sola vez: si Séneca vuelve a pedir acceso después de mandarla, la contraseña no vale,
+ * y repetirla termina bloqueando la cuenta del alumno.
  */
-private const val MAX_ACCESOS = 2
+private const val MAX_ENVIOS = 1
+
+/** Cerrar avisos no manda contraseñas, pero tampoco puede quedarse en bucle. */
+private const val MAX_AVISOS = 3
+
+/** Un único reinicio: si la portada limpia tampoco trae el formulario, no lo va a traer. */
+private const val MAX_REINICIOS = 1
 private const val ESPERA_ACCESO_MS = 2500L
 
 /**
