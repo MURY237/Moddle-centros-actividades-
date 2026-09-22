@@ -74,11 +74,40 @@ class AutoAccesoTest {
         assertTrue(guion.contains("var usuario = \"alumno\""))
         assertTrue(guion.contains("var clave = \"secreta\""))
         // El guion tiene que seguir siendo capaz de cerrar el aviso de sesión caducada.
-        assertTrue(guion.contains("cerrarAviso"))
+        assertTrue(guion.contains("botonCerrar"))
     }
 
     @Test
     fun `un usuario vacio no genera un literal roto`() {
         assertEquals("\"\"", AutoAcceso.comoLiteral(""))
+    }
+
+    @Test
+    fun `el guion actua y el sondeo solo mira`() {
+        assertTrue(AutoAcceso.guion("alumno", "secreta").contains("var actuar = true"))
+        assertTrue(AutoAcceso.SONDEO.contains("var actuar = false"))
+    }
+
+    @Test
+    fun `el sondeo no lleva ninguna credencial encima`() {
+        assertTrue(AutoAcceso.SONDEO.contains("var usuario = \"\""))
+        assertTrue(AutoAcceso.SONDEO.contains("var clave = \"\""))
+    }
+
+    @Test
+    fun `el sondeo distingue el formulario del aviso`() {
+        // De eso depende no dar por mala una contraseña que sí vale.
+        assertTrue(AutoAcceso.SONDEO.contains("formulario: hayFormulario"))
+        assertTrue(AutoAcceso.SONDEO.contains("aviso: hayAviso"))
+    }
+
+    @Test
+    fun `solo se pulsa lo que es un control, no la palabra del mensaje`() {
+        val guion = AutoAcceso.guion("alumno", "secreta")
+
+        // El aviso dice «pulse cerrar para iniciar sesión de nuevo»: esa palabra en negrita
+        // no cierra nada, así que el texto suelto nunca puede bastar para pulsar.
+        assertTrue(guion.contains("if (!pulsable(nodo)) continue;"))
+        assertTrue(guion.contains("function pulsable(elemento)"))
     }
 }
