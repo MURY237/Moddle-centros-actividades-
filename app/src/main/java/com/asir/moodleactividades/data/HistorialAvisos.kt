@@ -19,7 +19,13 @@ data class Aviso(
     val tipo: TipoAviso,
     val titulo: String,
     val texto: String,
-    val url: String? = null
+    val url: String? = null,
+    /**
+     * Identidad propia del aviso. La lista de la pantalla necesita distinguir uno de otro, y
+     * la hora y el título no bastan: cinco faltas de la misma asignatura llegan a la vez y
+     * comparten las dos cosas. La rellena el historial; quien crea el aviso puede ignorarla.
+     */
+    val id: String = ""
 )
 
 /**
@@ -42,12 +48,15 @@ class HistorialAvisos(contexto: Context) {
                 aviso.momento - it.momento < VENTANA_REPETICION
         }
         if (repetido) return
-        guardar(listOf(aviso) + actuales)
+        guardar(listOf(aviso.copy(id = IdentidadAvisos.de(aviso))) + actuales)
     }
 
     fun leer(): List<Aviso> {
         val guardado = prefs.getString(LISTA, null) ?: return emptyList()
-        return runCatching { json.decodeFromString<List<Aviso>>(guardado) }.getOrDefault(emptyList())
+        val lista = runCatching {
+            json.decodeFromString<List<Aviso>>(guardado)
+        }.getOrDefault(emptyList())
+        return IdentidadAvisos.unicos(lista)
     }
 
     fun sinLeer(): Int {
