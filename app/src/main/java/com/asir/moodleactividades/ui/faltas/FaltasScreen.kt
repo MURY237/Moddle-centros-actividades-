@@ -68,6 +68,7 @@ import com.asir.moodleactividades.data.seneca.DiagnosticoSeneca
 import com.asir.moodleactividades.data.seneca.ExtractorFaltas
 import com.asir.moodleactividades.data.seneca.NavegadorFaltas
 import com.asir.moodleactividades.data.seneca.RespuestaJs
+import com.asir.moodleactividades.data.seneca.ResultadoAcceso
 import com.asir.moodleactividades.domain.FaltasDeAsignatura
 import com.asir.moodleactividades.ui.componentes.EstadoVacio
 import com.asir.moodleactividades.ui.componentes.Etiqueta
@@ -112,6 +113,7 @@ fun FaltasScreen(
             alNavegar = viewModel::anotarNavegacion,
             alEntrarSolo = viewModel::credencialesGuardadas,
             alFallarElAcceso = viewModel::marcarCredencialesRechazadas,
+            alAnotarAcceso = viewModel::anotarAcceso,
             alNecesitarIdentificacion = viewModel::pedirIdentificacion,
             sinExito = estado.buscadaSinExito,
             diagnostico = estado.diagnostico,
@@ -130,6 +132,7 @@ fun FaltasScreen(
             alNavegar = viewModel::anotarNavegacion,
             alEntrarSolo = viewModel::credencialesGuardadas,
             alFallarElAcceso = viewModel::marcarCredencialesRechazadas,
+            alAnotarAcceso = viewModel::anotarAcceso,
             alNecesitarIdentificacion = viewModel::pedirIdentificacion,
             sinExito = false,
             diagnostico = emptyList(),
@@ -405,6 +408,7 @@ private fun NavegadorSeneca(
     alNavegar: (String) -> Unit,
     alEntrarSolo: () -> Credenciales?,
     alFallarElAcceso: () -> Unit,
+    alAnotarAcceso: (String) -> Unit,
     alNecesitarIdentificacion: () -> Unit,
     sinExito: Boolean,
     diagnostico: List<String>,
@@ -461,7 +465,7 @@ private fun NavegadorSeneca(
                                 alCargarPagina(url)
                                 buscarFaltas(
                                     contenedor, url, alExtraer, alNavegar, alEntrarSolo,
-                                    alFallarElAcceso, alNecesitarIdentificacion
+                                    alFallarElAcceso, alAnotarAcceso, alNecesitarIdentificacion
                                 )
                             }
                         }
@@ -756,8 +760,12 @@ private class ContenedorWeb {
 
 /**
  * Busca la tabla en la página actual y, si no está, pulsa la entrada del menú que lleva a
- * ella y lo vuelve a intentar. Cuando no queda nada que pulsar es que Séneca está pidiendo
- * identificarse, y ahí entra el acceso automático si hay una cuenta guardada.
+ * ella y lo vuelve a intentar. Cuando lo que hay delante es la pantalla de acceso, entra
+ * con la cuenta guardada.
+ *
+ * El acceso se mira **antes** que el menú, y no después: la pantalla de acceso de Séneca
+ * también trae barra de navegación, así que el recorrido creía estar desplegando el menú
+ * una y otra vez hasta quedarse sin intentos, y el acceso automático no llegaba a probarse.
  */
 private fun buscarFaltas(
     contenedor: ContenedorWeb,
@@ -766,13 +774,14 @@ private fun buscarFaltas(
     alNavegar: (String) -> Unit,
     alEntrarSolo: () -> Credenciales?,
     alFallarElAcceso: () -> Unit,
+    alAnotarAcceso: (String) -> Unit,
     alNecesitarIdentificacion: () -> Unit
 ) {
     val web = contenedor.web ?: return
     val seguir = {
         buscarFaltas(
             contenedor, url, alExtraer, alNavegar, alEntrarSolo,
-            alFallarElAcceso, alNecesitarIdentificacion
+            alFallarElAcceso, alAnotarAcceso, alNecesitarIdentificacion
         )
     }
 
@@ -789,24 +798,39 @@ private fun buscarFaltas(
         }
 
         if (contenedor.intentos >= MAX_INTENTOS) {
+            alAnotarAcceso("se agotaron los intentos del recorrido")
             alNecesitarIdentificacion()
             return@evaluateJavascript
         }
         contenedor.intentos++
 
-        web.evaluateJavascript(NavegadorFaltas.GUION) { respuesta ->
-            val navegacion = RespuestaJs.leerNavegacion(respuesta)
-            alNavegar(navegacion?.destino.orEmpty())
-            if (navegacion?.pulsado == true) {
-                // Al desplegar un menú no hay carga de página que avise, así que se
-                // espera un momento y se vuelve a mirar.
-                web.postDelayed(seguir, ESPERA_MS)
+        // El sondeo no lleva la contraseña encima: solo dice qué hay en la página.
+        web.evaluateJavascript(AutoAcceso.SONDEO) { sondeo ->
+            val visto = RespuestaJs.leerAcceso(sondeo)
+
+            if (visto?.formulario == true || visto?.aviso == true) {
+                entrarSolo(
+                    contenedor, web, seguir, visto, alEntrarSolo,
+                    alFallarElAcceso, alAnotarAcceso
+                ) { alNecesitarIdentificacion() }
                 return@evaluateJavascript
             }
 
-            // Ni tabla ni menú: lo que hay delante es la pantalla de acceso.
-            entrarSolo(contenedor, web, seguir, alEntrarSolo, alFallarElAcceso) {
-                alNecesitarIdentificacion()
+            web.evaluateJavascript(NavegadorFaltas.GUION) { respuesta ->
+                val navegacion = RespuestaJs.leerNavegacion(respuesta)
+                alNavegar(navegacion?.destino.orEmpty())
+                if (navegacion?.pulsado == true) {
+                    // Al desplegar un menú no hay carga de página que avise, así que se
+                    // espera un momento y se vuelve a mirar.
+                    web.postDelayed(seguir, ESPERA_MS)
+                    return@evaluateJavascript
+                }
+
+                // Ni tabla, ni acceso, ni menú: la página no es ninguna de las esperadas.
+                entrarSolo(
+                    contenedor, web, seguir, visto, alEntrarSolo,
+                    alFallarElAcceso, alAnotarAcceso
+                ) { alNecesitarIdentificacion() }
             }
         }
     }
@@ -816,31 +840,63 @@ private fun buscarFaltas(
  * Séneca caduca la sesión por su cuenta —lo dice él mismo—, así que cuando aparece su
  * pantalla de acceso se rellena con la cuenta guardada, si la hay.
  *
- * La contraseña se manda **una sola vez por apertura**: insistir con una que no valga
- * bloquearía la cuenta del alumno. Quitar de en medio el aviso de sesión caducada no cuenta
- * como intento —ahí no se manda nada—, y antes sí contaba: el aviso se comía el turno y el
- * formulario no llegaba a enviarse nunca, que es por lo que había que entrar a mano.
+ * [visto] es lo que el sondeo encontró en la página, sin llevar la contraseña encima. De ahí
+ * sale la decisión: dar la cuenta por mala solo cuando lo dice Séneca, y no cuando el
+ * recorrido tropieza, porque eso último obliga al alumno a escribirla otra vez para nada.
+ *
+ * Quitar de en medio el aviso de sesión caducada no gasta intento: ahí no se manda ninguna
+ * contraseña. Mandarla sí, y por eso se limita: insistir con una que no vale bloquea la cuenta.
  */
 private fun entrarSolo(
     contenedor: ContenedorWeb,
     web: WebView,
     seguir: () -> Unit,
+    visto: ResultadoAcceso?,
     alEntrarSolo: () -> Credenciales?,
     alFallarElAcceso: () -> Unit,
+    alAnotarAcceso: (String) -> Unit,
     alRendirse: () -> Unit
 ) {
     val cuenta = alEntrarSolo()
     if (cuenta == null) {
+        alAnotarAcceso("no hay cuenta guardada")
+        alRendirse()
+        return
+    }
+
+    val hayFormulario = visto?.formulario == true
+    val hayAviso = visto?.aviso == true
+
+    // Que lo diga Séneca es la única señal fiable de que la cuenta no vale.
+    if (hayFormulario && visto?.error == true && contenedor.envios > 0) {
+        alAnotarAcceso("Séneca dice que los datos no son correctos")
+        alFallarElAcceso()
         alRendirse()
         return
     }
 
     if (contenedor.envios >= MAX_ENVIOS) {
-        // Ya se mandó la contraseña. Que Séneca vuelva a enseñar el formulario es la única
-        // señal de que no valía; cualquier otra página es un tropiezo del recorrido, y por
-        // eso se mira antes de acusarla: acusarla obliga al alumno a escribirla de nuevo.
-        web.evaluateJavascript(AutoAcceso.SONDEO) { respuesta ->
-            if (RespuestaJs.leerAcceso(respuesta)?.formulario == true) alFallarElAcceso()
+        if (hayFormulario) {
+            alAnotarAcceso("enviada $MAX_ENVIOS veces y sigue pidiéndola")
+            alFallarElAcceso()
+        } else {
+            alAnotarAcceso("enviada, pero la página no llega a las faltas")
+        }
+        alRendirse()
+        return
+    }
+
+    if (!hayFormulario && !hayAviso) {
+        // La página no es ninguna de las esperadas. Volver a la portada devuelve un
+        // formulario limpio, que es lo que hace falta para entrar.
+        if (contenedor.reinicios < MAX_REINICIOS) {
+            contenedor.reinicios++
+            contenedor.intentos = 0
+            contenedor.avisosCerrados = 0
+            alAnotarAcceso("página desconocida: se vuelve a la portada")
+            web.loadUrl(INICIO_SENECA)
+        } else {
+            alAnotarAcceso("no se encontró el formulario de acceso")
             alRendirse()
         }
         return
@@ -851,6 +907,7 @@ private fun entrarSolo(
         when {
             resultado?.enviado == true -> {
                 contenedor.envios++
+                alAnotarAcceso("datos enviados (intento ${contenedor.envios})")
                 // Enviar el formulario recarga la página: hay que darle tiempo.
                 contenedor.intentos = 0
                 web.postDelayed(seguir, ESPERA_ACCESO_MS)
@@ -858,20 +915,15 @@ private fun entrarSolo(
 
             resultado?.cerroAviso == true && contenedor.avisosCerrados < MAX_AVISOS -> {
                 contenedor.avisosCerrados++
+                alAnotarAcceso("aviso de sesión caducada cerrado")
                 contenedor.intentos = 0
                 web.postDelayed(seguir, ESPERA_ACCESO_MS)
             }
 
-            // Ni formulario que rellenar ni aviso que cerrar: la página está atascada.
-            // Volver a la portada devuelve un formulario limpio, que es lo que hace falta.
-            contenedor.reinicios < MAX_REINICIOS -> {
-                contenedor.reinicios++
-                contenedor.intentos = 0
-                contenedor.avisosCerrados = 0
-                web.loadUrl(INICIO_SENECA)
+            else -> {
+                alAnotarAcceso("no se pudo rellenar el formulario")
+                alRendirse()
             }
-
-            else -> alRendirse()
         }
     }
 }
@@ -884,10 +936,10 @@ private const val MAX_INTENTOS = 8
 private const val ESPERA_MS = 1200L
 
 /**
- * Una sola vez: si Séneca vuelve a pedir acceso después de mandarla, la contraseña no vale,
- * y repetirla termina bloqueando la cuenta del alumno.
+ * Dos por apertura: la primera puede irse a un formulario a medio cargar. Más no, porque
+ * insistir con una contraseña que no vale termina bloqueando la cuenta del alumno.
  */
-private const val MAX_ENVIOS = 1
+private const val MAX_ENVIOS = 2
 
 /** Cerrar avisos no manda contraseñas, pero tampoco puede quedarse en bucle. */
 private const val MAX_AVISOS = 3
