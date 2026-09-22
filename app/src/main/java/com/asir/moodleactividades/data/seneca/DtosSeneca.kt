@@ -27,7 +27,11 @@ data class ResultadoAcceso(
     /** Había un aviso de sesión caducada tapando la página. */
     val aviso: Boolean = false,
     /** Séneca dice que el usuario o la contraseña no son correctos. */
-    val error: Boolean = false
+    val error: Boolean = false,
+    /** El campo de usuario estaba en el mismo formulario que el de la contraseña. */
+    val propio: Boolean = false,
+    /** Por dónde se mandó: «boton», «formulario», «formulario-directo» o «intro». */
+    val via: String = ""
 ) {
     val actuo: Boolean get() = accion == "aviso" || accion == "enviado"
 

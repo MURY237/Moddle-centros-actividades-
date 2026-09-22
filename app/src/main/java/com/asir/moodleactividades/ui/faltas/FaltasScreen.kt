@@ -906,7 +906,12 @@ private fun entrarSolo(
 
     if (contenedor.envios >= MAX_ENVIOS) {
         if (hayFormulario) {
-            alAnotarAcceso("enviada $MAX_ENVIOS veces y sigue pidiéndola")
+            // Sin mensaje de error de Séneca lo más probable no es que la cuenta sea mala,
+            // sino que el envío no haya llegado: conviene decir las dos cosas.
+            alAnotarAcceso(
+                "enviada $MAX_ENVIOS veces y sigue pidiéndola" +
+                    if (visto?.propio == true) "" else " (campo de usuario suelto)"
+            )
             alFallarElAcceso()
         } else {
             alAnotarAcceso("enviada, pero la página no llega a las faltas")
@@ -936,7 +941,10 @@ private fun entrarSolo(
         when {
             resultado?.enviado == true -> {
                 contenedor.envios++
-                alAnotarAcceso("datos enviados (intento ${contenedor.envios})")
+                alAnotarAcceso(
+                    "datos enviados por " + resultado.via.ifBlank { "?" } +
+                        " (intento " + contenedor.envios + ")"
+                )
                 // Enviar el formulario recarga la página: hay que darle tiempo.
                 contenedor.intentos = 0
                 web.postDelayed(seguir, ESPERA_ACCESO_MS)
