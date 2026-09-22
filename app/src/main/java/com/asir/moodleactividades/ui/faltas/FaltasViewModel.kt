@@ -144,6 +144,9 @@ class FaltasViewModel(
                 diagnostico = emptyList(),
                 buscadaSinExito = false,
                 necesitaAcceso = false,
+                // Recargar a mano vale como permiso para volver a probar la cuenta guardada:
+                // es un intento por toque, no un bucle, así que no bloquea nada.
+                credencialesRechazadas = if (explicito) false else it.credencialesRechazadas,
                 diagnosticoSeneca = DiagnosticoSeneca.de(sesion)
             )
         }
