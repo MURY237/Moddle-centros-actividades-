@@ -88,7 +88,10 @@ fun AvisosScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(estado.avisos, key = { "${it.momento}-${it.titulo}" }) { aviso ->
+            // La clave tiene que ser única de verdad: con la hora y el título, cinco faltas
+            // de la misma asignatura anotadas en el mismo segundo repetían clave y la lista
+            // se llevaba por delante la pantalla entera.
+            items(estado.avisos, key = { it.id }) { aviso ->
                 TarjetaAviso(aviso) {
                     aviso.url?.let { enlace ->
                         runCatching {
