@@ -119,6 +119,17 @@ class AutoAccesoTest {
     }
 
     @Test
+    fun `una caja a cero no descarta un campo que esta en la pagina`() {
+        // El navegador oculto es estrecho y deja a cero cosas que sí están: con el criterio
+        // antiguo no se encontraba el formulario y siempre acababa pidiendo la contraseña.
+        val guion = AutoAcceso.guion("alumno", "secreta")
+
+        assertTrue(guion.contains("if (elemento.offsetParent) return true;"))
+        assertTrue(guion.contains("getComputedStyle(elemento)"))
+        assertTrue(guion.contains("estilo.display !== 'none'"))
+    }
+
+    @Test
     fun `solo se pulsa lo que es un control, no la palabra del mensaje`() {
         val guion = AutoAcceso.guion("alumno", "secreta")
 

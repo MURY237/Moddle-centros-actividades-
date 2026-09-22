@@ -20,6 +20,11 @@ class NavegadorFaltasTest {
     }
 
     @Test
+    fun `el menu tampoco se descarta por medir cero`() {
+        assertTrue(NavegadorFaltas.GUION.contains("if (elemento.offsetParent) return true;"))
+    }
+
+    @Test
     fun `el acceso no cuenta como paso pulsado`() {
         // Si contara, el recorrido esperaría una recarga que no va a llegar.
         assertTrue(NavegadorFaltas.GUION.contains("{ pulsado: false, destino: 'acceso' }"))
