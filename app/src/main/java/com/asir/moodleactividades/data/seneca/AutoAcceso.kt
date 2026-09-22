@@ -139,24 +139,46 @@ object AutoAcceso {
             return suplente;
           }
 
+          function esBuscador(entrada) {
+            var pistas = atributos(entrada) + ' ' +
+              (entrada.getAttribute('placeholder') || '').toLowerCase();
+            return /buscar|search|filtro|busqueda/.test(pistas);
+          }
+
+          /**
+           * El campo de usuario es el que acompaña a la contraseña en su mismo formulario, y
+           * el último de los que van antes que ella. Antes se cogía el primer campo de texto
+           * de toda la página: una caja de búsqueda de la barra de arriba aparece antes en el
+           * HTML, así que el usuario se escribía ahí y el de verdad se mandaba vacío. Séneca
+           * devolvía el formulario otra vez, sin error, y parecía que la cuenta no valía.
+           */
           function campos(doc) {
-            var clave = null;
-            var usuarioCampo = null;
             var entradas;
             try { entradas = doc.getElementsByTagName('input'); } catch (e) { return null; }
 
+            var clave = null;
             for (var i = 0; i < entradas.length; i++) {
-              var entrada = entradas[i];
-              if (!visible(entrada)) continue;
-              var tipo = (entrada.type || '').toLowerCase();
-              if (tipo === 'password' && !clave) clave = entrada;
-              // El de usuario es el campo de texto que va justo antes del de contraseña.
-              if ((tipo === 'text' || tipo === 'email') && !clave && !usuarioCampo) {
-                usuarioCampo = entrada;
-              }
+              if ((entradas[i].type || '').toLowerCase() !== 'password') continue;
+              if (!visible(entradas[i])) continue;
+              clave = entradas[i];
+              break;
             }
-            if (!clave || !usuarioCampo) return null;
-            return { usuario: usuarioCampo, clave: clave };
+            if (!clave) return null;
+
+            var candidatas = clave.form ? clave.form.getElementsByTagName('input') : entradas;
+            var usuarioCampo = null;
+            for (var j = 0; j < candidatas.length; j++) {
+              var entrada = candidatas[j];
+              // Solo cuenta lo que va antes de la contraseña; lo de después es otra cosa.
+              if (entrada === clave) break;
+              var tipo = (entrada.type || '').toLowerCase();
+              if (tipo !== 'text' && tipo !== 'email' && tipo !== 'tel') continue;
+              if (!visible(entrada)) continue;
+              if (esBuscador(entrada)) continue;
+              usuarioCampo = entrada;
+            }
+            if (!usuarioCampo) return null;
+            return { usuario: usuarioCampo, clave: clave, propio: !!clave.form };
           }
 
           /** Pulsa Intro en el campo: hay formularios que solo se mandan así. */
@@ -174,6 +196,7 @@ object AutoAcceso {
             }
           }
 
+          /** Devuelve por dónde se mandó, que es lo que dice si el envío llegó a alguna parte. */
           function enviar(doc, par) {
             // Primero un control de verdad. El botón de Séneca no siempre es un <button>:
             // puede ser un enlace o una imagen, y buscando solo botones no se encontraba.
@@ -188,7 +211,7 @@ object AutoAcceso {
               var pista = limpio(botones[i]) + ' ' + atributos(botones[i]);
               if (!/entrar|acceder|iniciar|enviar|login|aceptar/.test(pista)) continue;
               botones[i].click();
-              return true;
+              return 'boton';
             }
 
             var formulario = par.clave.form;
@@ -196,13 +219,13 @@ object AutoAcceso {
               // requestSubmit respeta la validación y el onsubmit del formulario; submit se
               // los salta, y si Séneca prepara algo ahí el acceso se iría sin ello.
               try {
-                if (formulario.requestSubmit) { formulario.requestSubmit(); return true; }
+                if (formulario.requestSubmit) { formulario.requestSubmit(); return 'formulario'; }
               } catch (e) { /* se sigue con el clásico */ }
-              try { formulario.submit(); return true; } catch (e) { /* queda el Intro */ }
+              try { formulario.submit(); return 'formulario-directo'; } catch (e) { /* Intro */ }
             }
 
             intro(par.clave);
-            return true;
+            return 'intro';
           }
 
           /**
@@ -221,6 +244,8 @@ object AutoAcceso {
           var hayFormulario = false;
           var hayAviso = false;
           var hayFallo = false;
+          var propio = false;
+          var via = '';
           var d;
 
           // El formulario va primero: si ya está delante, cerrar avisos no hace falta.
@@ -229,10 +254,12 @@ object AutoAcceso {
             if (!par) continue;
             hayFormulario = true;
             hayFallo = hayError(docs[d]);
+            propio = !!par.propio;
             if (actuar) {
               escribir(par.usuario, usuario);
               escribir(par.clave, clave);
-              accion = enviar(docs[d], par) ? 'enviado' : 'sin-boton';
+              via = enviar(docs[d], par);
+              accion = 'enviado';
             }
             break;
           }
@@ -251,7 +278,9 @@ object AutoAcceso {
             accion: accion,
             formulario: hayFormulario,
             aviso: hayAviso,
-            error: hayFallo
+            error: hayFallo,
+            propio: propio,
+            via: via
           });
         })();
     """.trimIndent()

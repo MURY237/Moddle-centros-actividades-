@@ -130,6 +130,28 @@ class AutoAccesoTest {
     }
 
     @Test
+    fun `el usuario se escribe en el campo que acompana a la contrasena`() {
+        val guion = AutoAcceso.guion("alumno", "secreta")
+
+        // Con el primer campo de texto de la página se escribía el usuario en la caja de
+        // búsqueda de la barra de arriba y el de verdad se mandaba vacío: Séneca devolvía el
+        // formulario otra vez, sin error, y parecía que la cuenta guardada no valía.
+        assertTrue(guion.contains("clave.form ? clave.form.getElementsByTagName('input')"))
+        assertTrue(guion.contains("if (entrada === clave) break;"))
+        assertTrue(guion.contains("if (esBuscador(entrada)) continue;"))
+    }
+
+    @Test
+    fun `el guion dice por donde ha mandado el formulario`() {
+        // Sin esto no se distingue un envío que llega de uno que no hace nada.
+        val guion = AutoAcceso.guion("alumno", "secreta")
+
+        assertTrue(guion.contains("return 'boton';"))
+        assertTrue(guion.contains("return 'intro';"))
+        assertTrue(guion.contains("via: via"))
+    }
+
+    @Test
     fun `solo se pulsa lo que es un control, no la palabra del mensaje`() {
         val guion = AutoAcceso.guion("alumno", "secreta")
 
