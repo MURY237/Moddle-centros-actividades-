@@ -51,10 +51,20 @@ object AutoAcceso {
             return lista;
           }
 
+          /**
+           * Visible es «no escondido a propósito». La caja a cero no basta para descartar:
+           * un navegador estrecho deja a cero cosas que están perfectamente en la página, y
+           * con el criterio antiguo no se encontraba ni el formulario ni el menú.
+           */
           function visible(elemento) {
             try {
               var caja = elemento.getBoundingClientRect();
-              return caja.width > 0 && caja.height > 0;
+              if (caja.width > 0 && caja.height > 0) return true;
+              if (elemento.offsetParent) return true;
+              if (elemento.getClientRects && elemento.getClientRects().length > 0) return true;
+              var ventana = elemento.ownerDocument.defaultView;
+              var estilo = ventana.getComputedStyle(elemento);
+              return estilo.display !== 'none' && estilo.visibility !== 'hidden';
             } catch (e) { return true; }
           }
 

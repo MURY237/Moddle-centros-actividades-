@@ -50,6 +50,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.foundation.text.KeyboardOptions
@@ -87,6 +89,10 @@ import com.asir.moodleactividades.ui.theme.fondoDeEstado
 
 /** La raíz redirige al acceso; una ruta más concreta se rompería si Séneca la cambia. */
 private const val INICIO_SENECA = "https://seneca.juntadeandalucia.es/"
+
+/** Medidas de un móvil corriente, en píxeles: es como hay que maquetar aunque no se vea. */
+private const val ANCHO_OCULTO = 1080
+private const val ALTO_OCULTO = 1920
 
 @Composable
 fun FaltasScreen(
@@ -151,7 +157,10 @@ fun FaltasScreen(
         )
 
         if (estado.necesitaAcceso) {
-            AvisoSesionCaducada { viewModel.actualizar() }
+            AvisoSesionCaducada(
+                acceso = estado.diagnosticoSeneca.acceso,
+                alEntrar = { viewModel.actualizar() }
+            )
         }
 
         if (estado.porAsignatura.isEmpty()) {
@@ -438,9 +447,19 @@ private fun NavegadorSeneca(
                 modifier = if (visible) {
                     Modifier.fillMaxSize().navigationBarsPadding()
                 } else {
-                    // Un WebView sin medidas no carga la página, así que oculto no se quita:
-                    // se queda en un punto invisible que no tapa ni recoge toques.
-                    Modifier.size(1.dp).alpha(0f)
+                    // Oculto no quiere decir diminuto. Con un WebView de 1 dp la página se
+                    // maquetaba en un píxel de ancho, los campos del formulario medían cero y
+                    // el acceso automático no encontraba nada que rellenar: por eso el
+                    // refresco a oscuras acababa siempre pidiendo usuario y contraseña.
+                    // Aquí se le da tamaño de móvil de verdad y luego se le quita el sitio.
+                    Modifier
+                        .layout { medible, _ ->
+                            val colocable = medible.measure(
+                                Constraints.fixed(ANCHO_OCULTO, ALTO_OCULTO)
+                            )
+                            layout(0, 0) { colocable.place(0, 0) }
+                        }
+                        .alpha(0f)
                 },
                 factory = { contexto ->
                     WebView(contexto).apply {
@@ -534,7 +553,7 @@ private fun BarraSeneca(
  * actualizar.
  */
 @Composable
-private fun AvisoSesionCaducada(alEntrar: () -> Unit) {
+private fun AvisoSesionCaducada(acceso: String, alEntrar: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -559,6 +578,16 @@ private fun AvisoSesionCaducada(alEntrar: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = AmbarPendiente
                 )
+                // Aquí y no escondido en el diagnóstico: cuando el acceso automático falla,
+                // esto es lo único que dice por qué, y es justo cuando hace falta saberlo.
+                if (acceso.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Acceso automático: " + acceso,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AmbarPendiente
+                    )
+                }
             }
             TextButton(onClick = alEntrar) {
                 Text("Entrar", color = AmbarPendiente)
