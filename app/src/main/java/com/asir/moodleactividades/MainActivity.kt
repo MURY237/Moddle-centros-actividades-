@@ -52,11 +52,13 @@ import com.asir.moodleactividades.data.AlmacenHorario
 import com.asir.moodleactividades.data.CacheActividades
 import com.asir.moodleactividades.data.Conectividad
 import com.asir.moodleactividades.data.AlmacenFaltas
+import com.asir.moodleactividades.data.AlmacenNetacad
 import com.asir.moodleactividades.data.CacheCalificaciones
 import com.asir.moodleactividades.data.CredencialesSeneca
 import com.asir.moodleactividades.data.DescargaAdjuntos
 import com.asir.moodleactividades.data.HistorialAvisos
 import com.asir.moodleactividades.data.PreferenciasAvisos
+import com.asir.moodleactividades.data.SesionNetacad
 import com.asir.moodleactividades.data.SesionSeneca
 import com.asir.moodleactividades.data.SesionStore
 import com.asir.moodleactividades.data.net.SsoLogin
@@ -69,6 +71,8 @@ import com.asir.moodleactividades.ui.asistencia.AsistenciaViewModel
 import com.asir.moodleactividades.ui.bus.BusViewModel
 import com.asir.moodleactividades.ui.faltas.FaltasScreen
 import com.asir.moodleactividades.ui.faltas.FaltasViewModel
+import com.asir.moodleactividades.ui.netacad.NetacadScreen
+import com.asir.moodleactividades.ui.netacad.NetacadViewModel
 import com.asir.moodleactividades.ui.avisos.AvisosScreen
 import com.asir.moodleactividades.ui.avisos.AvisosViewModel
 import com.asir.moodleactividades.ui.horario.HorarioScreen
@@ -120,7 +124,10 @@ private enum class Seccion(val etiqueta: String) {
     FALTAS("Faltas"),
     AVISOS("Avisos"),
     HORARIO("Horario"),
-    AJUSTES("Ajustes")
+    AJUSTES("Ajustes"),
+
+    /** Subpantalla de Tareas: no tiene hueco propio en la barra, que ya va llena. */
+    NETACAD("NetAcad")
 }
 
 @Composable
@@ -220,6 +227,13 @@ private fun PantallaPrincipal(
         }
     )
 
+    val sesionNetacad = remember { SesionNetacad(contexto) }
+    val netacadViewModel: NetacadViewModel = viewModel(
+        factory = fabrica {
+            NetacadViewModel(AlmacenNetacad(contexto), sesionNetacad, HistorialAvisos(contexto))
+        }
+    )
+
     val asistenciaViewModel: AsistenciaViewModel = viewModel(
         key = "asistencia-$generacion",
         factory = fabrica { AsistenciaViewModel(repositorio) }
@@ -262,6 +276,8 @@ private fun PantallaPrincipal(
                 actividadesViewModel.refrescarSiConviene()
                 notasViewModel.refrescarSiConviene()
                 faltasViewModel.actualizarSiConviene()
+                // El navegador que lee NetAcad vive en su pantalla: fuera de ella no hay quien lo haga.
+                if (seccion == Seccion.NETACAD) netacadViewModel.actualizarSiConviene()
                 avisosViewModel.recargar()
                 actualizacionViewModel.comprobar()
             }
@@ -280,7 +296,7 @@ private fun PantallaPrincipal(
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
-                    selected = seccion == Seccion.ACTIVIDADES,
+                    selected = seccion == Seccion.ACTIVIDADES || seccion == Seccion.NETACAD,
                     onClick = { seccion = Seccion.ACTIVIDADES },
                     icon = {
                         Icon(
@@ -339,6 +355,14 @@ private fun PantallaPrincipal(
                 actualizacion = actualizacion,
                 alInstalarActualizacion = { actualizacionViewModel.instalar(contexto) },
                 alDescartarActualizacion = actualizacionViewModel::descartar,
+                alAbrirNetacad = { seccion = Seccion.NETACAD },
+                modifier = Modifier.padding(relleno)
+            )
+
+            Seccion.NETACAD -> NetacadScreen(
+                viewModel = netacadViewModel,
+                sesion = sesionNetacad,
+                alVolver = { seccion = Seccion.ACTIVIDADES },
                 modifier = Modifier.padding(relleno)
             )
 
