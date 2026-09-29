@@ -171,6 +171,11 @@ function comprobar(nombre, condicion, detalle) {
   comprobar('anon no lee tablas', /permission denied/.test(await falla(null, `select * from public.grupos`)));
   comprobar('anon no llama a unirse', /permission denied/.test(await falla(null, `select * from public.unirse('x', 'y')`)));
 
+  console.log('Latido');
+  const pulso = (await como(null, `select public.latido() as hora`)).rows[0];
+  comprobar('el latido responde sin sesión', pulso && pulso.hora instanceof Date, pulso);
+  comprobar('y sin sesión sigue sin verse nada', /permission denied/.test(await falla(null, `select * from public.mensajes`)));
+
   console.log(`\n${total - fallos}/${total} comprobaciones correctas`);
   process.exit(fallos ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });
