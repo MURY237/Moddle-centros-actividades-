@@ -344,3 +344,58 @@ Limitaciones:
   con la pantalla abierta. Lo nuevo sí se apunta en «Avisos» al actualizar.
 - Si Cisco rehace su web y el guion deja de reconocerla, la pantalla lo dice y enseña las
   cabeceras y títulos que sí vio —nunca datos personales— para poder ajustarlo.
+
+## Grupos: chat y calendario de exámenes
+
+La pestaña **Grupos** permite crear un grupo para la clase, pasar su **código de
+invitación** y, dentro, tener un **chat** y un **calendario de exámenes** compartido.
+
+- Cada móvil entra con una **cuenta anónima**: nadie da correo ni nombre real. En cada grupo
+  se elige un **apodo**, que es lo único que ven los demás.
+- El código son 8 caracteres (`ABCD-EF23`) del alfabeto de Crockford: sin I, L, O ni U, que
+  se confunden al dictarlo. Si alguien escribe una O se entiende 0, y una I o una L, 1.
+- En el calendario cualquiera del grupo apunta un examen (asignatura, día, hora opcional y
+  notas). Lo puede borrar quien lo puso o quien lleva el grupo.
+- Quien crea el grupo lo lleva: puede cambiar el código (el anterior deja de servir),
+  expulsar y eliminarlo. Si se va, el grupo pasa al miembro más antiguo.
+
+### Seguridad
+
+El servidor es un proyecto de **Supabase** (PostgreSQL). La clave que lleva la app es la
+pública, y la puede leer cualquiera que abra el APK: **lo que protege los grupos son las
+reglas de `supabase/esquema.sql`** (Row Level Security), no el secreto de la clave.
+
+- Nadie ve un grupo, su chat ni su calendario si no es miembro, y solo se es miembro
+  entrando con el código.
+- Las altas y bajas solo van por funciones del servidor. Lo que el cliente puede escribir
+  está recortado por columnas: nadie firma como otro, cambia la hora de un mensaje, se pasa
+  a otro grupo ni se nombra creador.
+- La **clave secreta** (`service_role` / `sb_secret_…`) se salta todas las reglas. El build
+  **se niega a compilar** si se pone esa en vez de la pública.
+- Las reglas se prueban en CI contra un PostgreSQL de verdad (`supabase/pruebas/`), con
+  tres usuarios que intentan todo lo que no deberían poder hacer.
+
+Los mensajes no van cifrados de extremo a extremo: están en la base de datos de Supabase,
+en la región que se elija al crear el proyecto (conviene una de la UE).
+
+### Poner en marcha el servidor (una vez)
+
+1. Crea un proyecto en [supabase.com](https://supabase.com) (plan gratuito), en una región
+   de la UE.
+2. **Authentication → Sign In / Providers**: activa *Allow anonymous sign-ins*.
+3. **SQL Editor**: pega el contenido de `supabase/esquema.sql` y ejecútalo. Se puede volver
+   a ejecutar para actualizarlo.
+4. **Project Settings → API**: copia la *Project URL* y la clave **pública** (*anon* o
+   *publishable*). Nunca la *service_role* ni la *secret*.
+5. Ponlas en `gradle.properties`:
+
+   ```properties
+   supabase.url=https://xxxxxxxx.supabase.co
+   supabase.clave=sb_publishable_...
+   ```
+
+   o como secretos del repositorio `SUPABASE_URL` y `SUPABASE_CLAVE` (Settings → Secrets
+   and variables → Actions), y vuelve a compilar.
+
+El chat pregunta por mensajes nuevos cada 4 segundos, **solo con el chat abierto y la app
+a la vista**. No hay notificaciones de mensajes con la app cerrada.

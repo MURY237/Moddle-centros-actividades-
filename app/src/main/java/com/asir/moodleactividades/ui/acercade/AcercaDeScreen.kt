@@ -30,6 +30,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.IconButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,7 +68,8 @@ fun AcercaDeScreen(
     asistencia: AsistenciaUiState,
     alComprobarAsistencia: () -> Unit,
     alVerFaltasSeneca: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    alVolver: (() -> Unit)? = null
 ) {
     val contexto = LocalContext.current
 
@@ -81,6 +84,17 @@ fun AcercaDeScreen(
                 .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
                 .background(DegradadoCabecera)
         ) {
+            if (alVolver != null) {
+                IconButton(
+                    onClick = alVolver,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .statusBarsPadding()
+                        .padding(4.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver a Avisos", tint = Color.White)
+                }
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
