@@ -1,3 +1,7 @@
+// En un script de Gradle, «java» es la extensión java { } del proyecto, no el paquete:
+// java.util.Base64 no resuelve, así que se importa.
+import java.util.Base64
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -27,7 +31,7 @@ if (supabaseClave.isNotEmpty() && !Regex("""^[A-Za-z0-9._-]+$""").matches(supaba
 val claveSupabaseSecreta = supabaseClave.startsWith("sb_secret_") ||
     supabaseClave.split('.').let { partes ->
         partes.size == 3 && runCatching {
-            String(java.util.Base64.getUrlDecoder().decode(partes[1]), Charsets.UTF_8)
+            String(Base64.getUrlDecoder().decode(partes[1]), Charsets.UTF_8)
         }.getOrDefault("").contains(Regex(""""role"\s*:\s*"service_role""""))
     }
 if (claveSupabaseSecreta) {
