@@ -27,6 +27,20 @@ jobs:
       - name: Tests unitarios
         run: ./gradlew test --stacktrace
 
+      # El guion que lee NetAcad es JavaScript: se prueba en un DOM de verdad (jsdom), con
+      # las versiones fijadas para que el resultado no cambie de un día para otro.
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Probar el guion de NetAcad
+        run: |
+          mkdir -p "$RUNNER_TEMP/jsdom"
+          npm install --prefix "$RUNNER_TEMP/jsdom" --no-save --no-audit --no-fund jsdom@30.1.1
+          NODE_PATH="$RUNNER_TEMP/jsdom/node_modules" node app/src/test/js/extractor-netacad.test.js \
+            app/src/main/java/com/asir/moodleactividades/data/netacad/ExtractorNetacad.kt
+
       - name: Compilar APK
         run: ./gradlew assembleDebug --stacktrace
 

@@ -310,3 +310,37 @@ app/src/main/java/com/asir/moodleactividades/
   mientras Moodle los marque como acción requerida.
 - Si el centro usa SSO y no permite generar tokens, la app no puede acceder.
 - Las tareas de grupo usan la entrega del grupo cuando existe.
+
+## Trabajos de Cisco NetAcad
+
+Desde la cabecera de «Tareas», el botón **Trabajos de Cisco NetAcad** abre la misma vista que
+Moodle —pendientes, fuera de plazo y hechos, agrupados por plazo— con los trabajos de
+netacad.com.
+
+Cisco **no publica ninguna API para alumnos**, así que se hace como con Séneca: se lee la
+página dentro de la sesión que abre el propio alumno.
+
+1. La primera vez se abre NetAcad a la vista. El alumno entra con su correo y contraseña de
+   Cisco —el botón de Google no funciona dentro de apps, por política de Google— y abre la
+   página de calificaciones de su curso.
+2. La app reconoce sola que en esa página hay trabajos, los lee y **recuerda la página**. Si
+   el alumno tiene varios cursos, abre cada uno y se aprenden todos (hasta seis).
+3. A partir de ahí, «Actualizar» recorre esas páginas en un navegador que no se ve.
+
+El guion no busca identificadores internos, que cambian con cada versión de la web: reconoce
+tablas por sus cabeceras, rejillas con roles ARIA y tarjetas por su texto, en español y en
+inglés. Con dos fechas en una tarjeta se queda la que va tras «vence» o «due», no la de
+apertura. Todo lo que es interpretar —fechas en cualquier formato, `05/12` día-mes o mes-día,
+estados como «Incomplete» que contienen «complete»— está en Kotlin, con pruebas; el guion
+solo recoge texto, y se prueba aparte con jsdom en CI.
+
+**La contraseña de Cisco nunca pasa por la app.** Solo se conservan las cookies de
+netacad.com, como con Séneca; las de id.cisco.com, que son la identidad de Cisco para todos
+sus servicios, no se copian. «Desconectar» cierra las dos y borra lo guardado.
+
+Limitaciones:
+
+- No hay avisos en segundo plano de NetAcad: leerlo necesita un navegador, y eso solo existe
+  con la pantalla abierta. Lo nuevo sí se apunta en «Avisos» al actualizar.
+- Si Cisco rehace su web y el guion deja de reconocerla, la pantalla lo dice y enseña las
+  cabeceras y títulos que sí vio —nunca datos personales— para poder ajustarlo.
