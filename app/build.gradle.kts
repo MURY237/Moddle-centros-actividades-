@@ -5,6 +5,38 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Servidor de los grupos (Supabase). Se lee del entorno —los secretos de GitHub en CI— o de
+// gradle.properties. Sin él la app compila igual y la pestaña de grupos explica qué falta.
+fun ajusteSupabase(entorno: String, propiedad: String): String =
+    System.getenv(entorno)?.takeIf { it.isNotBlank() }
+        ?: (project.findProperty(propiedad) as String?).orEmpty()
+
+val supabaseUrl = ajusteSupabase("SUPABASE_URL", "supabase.url").trim().trimEnd('/')
+val supabaseClave = ajusteSupabase("SUPABASE_CLAVE", "supabase.clave").trim()
+
+// Van a parar a código Java generado: solo se aceptan si tienen la forma esperada.
+if (supabaseUrl.isNotEmpty() && !Regex("""^https://[A-Za-z0-9.-]+(:\d+)?$""").matches(supabaseUrl)) {
+    throw GradleException("supabase.url no parece la URL de un proyecto de Supabase: $supabaseUrl")
+}
+if (supabaseClave.isNotEmpty() && !Regex("""^[A-Za-z0-9._-]+$""").matches(supabaseClave)) {
+    throw GradleException("supabase.clave tiene caracteres que no son de una clave de Supabase")
+}
+
+// La clave secreta se salta todas las reglas de la base de datos. Dentro de un APK, que
+// cualquiera puede abrir, dejaría leer y borrar todos los grupos: con ella no se compila.
+val claveSupabaseSecreta = supabaseClave.startsWith("sb_secret_") ||
+    supabaseClave.split('.').let { partes ->
+        partes.size == 3 && runCatching {
+            String(java.util.Base64.getUrlDecoder().decode(partes[1]), Charsets.UTF_8)
+        }.getOrDefault("").contains(Regex(""""role"\s*:\s*"service_role""""))
+    }
+if (claveSupabaseSecreta) {
+    throw GradleException(
+        "Esa es la clave SECRETA de Supabase (service_role). En la app va la pública: " +
+            "«anon» o «publishable»."
+    )
+}
+
 android {
     namespace = "com.asir.moodleactividades"
     compileSdk = 35
@@ -13,8 +45,11 @@ android {
         applicationId = "com.asir.moodleactividades"
         minSdk = 26
         targetSdk = 35
-        versionCode = 49
-        versionName = "1.48"
+        versionCode = 50
+        versionName = "1.49"
+
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_CLAVE", "\"$supabaseClave\"")
     }
 
     // Firma fija en el repositorio: sin ella cada compilación firmaría distinto y Android

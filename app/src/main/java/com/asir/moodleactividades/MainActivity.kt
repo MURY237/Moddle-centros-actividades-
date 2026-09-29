@@ -5,11 +5,14 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -17,8 +20,8 @@ import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Grade
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,6 +64,10 @@ import com.asir.moodleactividades.data.PreferenciasAvisos
 import com.asir.moodleactividades.data.SesionNetacad
 import com.asir.moodleactividades.data.SesionSeneca
 import com.asir.moodleactividades.data.SesionStore
+import com.asir.moodleactividades.data.grupos.ClienteSupabase
+import com.asir.moodleactividades.data.grupos.ConfigSupabase
+import com.asir.moodleactividades.data.grupos.GuardaSesionPrefs
+import com.asir.moodleactividades.data.grupos.RepositorioGrupos
 import com.asir.moodleactividades.data.net.SsoLogin
 import com.asir.moodleactividades.notificaciones.Recordatorios
 import com.asir.moodleactividades.notificaciones.RecordatoriosWorker
@@ -71,6 +78,8 @@ import com.asir.moodleactividades.ui.asistencia.AsistenciaViewModel
 import com.asir.moodleactividades.ui.bus.BusViewModel
 import com.asir.moodleactividades.ui.faltas.FaltasScreen
 import com.asir.moodleactividades.ui.faltas.FaltasViewModel
+import com.asir.moodleactividades.ui.grupos.GruposScreen
+import com.asir.moodleactividades.ui.grupos.GruposViewModel
 import com.asir.moodleactividades.ui.netacad.NetacadScreen
 import com.asir.moodleactividades.ui.netacad.NetacadViewModel
 import com.asir.moodleactividades.ui.avisos.AvisosScreen
@@ -124,6 +133,9 @@ private enum class Seccion(val etiqueta: String) {
     FALTAS("Faltas"),
     AVISOS("Avisos"),
     HORARIO("Horario"),
+    GRUPOS("Grupos"),
+
+    /** Subpantalla de Avisos: son los ajustes de los avisos, y así Grupos cabe en la barra. */
     AJUSTES("Ajustes"),
 
     /** Subpantalla de Tareas: no tiene hueco propio en la barra, que ya va llena. */
@@ -183,7 +195,7 @@ private fun App(enlaceSso: String?, alConsumirEnlace: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun PantallaPrincipal(
     repositorio: ActividadesRepository,
@@ -233,6 +245,22 @@ private fun PantallaPrincipal(
             NetacadViewModel(AlmacenNetacad(contexto), sesionNetacad, HistorialAvisos(contexto))
         }
     )
+
+    val gruposViewModel: GruposViewModel = viewModel(
+        factory = fabrica {
+            val config = ConfigSupabase(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_CLAVE)
+            // Compilada sin servidor, la pantalla explica qué falta en vez de fallar.
+            val repositorio = if (config.configurado) {
+                RepositorioGrupos(ClienteSupabase(config, GuardaSesionPrefs(contexto)))
+            } else {
+                null
+            }
+            GruposViewModel(repositorio)
+        }
+    )
+
+    // Ajustes cuelga de Avisos: «atrás» vuelve ahí y no cierra la app.
+    BackHandler(enabled = seccion == Seccion.AJUSTES) { seccion = Seccion.AVISOS }
 
     val asistenciaViewModel: AsistenciaViewModel = viewModel(
         key = "asistencia-$generacion",
@@ -319,7 +347,7 @@ private fun PantallaPrincipal(
                     label = { Text(Seccion.FALTAS.etiqueta) }
                 )
                 NavigationBarItem(
-                    selected = seccion == Seccion.AVISOS,
+                    selected = seccion == Seccion.AVISOS || seccion == Seccion.AJUSTES,
                     onClick = { seccion = Seccion.AVISOS },
                     icon = {
                         BadgedBox(
@@ -341,10 +369,10 @@ private fun PantallaPrincipal(
                     label = { Text(Seccion.HORARIO.etiqueta) }
                 )
                 NavigationBarItem(
-                    selected = seccion == Seccion.AJUSTES,
-                    onClick = { seccion = Seccion.AJUSTES },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                    label = { Text(Seccion.AJUSTES.etiqueta) }
+                    selected = seccion == Seccion.GRUPOS,
+                    onClick = { seccion = Seccion.GRUPOS },
+                    icon = { Icon(Icons.Default.Groups, contentDescription = null) },
+                    label = { Text(Seccion.GRUPOS.etiqueta) }
                 )
             }
         }
@@ -380,7 +408,17 @@ private fun PantallaPrincipal(
 
             Seccion.AVISOS -> AvisosScreen(
                 viewModel = avisosViewModel,
+                alAbrirAjustes = { seccion = Seccion.AJUSTES },
                 modifier = Modifier.padding(relleno)
+            )
+
+            // consumeWindowInsets: la barra inferior ya ocupa su sitio, y sin esto el teclado
+            // del chat dejaría un hueco de su altura entre el cuadro de texto y el teclado.
+            Seccion.GRUPOS -> GruposScreen(
+                viewModel = gruposViewModel,
+                modifier = Modifier
+                    .padding(relleno)
+                    .consumeWindowInsets(relleno)
             )
 
             Seccion.HORARIO -> {
@@ -405,6 +443,7 @@ private fun PantallaPrincipal(
             }
 
             Seccion.AJUSTES -> AcercaDeScreen(
+                alVolver = { seccion = Seccion.AVISOS },
                 ajustes = ajustes,
                 puedeNotificar = Recordatorios.puedeNotificar(contexto),
                 alCambiarEntregas = { ajustesViewModel.cambiarAvisoEntregas(it, contexto) },
