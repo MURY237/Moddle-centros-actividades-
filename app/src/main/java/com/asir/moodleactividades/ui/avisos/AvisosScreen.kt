@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.NewReleases
@@ -63,6 +64,7 @@ import com.asir.moodleactividades.ui.theme.fondoDeEstado
 @Composable
 fun AvisosScreen(
     viewModel: AvisosViewModel,
+    alAbrirAjustes: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
@@ -70,7 +72,7 @@ fun AvisosScreen(
 
     Column(modifier = modifier.fillMaxSize()) {
 
-        Cabecera(cantidad = estado.avisos.size, alVaciar = viewModel::vaciar)
+        Cabecera(cantidad = estado.avisos.size, alVaciar = viewModel::vaciar, alAbrirAjustes = alAbrirAjustes)
 
         if (estado.avisos.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -105,7 +107,7 @@ fun AvisosScreen(
 }
 
 @Composable
-private fun Cabecera(cantidad: Int, alVaciar: () -> Unit) {
+private fun Cabecera(cantidad: Int, alVaciar: () -> Unit, alAbrirAjustes: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -139,6 +141,11 @@ private fun Cabecera(cantidad: Int, alVaciar: () -> Unit) {
                 IconButton(onClick = alVaciar) {
                     Icon(Icons.Default.DeleteSweep, "Vaciar el historial", tint = Color.White)
                 }
+            }
+            // Los ajustes de los avisos viven junto a los avisos: así la barra de abajo
+            // tiene sitio para Grupos sin pasar de seis pestañas.
+            IconButton(onClick = alAbrirAjustes) {
+                Icon(Icons.Default.Settings, "Ajustes", tint = Color.White)
             }
         }
     }
