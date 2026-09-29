@@ -1,0 +1,92 @@
+name: Latido de Supabase
+
+# El plan gratuito de Supabase pausa el proyecto tras una semana sin actividad, y entonces
+# los grupos dejan de funcionar hasta reactivarlo a mano. Esto le da una consulta cada tres
+# días, y de paso comprueba que el servidor sigue bien configurado.
+#
+# Si falla, GitHub avisa por correo: es la señal de que el proyecto se ha pausado o de que
+# algo del servidor ha cambiado.
+on:
+  schedule:
+    # Días 1, 4, 7… de cada mes, 09:17 UTC. Nunca pasan más de tres días entre dos.
+    - cron: '17 9 */3 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Para reactivarse a sí mismo: ver el último paso.
+  actions: write
+
+jobs:
+  latido:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Latido y comprobación del servidor
+        env:
+          # Los secretos, si existen, mandan; si no, lo de gradle.properties, como el build.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_CLAVE: ${{ secrets.SUPABASE_CLAVE }}
+        run: |
+          set -u
+          URL="${SUPABASE_URL:-$(grep -m1 '^supabase.url=' gradle.properties | cut -d= -f2-)}"
+          CLAVE="${SUPABASE_CLAVE:-$(grep -m1 '^supabase.clave=' gradle.properties | cut -d= -f2-)}"
+          URL="${URL%/}"
+          if [ -z "$URL" ] || [ -z "$CLAVE" ]; then
+            echo "::error::No hay servidor de grupos configurado."; exit 1
+          fi
+          fallos=0
+
+          # 1. El latido en sí: una consulta real a la base de datos.
+          estado=$(curl -sS -o latido.json -w '%{http_code}' -X POST "$URL/rest/v1/rpc/latido" \
+            -H "apikey: $CLAVE" -H "Content-Type: application/json" -d '{}' || echo 000)
+          if [ "$estado" = "200" ]; then
+            echo "Latido correcto. Hora del servidor: $(cat latido.json)"
+          elif [ "$estado" = "000" ] || [ "$estado" = "540" ] || [ "$estado" = "503" ]; then
+            echo "::error::El servidor no responde ($estado). Puede que el proyecto esté pausado: reactívalo en el panel de Supabase con «Restore project»."
+            fallos=1
+          elif [ "$estado" = "404" ]; then
+            echo "::error::Falta la función latido. Vuelve a ejecutar supabase/esquema.sql en el SQL Editor."
+            fallos=1
+          else
+            echo "::error::El latido respondió $estado: $(cat latido.json)"
+            fallos=1
+          fi
+
+          # 2. El acceso anónimo tiene que estar activado: sin él nadie puede entrar en los grupos.
+          if curl -sS "$URL/auth/v1/settings" -H "apikey: $CLAVE" -o ajustes.json; then
+            anonimo=$(jq -r '.external.anonymous_users | if . == null then "desconocido" else tostring end' ajustes.json)
+            case "$anonimo" in
+              true) echo "Acceso anónimo: activado." ;;
+              false) echo "::error::El acceso anónimo está desactivado. Actívalo en Authentication → Sign In / Providers."; fallos=1 ;;
+              *) echo "::warning::No se pudo saber si el acceso anónimo está activado." ;;
+            esac
+          fi
+
+          # 3. Las reglas tienen que estar puestas: sin sesión, las tablas no se pueden leer.
+          #    Un 404 es que no existen (falta esquema.sql); un 200, que cualquiera las lee.
+          estado=$(curl -sS -o tabla.json -w '%{http_code}' "$URL/rest/v1/mensajes?select=id&limit=1" -H "apikey: $CLAVE" || echo 000)
+          codigo=$(jq -r '.code // ""' tabla.json 2>/dev/null || true)
+          if [ "$codigo" = "42501" ]; then
+            echo "Reglas: sin sesión no se leen los mensajes, como debe ser."
+          elif [ "$estado" = "200" ]; then
+            echo "::error::¡Los mensajes se pueden leer sin sesión! Vuelve a ejecutar supabase/esquema.sql."
+            fallos=1
+          elif [ "$estado" = "404" ]; then
+            echo "::error::No existen las tablas de los grupos. Ejecuta supabase/esquema.sql en el SQL Editor."
+            fallos=1
+          else
+            echo "::warning::Respuesta inesperada al comprobar las reglas ($estado): $(cat tabla.json)"
+          fi
+
+          exit $fallos
+
+      # GitHub desactiva las tareas programadas tras 60 días sin commits en el repositorio,
+      # que es justo lo que pasa en verano. Reactivarla en cada ejecución lo evita. Va al
+      # final y aunque falle lo anterior: un servidor pausado no debe apagar además el latido.
+      - name: Mantener la tarea activa
+        if: always() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/latido.yml/enable"

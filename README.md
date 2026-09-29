@@ -397,5 +397,18 @@ en la región que se elija al crear el proyecto (conviene una de la UE).
    o como secretos del repositorio `SUPABASE_URL` y `SUPABASE_CLAVE` (Settings → Secrets
    and variables → Actions), y vuelve a compilar.
 
+### Que el servidor no se pause
+
+El plan gratuito de Supabase **pausa el proyecto tras 7 días sin actividad**, y entonces
+los grupos dejan de funcionar hasta reactivarlo a mano. Para evitarlo,
+`.github/workflows/latido.yml` llama cada 3 días a la función `latido()` del esquema, que
+solo devuelve la hora del servidor. De paso comprueba que el acceso anónimo sigue
+activado y que las tablas no se pueden leer sin sesión.
+
+- Si falla, **GitHub avisa por correo**: el proyecto se ha pausado o algo ha cambiado.
+- GitHub desactiva las tareas programadas tras 60 días sin commits, que es justo el verano.
+  Por eso la tarea se reactiva a sí misma en cada ejecución.
+- Se puede lanzar a mano en Actions → *Latido de Supabase* → *Run workflow*.
+
 El chat pregunta por mensajes nuevos cada 4 segundos, **solo con el chat abierto y la app
 a la vista**. No hay notificaciones de mensajes con la app cerrada.

@@ -298,3 +298,17 @@ create policy examenes_cambiar on public.examenes for update to authenticated
   with check (public.es_miembro(grupo));
 create policy examenes_borrar on public.examenes for delete to authenticated
   using (autor = (select auth.uid()) or public.es_creador(grupo));
+
+-- ---------------------------------------------------------------- latido
+
+-- La llama cada tres días una tarea de GitHub Actions (.github/workflows/latido.yml)
+-- para que el plan gratuito no pause el proyecto por una semana sin actividad, como en
+-- vacaciones. Solo devuelve la hora del servidor: no lee ni enseña nada de nadie, así
+-- que puede llamarla cualquiera con la clave pública, sin sesión.
+create or replace function public.latido() returns timestamptz
+language sql stable set search_path = '' as $$
+  select now();
+$$;
+
+revoke all on function public.latido() from public;
+grant execute on function public.latido() to anon, authenticated;
