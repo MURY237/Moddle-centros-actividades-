@@ -30,6 +30,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.DoneAll
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -99,6 +101,7 @@ fun ActividadesScreen(
     actualizacion: ActualizacionUiState,
     alInstalarActualizacion: () -> Unit,
     alDescartarActualizacion: () -> Unit,
+    alAbrirNetacad: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
@@ -141,7 +144,8 @@ fun ActividadesScreen(
         Cabecera(
             estado = estado,
             alRefrescar = viewModel::refrescar,
-            alCerrarSesion = viewModel::cerrarSesion
+            alCerrarSesion = viewModel::cerrarSesion,
+            alAbrirNetacad = alAbrirNetacad
         )
 
         AnimatedVisibility(visible = actualizacion.visible, enter = fadeIn(), exit = fadeOut()) {
@@ -243,7 +247,8 @@ private fun Caja(contenido: @Composable () -> Unit) {
 private fun Cabecera(
     estado: ActividadesUiState,
     alRefrescar: () -> Unit,
-    alCerrarSesion: () -> Unit
+    alCerrarSesion: () -> Unit,
+    alAbrirNetacad: () -> Unit
 ) {
     val resumen = estado.resumen
     val total = resumen.pendientes + resumen.entregadas + resumen.noEntregadas
@@ -351,6 +356,40 @@ private fun Cabecera(
                 colorNoEntregada = Color.White,
                 fondoNoEntregada = Color.White.copy(alpha = 0.16f)
             )
+
+            Spacer(Modifier.height(12.dp))
+
+            // Los trabajos de Cisco son la otra mitad de lo que hay por entregar: su sitio es
+            // junto a los de Moodle, no una pestaña más en una barra que ya va llena.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White.copy(alpha = 0.16f))
+                    .clickable(onClick = alAbrirNetacad)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.School,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "Trabajos de Cisco NetAcad",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 10.dp)
+                )
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = Color.White
+                )
+            }
         }
     }
 }
