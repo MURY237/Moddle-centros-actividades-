@@ -132,7 +132,11 @@ internal fun PanelChat(
                 modifier = Modifier.weight(1f)
             )
             FilledIconButton(
-                onClick = { acciones.enviar(texto) { texto = "" } },
+                onClick = {
+                    val enviado = texto
+                    // Solo se vacía si no se ha seguido escribiendo mientras se enviaba.
+                    acciones.enviar(enviado) { if (texto == enviado) texto = "" }
+                },
                 enabled = LimitesGrupo.mensajeValido(texto) && !estado.enviando,
                 modifier = Modifier.padding(start = Espacio.s).size(48.dp)
             ) {
