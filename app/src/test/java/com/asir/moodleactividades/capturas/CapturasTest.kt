@@ -35,6 +35,9 @@ import com.asir.moodleactividades.ui.avisos.AvisosContenido
 import com.asir.moodleactividades.ui.bus.AccionesBus
 import com.asir.moodleactividades.ui.bus.BusContenido
 import com.asir.moodleactividades.ui.componentes.Aviso
+import com.asir.moodleactividades.ui.faltas.AccionesFaltas
+import com.asir.moodleactividades.ui.faltas.FaltasContenido
+import com.asir.moodleactividades.ui.faltas.FaltasUiState
 import com.asir.moodleactividades.ui.horario.AccionesHorario
 import com.asir.moodleactividades.ui.horario.HorarioContenido
 import com.asir.moodleactividades.ui.horario.HorarioUiState
@@ -141,7 +144,15 @@ class CapturasTest {
         AvisosContenido(Muestras.avisos, AccionesAvisos(), ahora = Muestras.ahora)
     }
 
-    @Test fun login() = capturar("60-login", alto = 1000) {
+    @Test fun faltas() = capturar("25-faltas", alto = 1100) { FaltasContenido(Muestras.faltas, AccionesFaltas()) }
+
+    @Test fun faltasOscuro() = capturar("25-faltas-oscuro", oscuro = true, alto = 1100) {
+        FaltasContenido(Muestras.faltas.copy(necesitaAcceso = true), AccionesFaltas())
+    }
+
+    @Test fun faltasVacio() = capturar("26-faltas-vacio") { FaltasContenido(FaltasUiState(), AccionesFaltas()) }
+
+    @Test fun login() =capturar("60-login", alto = 1000) {
         LoginContenido(LoginUiState(url = "https://educacionadistancia.juntadeandalucia.es/centros/sevilla"), AccionesLogin())
     }
 
