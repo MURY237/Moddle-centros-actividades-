@@ -1,8 +1,5 @@
 package com.asir.moodleactividades.ui.componentes
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
@@ -30,73 +26,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-@Composable
-fun AnilloProgreso(
-    progreso: Float,
-    etiquetaCentral: String,
-    subEtiqueta: String,
-    color: Color,
-    colorPista: Color,
-    modifier: Modifier = Modifier,
-    diametro: androidx.compose.ui.unit.Dp = 104.dp,
-    grosor: androidx.compose.ui.unit.Dp = 10.dp
-) {
-    val animado by animateFloatAsState(
-        targetValue = progreso.coerceIn(0f, 1f),
-        animationSpec = tween(durationMillis = 700),
-        label = "progreso"
-    )
-
-    Box(modifier = modifier.size(diametro), contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier.size(diametro)) {
-            val trazo = Stroke(width = grosor.toPx(), cap = StrokeCap.Round)
-            val margen = grosor.toPx() / 2
-            val lado = size.minDimension - grosor.toPx()
-
-            drawArc(
-                color = colorPista,
-                startAngle = -90f,
-                sweepAngle = 360f,
-                useCenter = false,
-                topLeft = androidx.compose.ui.geometry.Offset(margen, margen),
-                size = androidx.compose.ui.geometry.Size(lado, lado),
-                style = trazo
-            )
-            drawArc(
-                color = color,
-                startAngle = -90f,
-                sweepAngle = 360f * animado,
-                useCenter = false,
-                topLeft = androidx.compose.ui.geometry.Offset(margen, margen),
-                size = androidx.compose.ui.geometry.Size(lado, lado),
-                style = trazo
-            )
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = etiquetaCentral,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = color
-            )
-            Text(
-                text = subEtiqueta,
-                style = MaterialTheme.typography.labelSmall,
-                color = colorPista,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
+/** El desplegable de asignatura que filtra Tareas, Notas y NetAcad. */
 @Composable
 fun SelectorAsignatura(
     asignaturas: List<String>,
@@ -151,56 +85,7 @@ fun SelectorAsignatura(
     }
 }
 
-@Composable
-fun Estadistica(
-    valor: Int,
-    etiqueta: String,
-    color: Color,
-    fondo: Color,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .background(fondo, RoundedCornerShape(18.dp))
-            .padding(vertical = 12.dp, horizontal = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        Text(
-            text = valor.toString(),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = color
-        )
-        Text(
-            text = etiqueta,
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center
-        )
-    }
-}
-
-@Composable
-fun Etiqueta(
-    texto: String,
-    color: Color,
-    fondo: Color,
-    modifier: Modifier = Modifier
-) {
-    Text(
-        text = texto,
-        style = MaterialTheme.typography.labelMedium,
-        color = color,
-        maxLines = 1,
-        modifier = modifier
-            .background(fondo, RoundedCornerShape(50))
-            .padding(horizontal = 8.dp, vertical = 3.dp)
-    )
-}
-
+/** Lo que se enseña cuando no hay nada: icono, qué pasa y, si hace falta, qué hacer. */
 @Composable
 fun EstadoVacio(
     icono: androidx.compose.ui.graphics.vector.ImageVector,
@@ -240,28 +125,5 @@ fun EstadoVacio(
             textAlign = TextAlign.Center
         )
         accion?.invoke()
-    }
-}
-
-@Composable
-fun FilaEstadisticas(
-    pendientes: Int,
-    entregadas: Int,
-    noEntregadas: Int,
-    colorPendiente: Color,
-    fondoPendiente: Color,
-    colorEntregada: Color,
-    fondoEntregada: Color,
-    colorNoEntregada: Color,
-    fondoNoEntregada: Color,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Estadistica(pendientes, "Pendientes", colorPendiente, fondoPendiente, Modifier.weight(1f))
-        Estadistica(entregadas, "Entregadas", colorEntregada, fondoEntregada, Modifier.weight(1f))
-        Estadistica(noEntregadas, "Sin entregar", colorNoEntregada, fondoNoEntregada, Modifier.weight(1f))
     }
 }

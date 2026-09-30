@@ -6,18 +6,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,17 +27,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.asir.moodleactividades.domain.CalendarioExamenes
 import com.asir.moodleactividades.domain.Examen
-import com.asir.moodleactividades.ui.theme.RojoNoEntregada
+import com.asir.moodleactividades.ui.componentes.Espacio
+import com.asir.moodleactividades.ui.componentes.Tarjeta
+import com.asir.moodleactividades.ui.theme.Tono
+import com.asir.moodleactividades.ui.theme.colores
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import java.util.Locale
 
-private val ESPANOL = Locale.forLanguageTag("es-ES")
 private val TITULO_MES = DateTimeFormatter.ofPattern("LLLL yyyy", ESPANOL)
 private val INICIALES = listOf("L", "M", "X", "J", "V", "S", "D")
 
@@ -58,13 +58,8 @@ fun CalendarioMes(
     alElegirDia: (LocalDate?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+    Tarjeta(modifier = modifier, relleno = PaddingValues(Espacio.s)) {
+        Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { alCambiarMes(mes.minusMonths(1)) }) {
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Mes anterior")
@@ -75,7 +70,7 @@ fun CalendarioMes(
                     modifier = Modifier
                         .weight(1f)
                         .clickable { alCambiarMes(YearMonth.from(hoy)) },
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
                 IconButton(onClick = { alCambiarMes(mes.plusMonths(1)) }) {
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Mes siguiente")
@@ -88,7 +83,7 @@ fun CalendarioMes(
                         text = inicial,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        textAlign = TextAlign.Center,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -118,6 +113,7 @@ fun CalendarioMes(
 @Composable
 private fun Dia(dia: LocalDate, examenes: Int, esHoy: Boolean, elegido: Boolean, alPulsar: () -> Unit) {
     val colores = MaterialTheme.colorScheme
+    val punto = Tono.PELIGRO.colores().contenido
     val nombre = dia.dayOfWeek.getDisplayName(TextStyle.FULL, ESPANOL) + " " + dia.dayOfMonth +
         when (examenes) {
             0 -> ""
@@ -148,7 +144,7 @@ private fun Dia(dia: LocalDate, examenes: Int, esHoy: Boolean, elegido: Boolean,
                 Box(
                     modifier = Modifier
                         .size(5.dp)
-                        .background(if (elegido) colores.onPrimary else RojoNoEntregada, CircleShape)
+                        .background(if (elegido) colores.onPrimary else punto, CircleShape)
                 )
             }
             // Sin punto se reserva el hueco: si no, los números bailarían de altura.
