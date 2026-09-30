@@ -84,6 +84,12 @@ class ActividadesRepository(
         cacheNotas.borrar()
     }
 
+    /**
+     * El token ha dejado de valer: se olvida para no volver a arrancar con él, pero se
+     * conservan las copias de tareas y notas, que siguen siendo del mismo alumno.
+     */
+    fun caducarSesion() = sesionStore.borrar()
+
     suspend fun iniciarSesion(url: String, usuario: String, contrasena: String): Sesion {
         val sitio = MoodleClient.normalizarUrl(url)
         val token = MoodleClient(sitio).pedirToken(usuario, contrasena)

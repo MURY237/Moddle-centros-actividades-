@@ -20,7 +20,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
@@ -63,7 +62,6 @@ import com.asir.moodleactividades.ui.theme.colores
 /** Lo que la pantalla de notas puede pedir; separado para poder pintarla sin ViewModel. */
 data class AccionesNotas(
     val refrescar: () -> Unit = {},
-    val abrirFaltas: () -> Unit = {},
     val cambiarFiltro: (FiltroNotas) -> Unit = {},
     val cambiarAsignatura: (String?) -> Unit = {},
     val abrirEnlace: (String) -> Unit = {}
@@ -72,7 +70,6 @@ data class AccionesNotas(
 @Composable
 fun NotasScreen(
     viewModel: NotasViewModel,
-    alAbrirFaltas: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
@@ -82,7 +79,6 @@ fun NotasScreen(
         estado = estado,
         acciones = AccionesNotas(
             refrescar = viewModel::refrescar,
-            abrirFaltas = alAbrirFaltas,
             cambiarFiltro = viewModel::cambiarFiltro,
             cambiarAsignatura = viewModel::cambiarAsignatura,
             abrirEnlace = { enlace ->
@@ -108,9 +104,6 @@ fun NotasContenido(
                 "${estado.totalCalificadas} de ${estado.totalEvaluables} calificadas"
             }
         ) {
-            IconButton(onClick = acciones.abrirFaltas) {
-                Icon(Icons.Default.EventBusy, contentDescription = "Faltas de asistencia")
-            }
             if (estado.cargando) {
                 Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
