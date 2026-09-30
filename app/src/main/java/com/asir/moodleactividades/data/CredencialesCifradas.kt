@@ -2,8 +2,6 @@ package com.asir.moodleactividades.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys
 
 data class Credenciales(val usuario: String, val clave: String) {
     val completas: Boolean get() = usuario.isNotBlank() && clave.isNotBlank()
@@ -26,20 +24,7 @@ class CredencialesCifradas(contexto: Context, private val archivo: String) {
      * Si el almacén de claves falla —ocurre en algunos dispositivos tras restaurar una copia
      * de seguridad—, se prefiere quedarse sin credenciales a guardarlas sin cifrar.
      */
-    private val prefs: SharedPreferences? by lazy {
-        runCatching {
-            // La clave maestra se crea dentro del almacén de claves del dispositivo; aquí
-            // solo se maneja su alias, nunca el material de la clave.
-            val alias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
-            EncryptedSharedPreferences.create(
-                archivo,
-                alias,
-                app,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-        }.getOrNull()
-    }
+    private val prefs: SharedPreferences? by lazy { PreferenciasCifradas.abrir(app, archivo) }
 
     val disponible: Boolean get() = prefs != null
 

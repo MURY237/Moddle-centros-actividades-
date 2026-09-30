@@ -809,6 +809,10 @@ private fun NavegadorNetacad(
             factory = { contexto ->
                 WebView(contexto).apply {
                     settings.javaScriptEnabled = true
+                    // NetAcad no necesita leer ficheros del móvil: en Android 10 y anteriores
+                    // venía permitido por defecto, y una página podría pedirlos.
+                    settings.allowFileAccess = false
+                    settings.allowContentAccess = false
                     // NetAcad guarda su estado en localStorage: sin esto no arranca.
                     settings.domStorageEnabled = true
                     settings.builtInZoomControls = true
