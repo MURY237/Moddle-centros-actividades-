@@ -338,6 +338,23 @@ solo recoge texto, y se prueba aparte con jsdom en CI.
 netacad.com, como con Séneca; las de id.cisco.com, que son la identidad de Cisco para todos
 sus servicios, no se copian. «Desconectar» cierra las dos y borra lo guardado.
 
+### Entrar solo cuando caduca la sesión
+
+En **⋮ → Cuenta de Cisco** se puede guardar el correo y la contraseña de Cisco. Cuando la
+sesión caduca, la app hace el acceso ella sola —primero el correo y luego la contraseña,
+que Cisco los pide en dos pantallas— y sigue leyendo.
+
+- La contraseña se guarda **cifrada** con el almacén de claves de Android, igual que la de
+  Séneca. Si el móvil no lo permite, no se guarda.
+- **Solo se escribe en páginas de `cisco.com` y `netacad.com`**. Se comprueba antes de
+  inyectar nada y otra vez dentro del guion, así que una página ajena no llega a recibirla.
+- Nunca pulsa «Go back», «Reset password» ni «Sign in with Google».
+- Como mucho **dos envíos** de contraseña. Si Cisco dice que es incorrecta, se para y no
+  vuelve a probar sola, para no bloquear la cuenta.
+- Si Cisco pide **verificación en dos pasos**, eso no se puede automatizar: se avisa y se
+  entra a mano.
+- «Desconectar» borra también la cuenta guardada.
+
 Limitaciones:
 
 - No hay avisos en segundo plano de NetAcad: leerlo necesita un navegador, y eso solo existe

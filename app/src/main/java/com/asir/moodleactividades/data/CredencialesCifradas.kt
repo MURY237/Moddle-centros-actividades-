@@ -10,14 +10,15 @@ data class Credenciales(val usuario: String, val clave: String) {
 }
 
 /**
- * Usuario y contraseña de Séneca, para volver a entrar cuando el servidor caduca la sesión.
+ * Usuario y contraseña de un servicio —Séneca o Cisco NetAcad—, para volver a entrar cuando
+ * el servidor caduca la sesión. Cada servicio va en su propio fichero, [archivo].
  *
- * Es el único dato realmente sensible que guarda la aplicación, así que no va a unas
+ * Son los únicos datos realmente sensibles que guarda la aplicación, así que no van a unas
  * preferencias normales: se cifra con una clave que vive en el almacén de claves de Android,
  * fuera del alcance del sistema de ficheros. Aun así, guardar una contraseña nunca sale
  * gratis, y por eso esto es opcional y se borra de un toque.
  */
-class CredencialesSeneca(contexto: Context) {
+class CredencialesCifradas(contexto: Context, private val archivo: String) {
 
     private val app = contexto.applicationContext
 
@@ -31,7 +32,7 @@ class CredencialesSeneca(contexto: Context) {
             // solo se maneja su alias, nunca el material de la clave.
             val alias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
             EncryptedSharedPreferences.create(
-                "credenciales_seneca",
+                archivo,
                 alias,
                 app,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
@@ -66,8 +67,12 @@ class CredencialesSeneca(contexto: Context) {
         prefs?.edit()?.clear()?.apply()
     }
 
-    private companion object {
-        const val USUARIO = "usuario"
-        const val CLAVE = "clave"
+    companion object {
+        /** Se queda con el nombre de siempre: así la cuenta ya guardada sigue valiendo. */
+        const val SENECA = "credenciales_seneca"
+        const val NETACAD = "credenciales_netacad"
+
+        private const val USUARIO = "usuario"
+        private const val CLAVE = "clave"
     }
 }
