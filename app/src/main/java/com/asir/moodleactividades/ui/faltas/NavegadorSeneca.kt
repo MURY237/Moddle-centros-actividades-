@@ -140,6 +140,13 @@ internal fun NavegadorSeneca(
                         // se vuelve a la última página útil en lugar de empezar por la portada.
                         loadUrl(sesion.urlGuardada() ?: INICIO_SENECA)
                     }
+                },
+                // Cada refresco estrena navegador: sin destruir el anterior, su proceso de
+                // renderizado seguía vivo. Sin la referencia, los reintentos pendientes paran.
+                onRelease = { web ->
+                    contenedor.web = null
+                    web.stopLoading()
+                    web.destroy()
                 }
             )
         }
