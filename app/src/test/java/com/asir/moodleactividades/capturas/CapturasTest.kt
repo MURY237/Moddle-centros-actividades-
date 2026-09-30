@@ -32,7 +32,16 @@ import com.asir.moodleactividades.ui.actividades.TareasContenido
 import com.asir.moodleactividades.ui.actualizacion.ActualizacionUiState
 import com.asir.moodleactividades.ui.avisos.AccionesAvisos
 import com.asir.moodleactividades.ui.avisos.AvisosContenido
+import com.asir.moodleactividades.ui.bus.AccionesBus
+import com.asir.moodleactividades.ui.bus.BusContenido
 import com.asir.moodleactividades.ui.componentes.Aviso
+import com.asir.moodleactividades.ui.horario.AccionesHorario
+import com.asir.moodleactividades.ui.horario.HorarioContenido
+import com.asir.moodleactividades.ui.horario.HorarioUiState
+import com.asir.moodleactividades.ui.horario.VistaHorario
+import com.asir.moodleactividades.ui.login.AccionesLogin
+import com.asir.moodleactividades.ui.login.LoginContenido
+import com.asir.moodleactividades.ui.login.LoginUiState
 import com.asir.moodleactividades.ui.notas.AccionesNotas
 import com.asir.moodleactividades.ui.notas.NotasContenido
 import com.asir.moodleactividades.ui.componentes.BarraProgreso
@@ -130,6 +139,33 @@ class CapturasTest {
 
     @Test fun avisosOscuro() = capturar("30-avisos-oscuro", oscuro = true) {
         AvisosContenido(Muestras.avisos, AccionesAvisos(), ahora = Muestras.ahora)
+    }
+
+    @Test fun login() = capturar("60-login", alto = 1000) {
+        LoginContenido(LoginUiState(url = "https://educacionadistancia.juntadeandalucia.es/centros/sevilla"), AccionesLogin())
+    }
+
+    @Test fun loginOscuro() = capturar("60-login-oscuro", oscuro = true, alto = 1000) {
+        LoginContenido(
+            LoginUiState(url = "moodle.ejemplo.es", error = "No se ha podido contactar con ese servidor."),
+            AccionesLogin()
+        )
+    }
+
+    @Test fun horarioVacio() =capturar("50-horario-vacio") {
+        HorarioContenido(HorarioUiState(), VistaHorario.CLASES, {}, AccionesHorario()) {}
+    }
+
+    @Test fun bus() = capturar("51-bus", alto = 1100) {
+        HorarioContenido(HorarioUiState(), VistaHorario.BUS, {}, AccionesHorario()) {
+            BusContenido(Muestras.bus, HorarioUiState(), AccionesBus())
+        }
+    }
+
+    @Test fun busOscuro() = capturar("51-bus-oscuro", oscuro = true, alto = 1100) {
+        HorarioContenido(HorarioUiState(), VistaHorario.BUS, {}, AccionesHorario()) {
+            BusContenido(Muestras.bus, HorarioUiState(), AccionesBus())
+        }
     }
 
     @Test fun ajustes() = capturar("40-ajustes", alto = 1500) { Ajustes() }
