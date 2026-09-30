@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Solo se comparten con otras apps los adjuntos descargados y el APK de la actualización,
+    cada uno en su carpeta. Antes se exponía la caché entera («.»).
+-->
 <paths>
-    <cache-path name="descargas" path="." />
+    <cache-path name="adjuntos" path="adjuntos/" />
+    <cache-path name="actualizacion" path="actualizacion/" />
 </paths>

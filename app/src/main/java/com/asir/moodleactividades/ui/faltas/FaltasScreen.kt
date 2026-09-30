@@ -464,6 +464,10 @@ private fun NavegadorSeneca(
                 factory = { contexto ->
                     WebView(contexto).apply {
                         settings.javaScriptEnabled = true
+                        // Séneca no necesita leer ficheros del móvil: en Android 10 y anteriores
+                        // venía permitido por defecto, y una página podría pedirlos.
+                        settings.allowFileAccess = false
+                        settings.allowContentAccess = false
                         settings.domStorageEnabled = true
                         settings.builtInZoomControls = true
                         settings.displayZoomControls = false
@@ -933,6 +937,14 @@ private fun entrarSolo(
             alAnotarAcceso("no se encontró el formulario de acceso")
             alRendirse()
         }
+        return
+    }
+
+    // La contraseña solo va a páginas de la Junta: se mira antes de meterla en ningún guion.
+    if (!AutoAcceso.hostPermitido(web.url)) {
+        val host = runCatching { java.net.URI(web.url).host }.getOrNull() ?: "desconocida"
+        alAnotarAcceso("la página ($host) no es de la Junta, así que no se escribe nada")
+        alRendirse()
         return
     }
 

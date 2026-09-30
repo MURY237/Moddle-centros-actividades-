@@ -10,6 +10,8 @@
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
+        android:networkSecurityConfig="@xml/seguridad_red"
+        android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
