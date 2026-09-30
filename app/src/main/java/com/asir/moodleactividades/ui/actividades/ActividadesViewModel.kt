@@ -96,14 +96,18 @@ class ActividadesViewModel(
     fun abrirDetalle(actividad: Actividad) {
         // El estado de cada adjunto se recalcula al abrir: si la caché conserva el archivo de
         // otra vez, la ficha ya sale con el botón de abrir en lugar del de descargar.
+        // Una descarga en marcha se respeta: al cerrar y volver a abrir la ficha se veía otra
+        // vez «Descargar», y un segundo toque bajaba el mismo archivo a la vez.
+        val enCurso = _estado.value.descargas.filterValues { it.estado == EstadoDescarga.DESCARGANDO }
         val estados = actividad.adjuntos.associate { adjunto ->
+            enCurso[adjunto.url]?.let { return@associate adjunto.url to it }
             val guardado = descargas.yaDescargado(adjunto)
             adjunto.url to DescargaUi(
                 estado = if (guardado != null) EstadoDescarga.LISTA else EstadoDescarga.PENDIENTE,
                 archivo = guardado
             )
         }
-        _estado.update { it.copy(detalle = actividad, descargas = estados) }
+        _estado.update { it.copy(detalle = actividad, descargas = enCurso + estados) }
     }
 
     fun cerrarDetalle() = _estado.update { it.copy(detalle = null) }
@@ -131,11 +135,6 @@ class ActividadesViewModel(
 
     private fun cambiarDescarga(adjunto: Adjunto, descarga: DescargaUi) =
         _estado.update { it.copy(descargas = it.descargas + (adjunto.url to descarga)) }
-
-    fun cerrarSesion() {
-        repositorio.cerrarSesion()
-        _estado.update { it.copy(sesionCaducada = true) }
-    }
 
     /**
      * Al volver a la app se refresca, pero no en cada vistazo: los cortafuegos de centro
@@ -178,7 +177,8 @@ class ActividadesViewModel(
                 },
                 onFailure = { fallo ->
                     val caducada = fallo is MoodleException && fallo.esTokenInvalido
-                    if (caducada) repositorio.cerrarSesion()
+                    // El token ya no vale, pero las copias siguen siendo de este alumno.
+                    if (caducada) repositorio.caducarSesion()
                     _estado.update {
                         it.copy(
                             cargando = false,

@@ -118,7 +118,9 @@ class BusTest {
     fun `los dias se describen en corto`() {
         assertEquals("De lunes a viernes", HorariosBus.etiquetaDias(LineaBus.LABORABLES))
         assertEquals("Todos los días", HorariosBus.etiquetaDias((1..7).toSet()))
-        assertEquals("S, D", HorariosBus.etiquetaDias(setOf(sabado, domingo)))
+        assertEquals("Fines de semana", HorariosBus.etiquetaDias(setOf(sabado, domingo)))
+        assertEquals("Solo los sábados", HorariosBus.etiquetaDias(setOf(sabado)))
+        assertEquals("L, X, V", HorariosBus.etiquetaDias(setOf(5, 1, 3)))
         assertEquals("Sin días", HorariosBus.etiquetaDias(emptySet()))
     }
 }

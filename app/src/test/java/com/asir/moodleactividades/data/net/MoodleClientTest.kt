@@ -34,6 +34,12 @@ class MoodleClientTest {
     }
 
     @Test
+    fun `una url en http pasa a https`() {
+        assertEquals("https://moodle.centro.es/", MoodleClient.normalizarUrl("http://moodle.centro.es/my/"))
+        assertEquals("https://moodle.centro.es/", MoodleClient.normalizarUrl("HTTP://moodle.centro.es"))
+    }
+
+    @Test
     fun `una url vacia no produce esquema suelto`() {
         assertEquals("", MoodleClient.normalizarUrl("   "))
     }

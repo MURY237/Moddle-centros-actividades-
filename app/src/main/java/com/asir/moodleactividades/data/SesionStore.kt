@@ -11,15 +11,22 @@ data class Sesion(
     val idUsuario: Long = 0
 )
 
+/**
+ * La sesión de Moodle. El token da acceso a todo el Moodle del alumno, así que va cifrado
+ * con el almacén de claves; lo demás (nombre, sitio) no es secreto y va en preferencias
+ * normales. Las versiones anteriores lo guardaban en claro: se migra solo al leerlo.
+ */
 class SesionStore(contexto: Context) {
 
     private val prefs = contexto.applicationContext
         .getSharedPreferences("sesion", Context.MODE_PRIVATE)
 
+    private val cifradas by lazy { PreferenciasCifradas.abrir(contexto, "sesion_cifrada") }
+
     fun guardar(sesion: Sesion) {
+        PreferenciasCifradas.escribir(cifradas, prefs, CLAVE_TOKEN, sesion.token)
         prefs.edit()
             .putString(CLAVE_URL, sesion.urlSitio)
-            .putString(CLAVE_TOKEN, sesion.token)
             .putString(CLAVE_USUARIO, sesion.usuario)
             .putString(CLAVE_NOMBRE, sesion.nombreCompleto)
             .putString(CLAVE_SITIO, sesion.nombreSitio)
@@ -29,7 +36,7 @@ class SesionStore(contexto: Context) {
 
     fun leer(): Sesion? {
         val url = prefs.getString(CLAVE_URL, null) ?: return null
-        val token = prefs.getString(CLAVE_TOKEN, null) ?: return null
+        val token = PreferenciasCifradas.leerMigrando(cifradas, prefs, CLAVE_TOKEN) ?: return null
         return Sesion(
             urlSitio = url,
             token = token,
@@ -59,8 +66,16 @@ class SesionStore(contexto: Context) {
         prefs.edit().remove(CLAVE_PASSPORT).apply()
     }
 
+    /** Cierra la sesión. Se queda solo la URL del centro, para no tener que volver a escribirla. */
     fun borrar() {
-        prefs.edit().remove(CLAVE_TOKEN).remove(CLAVE_USUARIO).remove(CLAVE_NOMBRE).apply()
+        PreferenciasCifradas.borrar(cifradas, prefs, CLAVE_TOKEN)
+        prefs.edit()
+            .remove(CLAVE_USUARIO)
+            .remove(CLAVE_NOMBRE)
+            .remove(CLAVE_SITIO)
+            .remove(CLAVE_ID_USUARIO)
+            .remove(CLAVE_PASSPORT)
+            .apply()
     }
 
     private companion object {
