@@ -132,11 +132,6 @@ class ActividadesViewModel(
     private fun cambiarDescarga(adjunto: Adjunto, descarga: DescargaUi) =
         _estado.update { it.copy(descargas = it.descargas + (adjunto.url to descarga)) }
 
-    fun cerrarSesion() {
-        repositorio.cerrarSesion()
-        _estado.update { it.copy(sesionCaducada = true) }
-    }
-
     /**
      * Al volver a la app se refresca, pero no en cada vistazo: los cortafuegos de centro
      * cortan por exceso de peticiones seguidas y la lista se quedaría vacía.
@@ -178,7 +173,8 @@ class ActividadesViewModel(
                 },
                 onFailure = { fallo ->
                     val caducada = fallo is MoodleException && fallo.esTokenInvalido
-                    if (caducada) repositorio.cerrarSesion()
+                    // El token ya no vale, pero las copias siguen siendo de este alumno.
+                    if (caducada) repositorio.caducarSesion()
                     _estado.update {
                         it.copy(
                             cargando = false,

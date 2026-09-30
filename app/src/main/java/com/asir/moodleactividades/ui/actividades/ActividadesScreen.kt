@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -36,8 +37,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -94,6 +99,7 @@ fun ActividadesScreen(
     alInstalarActualizacion: () -> Unit,
     alDescartarActualizacion: () -> Unit,
     alAbrirNetacad: () -> Unit,
+    alCerrarSesion: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
@@ -130,7 +136,7 @@ fun ActividadesScreen(
         actualizacion = actualizacion,
         acciones = AccionesTareas(
             refrescar = viewModel::refrescar,
-            cerrarSesion = viewModel::cerrarSesion,
+            cerrarSesion = alCerrarSesion,
             abrirNetacad = alAbrirNetacad,
             cambiarFiltro = viewModel::cambiarFiltro,
             cambiarRango = viewModel::cambiarRango,
@@ -151,6 +157,8 @@ fun TareasContenido(
     acciones: AccionesTareas,
     modifier: Modifier = Modifier
 ) {
+    var confirmarSalida by rememberSaveable { mutableStateOf(false) }
+
     Column(modifier = modifier.fillMaxSize()) {
         CabeceraPantalla(
             titulo = "Tareas",
@@ -168,7 +176,9 @@ fun TareasContenido(
             MenuMas(
                 listOf(
                     OpcionMenu("Trabajos de Cisco NetAcad", Icons.Default.School, alPulsar = acciones.abrirNetacad),
-                    OpcionMenu("Cerrar sesión", Icons.AutoMirrored.Filled.Logout, peligrosa = true, alPulsar = acciones.cerrarSesion)
+                    OpcionMenu("Cerrar sesión", Icons.AutoMirrored.Filled.Logout, peligrosa = true) {
+                        confirmarSalida = true
+                    }
                 )
             )
         }
@@ -254,6 +264,28 @@ fun TareasContenido(
                 }
             }
         }
+    }
+
+    if (confirmarSalida) {
+        AlertDialog(
+            onDismissRequest = { confirmarSalida = false },
+            icon = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null) },
+            title = { Text("¿Cerrar sesión?") },
+            text = {
+                Text(
+                    "Se borran de este móvil tus tareas, notas, adjuntos descargados y el " +
+                        "historial de avisos. Séneca, NetAcad y los grupos siguen conectados: se " +
+                        "desconectan desde su pantalla."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmarSalida = false
+                    acciones.cerrarSesion()
+                }) { Text("Cerrar sesión", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmarSalida = false }) { Text("Cancelar") } }
+        )
     }
 }
 

@@ -10,22 +10,22 @@ import com.asir.moodleactividades.domain.EstadoActividad
 import com.asir.moodleactividades.domain.Examen
 import com.asir.moodleactividades.domain.Falta
 import com.asir.moodleactividades.domain.Grupo
-import com.asir.moodleactividades.domain.Mensaje
-import com.asir.moodleactividades.domain.Miembro
-import com.asir.moodleactividades.ui.grupos.GruposUiState
-import com.asir.moodleactividades.ui.grupos.PestanaGrupo
-import com.asir.moodleactividades.domain.ResumenFaltas
-import com.asir.moodleactividades.domain.TrabajoNetacad
-import com.asir.moodleactividades.ui.netacad.NetacadUiState
-import com.asir.moodleactividades.ui.faltas.FaltasUiState
-import com.asir.moodleactividades.domain.NotasDeCurso
-import com.asir.moodleactividades.domain.TipoActividad
-import com.asir.moodleactividades.ui.actividades.ActividadesUiState
 import com.asir.moodleactividades.domain.HorariosBus
 import com.asir.moodleactividades.domain.LineaBus
+import com.asir.moodleactividades.domain.Mensaje
+import com.asir.moodleactividades.domain.Miembro
+import com.asir.moodleactividades.domain.NotasDeCurso
+import com.asir.moodleactividades.domain.ResumenFaltas
+import com.asir.moodleactividades.domain.TipoActividad
+import com.asir.moodleactividades.domain.TrabajoNetacad
+import com.asir.moodleactividades.ui.actividades.ActividadesUiState
 import com.asir.moodleactividades.ui.avisos.AvisosUiState
 import com.asir.moodleactividades.ui.bus.BusUiState
 import com.asir.moodleactividades.ui.bus.LineaConSalida
+import com.asir.moodleactividades.ui.faltas.FaltasUiState
+import com.asir.moodleactividades.ui.grupos.GruposUiState
+import com.asir.moodleactividades.ui.grupos.PestanaGrupo
+import com.asir.moodleactividades.ui.netacad.NetacadUiState
 import com.asir.moodleactividades.ui.notas.NotasUiState
 
 /**

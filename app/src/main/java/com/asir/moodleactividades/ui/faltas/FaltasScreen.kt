@@ -361,7 +361,8 @@ private fun TarjetaAsignatura(asignatura: FaltasDeAsignatura) {
                         EtiquetaEstado("${asignatura.injustificadas} sin justificar", Tono.PELIGRO)
                     }
                     if (asignatura.justificadas > 0) {
-                        EtiquetaEstado("${asignatura.justificadas} justificadas", Tono.EXITO)
+                        val n = asignatura.justificadas
+                        EtiquetaEstado(if (n == 1) "1 justificada" else "$n justificadas", Tono.EXITO)
                     }
                 }
             }
