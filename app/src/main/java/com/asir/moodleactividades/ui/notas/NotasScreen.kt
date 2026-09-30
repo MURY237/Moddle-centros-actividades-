@@ -1,50 +1,43 @@
 package com.asir.moodleactividades.ui.notas
 
 import android.content.Intent
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.EventBusy
+import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -52,22 +45,30 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.asir.moodleactividades.domain.Calificacion
 import com.asir.moodleactividades.domain.FiltroNotas
 import com.asir.moodleactividades.domain.NotasDeCurso
+import com.asir.moodleactividades.ui.componentes.Aviso
+import com.asir.moodleactividades.ui.componentes.BarraProgreso
+import com.asir.moodleactividades.ui.componentes.CabeceraPantalla
+import com.asir.moodleactividades.ui.componentes.EntreFiltros
+import com.asir.moodleactividades.ui.componentes.Espacio
 import com.asir.moodleactividades.ui.componentes.EstadoVacio
+import com.asir.moodleactividades.ui.componentes.EtiquetaEstado
+import com.asir.moodleactividades.ui.componentes.FranjaResumen
+import com.asir.moodleactividades.ui.componentes.Metrica
 import com.asir.moodleactividades.ui.componentes.SelectorAsignatura
+import com.asir.moodleactividades.ui.componentes.Tarjeta
 import com.asir.moodleactividades.ui.formatearFecha
-import com.asir.moodleactividades.ui.theme.AmbarPendiente
-import com.asir.moodleactividades.ui.theme.AmbarPendienteFondo
-import com.asir.moodleactividades.ui.theme.AmbarPendienteOscuro
-import com.asir.moodleactividades.ui.theme.DegradadoCabecera
-import com.asir.moodleactividades.ui.theme.RojoNoEntregada
-import com.asir.moodleactividades.ui.theme.RojoNoEntregadaFondo
-import com.asir.moodleactividades.ui.theme.RojoNoEntregadaOscuro
-import com.asir.moodleactividades.ui.theme.VerdeEntregada
-import com.asir.moodleactividades.ui.theme.VerdeEntregadaFondo
-import com.asir.moodleactividades.ui.theme.VerdeEntregadaOscuro
-import com.asir.moodleactividades.ui.theme.fondoDeEstado
+import com.asir.moodleactividades.ui.theme.Tono
+import com.asir.moodleactividades.ui.theme.colores
 
-@OptIn(ExperimentalFoundationApi::class)
+/** Lo que la pantalla de notas puede pedir; separado para poder pintarla sin ViewModel. */
+data class AccionesNotas(
+    val refrescar: () -> Unit = {},
+    val abrirFaltas: () -> Unit = {},
+    val cambiarFiltro: (FiltroNotas) -> Unit = {},
+    val cambiarAsignatura: (String?) -> Unit = {},
+    val abrirEnlace: (String) -> Unit = {}
+)
+
 @Composable
 fun NotasScreen(
     viewModel: NotasViewModel,
@@ -77,160 +78,113 @@ fun NotasScreen(
     val estado by viewModel.estado.collectAsStateWithLifecycle()
     val contexto = LocalContext.current
 
+    NotasContenido(
+        estado = estado,
+        acciones = AccionesNotas(
+            refrescar = viewModel::refrescar,
+            abrirFaltas = alAbrirFaltas,
+            cambiarFiltro = viewModel::cambiarFiltro,
+            cambiarAsignatura = viewModel::cambiarAsignatura,
+            abrirEnlace = { enlace ->
+                runCatching { contexto.startActivity(Intent(Intent.ACTION_VIEW, enlace.toUri())) }
+            }
+        ),
+        modifier = modifier
+    )
+}
+
+@Composable
+fun NotasContenido(
+    estado: NotasUiState,
+    acciones: AccionesNotas,
+    modifier: Modifier = Modifier
+) {
     Column(modifier = modifier.fillMaxSize()) {
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-                .background(DegradadoCabecera)
+        CabeceraPantalla(
+            titulo = "Notas",
+            subtitulo = if (estado.totalEvaluables == 0) {
+                "Calificaciones de tus asignaturas"
+            } else {
+                "${estado.totalCalificadas} de ${estado.totalEvaluables} calificadas"
+            }
         ) {
-            Row(
-                modifier = Modifier
-                    .statusBarsPadding()
-                    .padding(horizontal = 20.dp)
-                    .padding(top = 12.dp, bottom = 18.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Mis notas",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.White
-                    )
-                    Text(
-                        text = if (estado.totalEvaluables == 0) {
-                            "Calificaciones de todas tus asignaturas"
-                        } else {
-                            "${estado.totalCalificadas} de ${estado.totalEvaluables} calificadas"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.82f)
-                    )
+            IconButton(onClick = acciones.abrirFaltas) {
+                Icon(Icons.Default.EventBusy, contentDescription = "Faltas de asistencia")
+            }
+            if (estado.cargando) {
+                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 }
-                IconButton(onClick = alAbrirFaltas) {
-                    Icon(Icons.Default.EventBusy, "Faltas de asistencia", tint = Color.White)
-                }
-                IconButton(onClick = viewModel::refrescar, enabled = !estado.cargando) {
-                    Icon(Icons.Default.Refresh, "Actualizar", tint = Color.White)
+            } else {
+                IconButton(onClick = acciones.refrescar) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Actualizar")
                 }
             }
         }
 
-        if (estado.mostrandoDatosAntiguos) {
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = fondoDeEstado(AmbarPendienteFondo, AmbarPendienteOscuro)
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CloudOff,
-                        contentDescription = null,
-                        tint = AmbarPendiente,
-                        modifier = Modifier.size(22.dp)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = Espacio.xl),
+            verticalArrangement = Arrangement.spacedBy(Espacio.m)
+        ) {
+            if (estado.mostrandoDatosAntiguos) {
+                item(key = "sin-conexion") {
+                    Aviso(
+                        titulo = "Sin actualizar",
+                        texto = estado.error.orEmpty(),
+                        tono = Tono.AVISO,
+                        accion = "Reintentar",
+                        alPulsarAccion = acciones.refrescar,
+                        modifier = Modifier.padding(horizontal = Espacio.lateral)
                     )
-                    Text(
-                        text = "Datos sin actualizar. ${estado.error.orEmpty()}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AmbarPendiente,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = viewModel::refrescar, enabled = !estado.cargando) {
-                        Text("Reintentar", color = AmbarPendiente)
-                    }
                 }
             }
-        }
 
-        if (estado.todos.isNotEmpty()) {
-            Column(
-                modifier = Modifier.padding(top = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                SelectorAsignatura(
-                    asignaturas = estado.asignaturas,
-                    seleccionada = estado.asignatura,
-                    alElegir = viewModel::cambiarAsignatura,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-                Row(
-                    modifier = Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FiltroNotas.entries.forEach { filtro ->
-                        FilterChip(
-                            selected = estado.filtro == filtro,
-                            onClick = { viewModel.cambiarFiltro(filtro) },
-                            label = { Text(filtro.etiqueta) },
-                            shape = RoundedCornerShape(14.dp)
-                        )
-                    }
-                }
+            if (estado.todos.isNotEmpty()) {
+                item(key = "resumen") { Resumen(estado) }
+                item(key = "filtros") { Filtros(estado, acciones) }
             }
-        }
 
-        Box(modifier = Modifier.fillMaxSize()) {
             when {
-                estado.cargando && estado.cursos.isEmpty() ->
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-
-                estado.error != null && estado.cursos.isEmpty() -> EstadoVacio(
-                    icono = Icons.Default.CloudOff,
-                    titulo = "No se pudieron cargar las notas",
-                    detalle = estado.error.orEmpty(),
-                    modifier = Modifier.align(Alignment.Center)
-                ) {
-                    Button(onClick = viewModel::refrescar, enabled = !estado.cargando) {
-                        Text("Reintentar")
+                estado.cargando && estado.cursos.isEmpty() -> item(key = "cargando") {
+                    Box(Modifier.fillMaxWidth().padding(Espacio.xxl), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(strokeWidth = 3.dp, modifier = Modifier.size(32.dp))
                     }
                 }
 
-                estado.cursos.isEmpty() -> EstadoVacio(
-                    icono = Icons.Default.Grade,
-                    titulo = if (estado.todos.isEmpty()) "Todavía sin notas" else "Sin resultados",
-                    detalle = if (estado.todos.isEmpty()) {
-                        "Cuando tus asignaturas tengan actividades evaluables aparecerán aquí."
-                    } else {
-                        "Ninguna calificación encaja con estos filtros."
-                    },
-                    modifier = Modifier.align(Alignment.Center)
-                )
-
-                else -> LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Dos matrículas pueden resolverse al mismo nombre de curso, y dos claves
-                    // iguales en la lista tumban la pantalla.
-                    estado.cursos.forEachIndexed { indice, curso ->
-                        stickyHeader(key = "curso-$indice-${curso.curso}") {
-                            CabeceraCurso(curso)
-                        }
-                        // Dos actividades del mismo curso pueden llamarse igual: la posición
-                        // es lo único que las distingue de verdad.
-                        itemsIndexed(
-                            curso.calificaciones,
-                            key = { posicion, item -> "$indice-$posicion-${item.nombre}" }
-                        ) { _, calificacion ->
-                            TarjetaCalificacion(calificacion) {
-                                calificacion.url?.let { enlace ->
-                                    runCatching {
-                                        contexto.startActivity(
-                                            Intent(Intent.ACTION_VIEW, enlace.toUri())
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                estado.error != null && estado.cursos.isEmpty() -> item(key = "error") {
+                    EstadoVacio(
+                        icono = Icons.Default.CloudOff,
+                        titulo = "No se pudieron cargar las notas",
+                        detalle = estado.error.orEmpty()
+                    ) {
+                        Button(onClick = acciones.refrescar, enabled = !estado.cargando) { Text("Reintentar") }
                     }
+                }
+
+                estado.cursos.isEmpty() -> item(key = "vacio") {
+                    EstadoVacio(
+                        icono = Icons.Default.Grade,
+                        titulo = if (estado.todos.isEmpty()) "Todavía sin notas" else "Sin resultados",
+                        detalle = if (estado.todos.isEmpty()) {
+                            "Cuando tus asignaturas tengan actividades evaluables aparecerán aquí."
+                        } else {
+                            "Ninguna calificación encaja con estos filtros."
+                        }
+                    )
+                }
+
+                // Dos matrículas pueden resolverse al mismo nombre de curso: la posición entra
+                // en la clave para que no se repita.
+                else -> itemsIndexed(
+                    estado.cursos,
+                    key = { indice, curso -> "curso-$indice-${curso.curso}" }
+                ) { _, curso ->
+                    TarjetaCurso(
+                        curso = curso,
+                        alAbrir = acciones.abrirEnlace,
+                        modifier = Modifier.padding(horizontal = Espacio.lateral)
+                    )
                 }
             }
         }
@@ -238,141 +192,181 @@ fun NotasScreen(
 }
 
 @Composable
-private fun CabeceraCurso(curso: NotasDeCurso) {
-    Box(
+private fun Resumen(estado: NotasUiState) {
+    // Se cuentan las de las asignaturas elegidas, sin el filtro de estado: el resumen es de
+    // la asignatura, no de lo que quepa en pantalla.
+    val calificaciones = estado.todos
+        .filter { estado.asignatura == null || it.curso == estado.asignatura }
+        .flatMap { it.calificaciones }
+        .filter { it.calificada }
+    val aprobadas = calificaciones.count { it.esAprobada() == true }
+    val suspensas = calificaciones.count { it.esAprobada() == false }
+
+    FranjaResumen(
+        listOf(
+            Metrica(calificaciones.size.toString(), "Con nota", Tono.INFO),
+            Metrica(aprobadas.toString(), "Aprobadas", Tono.EXITO),
+            Metrica(suspensas.toString(), "Suspensas", Tono.PELIGRO)
+        ),
+        modifier = Modifier.padding(horizontal = Espacio.lateral)
+    )
+}
+
+@Composable
+private fun Filtros(estado: NotasUiState, acciones: AccionesNotas) {
+    Column(verticalArrangement = Arrangement.spacedBy(Espacio.xs)) {
+        SelectorAsignatura(
+            asignaturas = estado.asignaturas,
+            seleccionada = estado.asignatura,
+            alElegir = acciones.cambiarAsignatura,
+            modifier = Modifier.padding(horizontal = Espacio.lateral, vertical = Espacio.xs)
+        )
+        Row(
+            modifier = Modifier
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = Espacio.lateral),
+            horizontalArrangement = EntreFiltros
+        ) {
+            FiltroNotas.entries.forEach { filtro ->
+                FilterChip(
+                    selected = estado.filtro == filtro,
+                    onClick = { acciones.cambiarFiltro(filtro) },
+                    label = { Text(filtro.etiqueta) }
+                )
+            }
+        }
+    }
+}
+
+/** Una asignatura: su cabecera con el total y, debajo, cada actividad evaluable en una fila. */
+@Composable
+private fun TarjetaCurso(curso: NotasDeCurso, alAbrir: (String) -> Unit, modifier: Modifier = Modifier) {
+    Tarjeta(modifier = modifier, relleno = PaddingValues(0.dp)) {
+        Column(
+            modifier = Modifier.padding(Espacio.l),
+            verticalArrangement = Arrangement.spacedBy(Espacio.s)
+        ) {
+            Row(verticalAlignment = Alignment.Top) {
+                Text(
+                    text = curso.curso,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                curso.total?.takeIf { it.calificada }?.let { total ->
+                    EtiquetaEstado(
+                        texto = "Total " + total.nota,
+                        tono = tonoDe(total),
+                        conPunto = false,
+                        modifier = Modifier.padding(start = Espacio.s)
+                    )
+                }
+            }
+            if (curso.calificaciones.isEmpty()) {
+                Text(
+                    text = "Todavía sin actividades evaluables",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BarraProgreso(
+                        progreso = curso.calificadas.toFloat() / curso.calificaciones.size,
+                        tono = Tono.INFO,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "${curso.calificadas} de ${curso.calificaciones.size} con nota",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = Espacio.m)
+                    )
+                }
+            }
+        }
+        curso.calificaciones.forEach { calificacion ->
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            FilaCalificacion(calificacion) { calificacion.url?.let(alAbrir) }
+        }
+    }
+}
+
+@Composable
+private fun FilaCalificacion(calificacion: Calificacion, alPulsar: () -> Unit) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(top = 14.dp, bottom = 6.dp)
+            .clickable(enabled = calificacion.url != null, role = Role.Button, onClick = alPulsar)
+            .padding(horizontal = Espacio.l, vertical = Espacio.m),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(16.dp))
-                .padding(horizontal = 14.dp, vertical = 10.dp)
-        ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = calificacion.nombre,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (calificacion.url != null) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(start = Espacio.xs).size(14.dp)
+                    )
+                }
+            }
             Text(
-                text = curso.curso,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                maxLines = 2,
+                text = detalleDe(calificacion),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(top = 3.dp)
-            ) {
-                curso.total?.let { total ->
-                    Text(
-                        text = "Total: ${total.nota}",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-                Text(
-                    text = if (curso.calificaciones.isEmpty()) {
-                        "Todavía sin actividades evaluables"
-                    } else {
-                        "${curso.calificadas} de ${curso.calificaciones.size} con nota"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
-                )
-            }
         }
+        CasillaNota(calificacion, modifier = Modifier.padding(start = Espacio.m))
     }
 }
 
 @Composable
-private fun TarjetaCalificacion(calificacion: Calificacion, alPulsar: () -> Unit) {
-    val aprobada = if (calificacion.calificada) calificacion.esAprobada() else null
-    val color = when {
-        !calificacion.calificada -> MaterialTheme.colorScheme.onSurfaceVariant
-        aprobada == true -> VerdeEntregada
-        aprobada == false -> RojoNoEntregada
-        else -> MaterialTheme.colorScheme.primary
-    }
-    val fondo = when {
-        !calificacion.calificada -> MaterialTheme.colorScheme.surfaceVariant
-        aprobada == true -> fondoDeEstado(VerdeEntregadaFondo, VerdeEntregadaOscuro)
-        aprobada == false -> fondoDeEstado(RojoNoEntregadaFondo, RojoNoEntregadaOscuro)
-        else -> MaterialTheme.colorScheme.primaryContainer
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = calificacion.url != null, onClick = alPulsar),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+private fun CasillaNota(calificacion: Calificacion, modifier: Modifier = Modifier) {
+    val colores = tonoDe(calificacion).colores()
+    val texto = calificacion.nota.ifBlank { "—" }
+    Box(
+        modifier = modifier
+            .widthIn(min = 52.dp)
+            .background(colores.contenedor, MaterialTheme.shapes.small)
+            .padding(horizontal = Espacio.s, vertical = Espacio.xs + 2.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .background(fondo, RoundedCornerShape(16.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                val texto = calificacion.nota.ifBlank { "—" }
-                Text(
-                    text = texto,
-                    // Una nota sobre 100 no cabe con el cuerpo grande y se saldría del recuadro.
-                    style = if (texto.length > 5) {
-                        MaterialTheme.typography.labelLarge
-                    } else {
-                        MaterialTheme.typography.titleMedium
-                    },
-                    fontWeight = FontWeight.Bold,
-                    color = color,
-                    maxLines = 1
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = calificacion.nombre,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (calificacion.url != null) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = buildString {
-                        append(if (calificacion.calificada) calificacion.tipo.etiqueta else "Sin calificar")
-                        if (calificacion.notaMaxima > 0) {
-                            append(" · sobre ")
-                            append(formateaMaxima(calificacion.notaMaxima))
-                        }
-                        if (calificacion.porcentaje.isNotBlank()) {
-                            append(" · ").append(calificacion.porcentaje)
-                        }
-                        calificacion.fecha?.let { append(" · ").append(formatearFecha(it)) }
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
+        Text(
+            text = texto,
+            // Una nota sobre 100 o un «Apto» no caben con el cuerpo grande.
+            style = if (texto.length > 5) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
+            color = colores.contenido,
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+    }
+}
+
+private fun detalleDe(calificacion: Calificacion): String = buildString {
+    append(if (calificacion.calificada) calificacion.tipo.etiqueta else "Sin calificar")
+    if (calificacion.notaMaxima > 0) append(" · sobre ").append(formateaMaxima(calificacion.notaMaxima))
+    if (calificacion.porcentaje.isNotBlank()) append(" · ").append(calificacion.porcentaje)
+    calificacion.fecha?.let { append(" · ").append(formatearFecha(it)) }
+}
+
+private fun tonoDe(calificacion: Calificacion): Tono = when {
+    !calificacion.calificada -> Tono.NEUTRO
+    else -> when (calificacion.esAprobada()) {
+        true -> Tono.EXITO
+        false -> Tono.PELIGRO
+        null -> Tono.INFO
     }
 }
 
@@ -380,7 +374,7 @@ private fun formateaMaxima(valor: Double): String =
     if (valor % 1.0 == 0.0) valor.toInt().toString() else valor.toString()
 
 /** Null cuando la nota no es numérica y no se puede decidir si está aprobada. */
-private fun Calificacion.esAprobada(): Boolean? {
+internal fun Calificacion.esAprobada(): Boolean? {
     val valor = nota.replace(',', '.').filter { it.isDigit() || it == '.' || it == '-' }
         .toDoubleOrNull() ?: return null
     val maxima = notaMaxima.takeIf { it > 0 } ?: 10.0
