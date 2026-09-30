@@ -6,83 +6,31 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
+/*
+ * La fuente del sistema, con una escala corta y pesos contenidos: semibold para títulos,
+ * normal para el texto y medio para etiquetas. Con eso basta para jerarquizar sin gritar.
+ */
 private val Fuente = FontFamily.SansSerif
 
+private fun estilo(tamano: Float, alto: Float, peso: FontWeight, espaciado: Float = 0f) = TextStyle(
+    fontFamily = Fuente,
+    fontWeight = peso,
+    fontSize = tamano.sp,
+    lineHeight = alto.sp,
+    letterSpacing = espaciado.sp
+)
+
 val TipografiaApp = Typography(
-    displaySmall = TextStyle(
-        fontFamily = Fuente,
-        fontWeight = FontWeight.Bold,
-        fontSize = 34.sp,
-        lineHeight = 40.sp,
-        letterSpacing = (-1).sp
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = Fuente,
-        fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
-        letterSpacing = (-0.8).sp
-    ),
-    headlineSmall = TextStyle(
-        fontFamily = Fuente,
-        fontWeight = FontWeight.Bold,
-        fontSize = 23.sp,
-        lineHeight = 28.sp,
-        letterSpacing = (-0.5).sp
-    ),
-    titleLarge = TextStyle(
-        fontFamily = Fuente,
-        fontWeight = FontWeight.Bold,
-        fontSize = 20.sp,
-        lineHeight = 26.sp,
-        letterSpacing = (-0.3).sp
-    ),
-    titleMedium = TextStyle(
-        fontFamily = Fuente,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 17.sp,
-        lineHeight = 22.sp
-    ),
-    titleSmall = TextStyle(
-        fontFamily = Fuente,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 15.sp,
-        lineHeight = 20.sp
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = Fuente,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 23.sp
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = Fuente,
-        fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp
-    ),
-    bodySmall = TextStyle(
-        fontFamily = Fuente,
-        fontWeight = FontWeight.Normal,
-        fontSize = 12.5.sp,
-        lineHeight = 17.sp
-    ),
-    labelLarge = TextStyle(
-        fontFamily = Fuente,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp,
-        letterSpacing = 0.2.sp
-    ),
-    labelMedium = TextStyle(
-        fontFamily = Fuente,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 12.sp,
-        letterSpacing = 0.3.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = Fuente,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 11.sp,
-        letterSpacing = 0.4.sp
-    )
+    displaySmall = estilo(32f, 40f, FontWeight.SemiBold, -0.4f),
+    headlineMedium = estilo(26f, 32f, FontWeight.SemiBold, -0.3f),
+    headlineSmall = estilo(22f, 28f, FontWeight.SemiBold, -0.2f),
+    titleLarge = estilo(19f, 26f, FontWeight.SemiBold, -0.1f),
+    titleMedium = estilo(16f, 22f, FontWeight.SemiBold),
+    titleSmall = estilo(14f, 20f, FontWeight.SemiBold),
+    bodyLarge = estilo(16f, 24f, FontWeight.Normal),
+    bodyMedium = estilo(14f, 20f, FontWeight.Normal),
+    bodySmall = estilo(12.5f, 17f, FontWeight.Normal),
+    labelLarge = estilo(14f, 20f, FontWeight.Medium, 0.1f),
+    labelMedium = estilo(12f, 16f, FontWeight.Medium, 0.2f),
+    labelSmall = estilo(11f, 14f, FontWeight.Medium, 0.3f)
 )

@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.roborazzi)
 }
 
 // Servidor de los grupos (Supabase). Se lee del entorno —los secretos de GitHub en CI— o de
@@ -94,6 +95,26 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+
+    // Las capturas se pintan con Robolectric, que necesita los recursos de la app.
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+}
+
+tasks.withType<Test>().configureEach {
+    // Las pruebas de capturas solo se ejecutan cuando se piden: son lentas y no comprueban
+    // nada, solo dejan las imágenes para revisarlas.
+    val capturas = (project.findProperty("capturas") as String?) ?: "false"
+    systemProperty("capturas", capturas)
+    // Fuera de la batería normal: Robolectric arranca un Android entero aunque luego se salten.
+    if (capturas != "true") exclude("**/capturas/**")
+    testLogging {
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        events("failed")
+    }
 }
 
 dependencies {
@@ -122,4 +143,10 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.ui.test.junit4)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }

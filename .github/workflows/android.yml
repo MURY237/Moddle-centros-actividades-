@@ -88,3 +88,28 @@ jobs:
               --title "v$VERSION" \
               --notes "$(git log -1 --pretty=%s)"
           fi
+
+      # Capturas de las pantallas, pintadas con Robolectric: la app solo se compila aquí, así
+      # que es la forma de ver el diseño sin emulador. Van a la rama «capturas». Después de
+      # publicar y sin cortar nada si fallan: son para revisar, no para bloquear.
+      - name: Capturas de pantalla
+        id: capturas
+        continue-on-error: true
+        run: ./gradlew testDebugUnitTest -Proborazzi.test.record=true -Pcapturas=true --tests '*CapturasTest*' --stacktrace
+
+      - name: Publicar capturas
+        if: steps.capturas.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          cd app/build/capturas
+          ls
+          git init -q
+          git checkout -q -b capturas
+          git add -A
+          git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" \
+            commit -qm "Capturas de ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" capturas
+
