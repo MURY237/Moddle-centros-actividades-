@@ -36,6 +36,9 @@ import com.asir.moodleactividades.ui.bus.AccionesBus
 import com.asir.moodleactividades.ui.bus.BusContenido
 import com.asir.moodleactividades.ui.componentes.Aviso
 import com.asir.moodleactividades.ui.faltas.AccionesFaltas
+import com.asir.moodleactividades.ui.netacad.AccionesNetacad
+import com.asir.moodleactividades.ui.netacad.NetacadContenido
+import com.asir.moodleactividades.ui.netacad.NetacadUiState
 import com.asir.moodleactividades.ui.faltas.FaltasContenido
 import com.asir.moodleactividades.ui.faltas.FaltasUiState
 import com.asir.moodleactividades.ui.horario.AccionesHorario
@@ -152,7 +155,15 @@ class CapturasTest {
 
     @Test fun faltasVacio() = capturar("26-faltas-vacio") { FaltasContenido(FaltasUiState(), AccionesFaltas()) }
 
-    @Test fun login() =capturar("60-login", alto = 1000) {
+    @Test fun netacad() = capturar("15-netacad") { NetacadContenido(Muestras.netacad, AccionesNetacad()) }
+
+    @Test fun netacadOscuro() = capturar("15-netacad-oscuro", oscuro = true) {
+        NetacadContenido(Muestras.netacad.copy(necesitaAcceso = true), AccionesNetacad())
+    }
+
+    @Test fun netacadVacio() = capturar("16-netacad-vacio") { NetacadContenido(NetacadUiState(), AccionesNetacad()) }
+
+    @Test fun login() = capturar("60-login", alto = 1000) {
         LoginContenido(LoginUiState(url = "https://educacionadistancia.juntadeandalucia.es/centros/sevilla"), AccionesLogin())
     }
 
