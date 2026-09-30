@@ -251,8 +251,16 @@ object AutoAcceso {
             return /incorrect|no son correct|erroneo|no es valid|no valid|no coincide/.test(texto);
           }
 
+          // Un marco sin dirección propia (about:blank, srcdoc) no tiene host: su contenido lo
+          // escribe la página que lo contiene, así que cuenta el de esa. Sin esto, un
+          // formulario de acceso metido en un marco así no se rellenaba nunca.
           function deLaJunta(doc) {
-            try { return /(^|\.)juntadeandalucia\.es${'$'}/i.test(doc.location.hostname); } catch (e) { return false; }
+            var host = '';
+            try { host = doc.location.hostname; } catch (e) { return false; }
+            if (!host) {
+              try { host = window.location.hostname; } catch (e) { return false; }
+            }
+            return /(^|\.)juntadeandalucia\.es${'$'}/i.test(host);
           }
 
           var docs = documentos();
