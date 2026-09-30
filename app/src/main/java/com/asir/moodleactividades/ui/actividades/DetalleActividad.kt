@@ -4,6 +4,7 @@ import android.text.method.LinkMovementMethod
 import android.widget.TextView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,10 +20,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material3.Button
@@ -30,7 +31,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,19 +52,15 @@ import androidx.core.text.HtmlCompat
 import com.asir.moodleactividades.domain.Actividad
 import com.asir.moodleactividades.domain.Adjunto
 import com.asir.moodleactividades.domain.EstadoActividad
-import com.asir.moodleactividades.ui.componentes.Etiqueta
+import com.asir.moodleactividades.ui.componentes.Espacio
+import com.asir.moodleactividades.ui.componentes.EtiquetaEstado
+import com.asir.moodleactividades.ui.componentes.IconoTonal
+import com.asir.moodleactividades.ui.componentes.Tarjeta
+import com.asir.moodleactividades.ui.componentes.TituloSeccion
+import com.asir.moodleactividades.ui.componentes.tono
+import com.asir.moodleactividades.ui.theme.Tono
 import com.asir.moodleactividades.ui.formatearFecha
 import com.asir.moodleactividades.ui.textoRelativo
-import com.asir.moodleactividades.ui.theme.AmbarPendiente
-import com.asir.moodleactividades.ui.theme.AmbarPendienteFondo
-import com.asir.moodleactividades.ui.theme.AmbarPendienteOscuro
-import com.asir.moodleactividades.ui.theme.RojoNoEntregada
-import com.asir.moodleactividades.ui.theme.RojoNoEntregadaFondo
-import com.asir.moodleactividades.ui.theme.RojoNoEntregadaOscuro
-import com.asir.moodleactividades.ui.theme.VerdeEntregada
-import com.asir.moodleactividades.ui.theme.VerdeEntregadaFondo
-import com.asir.moodleactividades.ui.theme.VerdeEntregadaOscuro
-import com.asir.moodleactividades.ui.theme.fondoDeEstado
 import java.io.File
 import java.util.Locale
 
@@ -80,44 +77,58 @@ fun HojaDetalleActividad(
 ) {
     val estadoHoja = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    ModalBottomSheet(onDismissRequest = alCerrar, sheetState = estadoHoja) {
+    ModalBottomSheet(
+        onDismissRequest = alCerrar,
+        sheetState = estadoHoja,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        DetalleActividadContenido(
+            actividad = actividad,
+            descargas = descargas,
+            alDescargar = alDescargar,
+            alAbrirArchivo = alAbrirArchivo,
+            alCompartirArchivo = alCompartirArchivo,
+            alAbrirEnMoodle = alAbrirEnMoodle
+        )
+    }
+}
+
+/** El contenido de la ficha, aparte de la hoja: así se puede capturar sin abrirla. */
+@Composable
+fun DetalleActividadContenido(
+    actividad: Actividad,
+    descargas: Map<String, DescargaUi>,
+    alDescargar: (Adjunto) -> Unit = {},
+    alAbrirArchivo: (Adjunto, File) -> Unit = { _, _ -> },
+    alCompartirArchivo: (Adjunto, File) -> Unit = { _, _ -> },
+    alAbrirEnMoodle: () -> Unit = {}
+) {
+    run {
         // La hoja no desplaza su contenido por sí sola: un enunciado largo con adjuntos se
         // saldría de la pantalla y el botón de Moodle quedaría fuera de alcance.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 28.dp)
+                .padding(horizontal = Espacio.xl)
+                .padding(bottom = Espacio.xxl)
         ) {
             CabeceraDetalle(actividad)
 
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Espacio.l))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(Espacio.l))
 
             Enunciado(actividad.descripcion)
 
             if (actividad.adjuntos.isNotEmpty()) {
-                Spacer(Modifier.height(20.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AttachFile,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "Documentos adjuntos (${actividad.adjuntos.size})",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Spacer(Modifier.height(10.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TituloSeccion(
+                    texto = "Documentos adjuntos",
+                    extra = actividad.adjuntos.size.toString(),
+                    fondo = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.padding(top = Espacio.s)
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(Espacio.s)) {
                     actividad.adjuntos.forEach { adjunto ->
                         FilaAdjunto(
                             adjunto = adjunto,
@@ -131,11 +142,10 @@ fun HojaDetalleActividad(
             }
 
             if (actividad.url != null) {
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(Espacio.xl))
                 Button(
                     onClick = alAbrirEnMoodle,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.OpenInNew,
@@ -152,21 +162,9 @@ fun HojaDetalleActividad(
 
 @Composable
 private fun CabeceraDetalle(actividad: Actividad) {
-    val color = when (actividad.estado) {
-        EstadoActividad.ENTREGADA -> VerdeEntregada
-        EstadoActividad.PENDIENTE -> AmbarPendiente
-        EstadoActividad.NO_ENTREGADA -> RojoNoEntregada
-    }
-    val fondo = when (actividad.estado) {
-        EstadoActividad.ENTREGADA -> fondoDeEstado(VerdeEntregadaFondo, VerdeEntregadaOscuro)
-        EstadoActividad.PENDIENTE -> fondoDeEstado(AmbarPendienteFondo, AmbarPendienteOscuro)
-        EstadoActividad.NO_ENTREGADA -> fondoDeEstado(RojoNoEntregadaFondo, RojoNoEntregadaOscuro)
-    }
-
     Text(
         text = actividad.nombre,
-        style = MaterialTheme.typography.titleLarge,
-        fontWeight = FontWeight.Bold
+        style = MaterialTheme.typography.titleLarge
     )
     Text(
         text = actividad.curso,
@@ -176,23 +174,13 @@ private fun CabeceraDetalle(actividad: Actividad) {
     )
 
     Row(
-        modifier = Modifier.padding(top = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.padding(top = Espacio.m),
+        horizontalArrangement = Arrangement.spacedBy(Espacio.s),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Etiqueta(actividad.estado.etiqueta, color, fondo)
-        Etiqueta(
-            texto = actividad.tipo.etiqueta,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fondo = MaterialTheme.colorScheme.surfaceVariant
-        )
-        actividad.nota?.let { nota ->
-            Etiqueta(
-                texto = "Nota $nota",
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                fondo = MaterialTheme.colorScheme.secondaryContainer
-            )
-        }
+        EtiquetaEstado(actividad.estado.etiqueta, actividad.estado.tono())
+        EtiquetaEstado(actividad.tipo.etiqueta, Tono.NEUTRO, conPunto = false)
+        actividad.nota?.let { nota -> EtiquetaEstado("Nota $nota", Tono.INFO, conPunto = false) }
     }
 
     Text(
@@ -248,33 +236,10 @@ private fun FilaAdjunto(
     alAbrir: (File) -> Unit,
     alCompartir: (File) -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        RoundedCornerShape(12.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = iconoDeArchivo(adjunto),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+    val archivo = descarga.archivo.takeIf { descarga.estado == EstadoDescarga.LISTA }
+    Tarjeta(relleno = PaddingValues(Espacio.m)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconoTonal(iconoDeArchivo(adjunto), Tono.INFO)
 
             Column(
                 modifier = Modifier
@@ -288,72 +253,53 @@ private fun FilaAdjunto(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = when (descarga.estado) {
-                        EstadoDescarga.DESCARGANDO -> "Descargando…"
-                        EstadoDescarga.LISTA -> "Guardado en el móvil"
-                        EstadoDescarga.ERROR -> "No se pudo descargar"
-                        EstadoDescarga.PENDIENTE -> tamanoLegible(adjunto.tamano)
+                    text = when {
+                        descarga.estado == EstadoDescarga.DESCARGANDO -> "Descargando…"
+                        archivo != null -> "Guardado en el móvil"
+                        descarga.estado == EstadoDescarga.ERROR -> "No se pudo descargar"
+                        else -> tamanoLegible(adjunto.tamano)
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = if (descarga.estado == EstadoDescarga.ERROR) {
-                        RojoNoEntregada
+                        MaterialTheme.colorScheme.error
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     }
                 )
             }
 
-            when (descarga.estado) {
-                EstadoDescarga.DESCARGANDO -> CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.dp
-                )
+            // Botones de icono: uno con texto le quitaba medio ancho al nombre del archivo.
+            when {
+                descarga.estado == EstadoDescarga.DESCARGANDO -> Box(
+                    modifier = Modifier.size(40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                }
 
-                EstadoDescarga.LISTA -> {
-                    val archivo = descarga.archivo
-                    if (archivo == null) {
-                        BotonDescarga(alDescargar)
-                    } else {
-                        IconButton(onClick = { alCompartir(archivo) }) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = "Compartir",
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        FilledTonalButton(
-                            onClick = { alAbrir(archivo) },
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("Abrir")
-                        }
+                archivo != null -> {
+                    IconButton(onClick = { alCompartir(archivo) }) {
+                        Icon(Icons.Default.Share, contentDescription = "Compartir", modifier = Modifier.size(20.dp))
+                    }
+                    FilledTonalIconButton(onClick = { alAbrir(archivo) }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.OpenInNew,
+                            contentDescription = "Abrir",
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
 
-                EstadoDescarga.ERROR -> IconButton(onClick = alDescargar) {
-                    Icon(
-                        imageVector = Icons.Default.ErrorOutline,
-                        contentDescription = "Reintentar",
-                        tint = RojoNoEntregada
-                    )
+                descarga.estado == EstadoDescarga.ERROR -> FilledTonalIconButton(onClick = alDescargar) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Reintentar la descarga", modifier = Modifier.size(20.dp))
                 }
 
-                EstadoDescarga.PENDIENTE -> BotonDescarga(alDescargar)
+                // Pendiente, o lista sin fichero (no debería pasar): se ofrece bajarlo.
+                else -> FilledTonalIconButton(onClick = alDescargar) {
+                    Icon(Icons.Default.Download, contentDescription = "Descargar", modifier = Modifier.size(20.dp))
+                }
             }
         }
-    }
-}
-
-@Composable
-private fun BotonDescarga(alDescargar: () -> Unit) {
-    FilledTonalButton(onClick = alDescargar, shape = RoundedCornerShape(12.dp)) {
-        Icon(
-            imageVector = Icons.Default.Download,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(Modifier.size(6.dp))
-        Text("Descargar")
     }
 }
 

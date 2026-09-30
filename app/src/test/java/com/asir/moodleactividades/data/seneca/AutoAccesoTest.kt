@@ -161,3 +161,23 @@ class AutoAccesoTest {
         assertTrue(guion.contains("function pulsable(elemento)"))
     }
 }
+
+class AutoAccesoDominioTest {
+
+    @Test
+    fun `la contrasena de seneca solo va a la junta`() {
+        assertTrue(AutoAcceso.hostPermitido("https://seneca.juntadeandalucia.es/seneca/jsp/login"))
+        assertTrue(AutoAcceso.hostPermitido("https://juntadeandalucia.es/x"))
+        assertFalse(AutoAcceso.hostPermitido("https://juntadeandalucia.es.evil.net/login"))
+        assertFalse(AutoAcceso.hostPermitido("https://notjuntadeandalucia.es/login"))
+        assertFalse(AutoAcceso.hostPermitido("http://seneca.juntadeandalucia.es/login"))
+        assertFalse(AutoAcceso.hostPermitido(null))
+    }
+
+    @Test
+    fun `el guion tambien lo comprueba por dentro`() {
+        val guion = AutoAcceso.guion("alumno", "secreta")
+        assertTrue(guion.contains("/(^|\\.)juntadeandalucia\\.es$/i"))
+        assertTrue(guion.contains("if (actuar && !deLaJunta(docs[d])) break;"))
+    }
+}
