@@ -70,6 +70,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.asir.moodleactividades.data.SesionNetacad
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.MoreVert
+import com.asir.moodleactividades.data.netacad.AutoAccesoNetacad
+import com.asir.moodleactividades.data.Credenciales
 import com.asir.moodleactividades.data.netacad.ExtractorNetacad
 import com.asir.moodleactividades.data.netacad.RespuestaNetacad
 import com.asir.moodleactividades.data.netacad.ResultadoNetacad
@@ -119,6 +129,21 @@ private const val MAX_SONDEOS_MANUAL = 3
  */
 private const val ACCESOS_PARA_RENDIRSE = 3
 
+/** Con cuenta guardada se espera más al formulario de Cisco: si no, no da tiempo a rellenarlo. */
+private const val ACCESOS_CON_CUENTA = 8
+
+/** Pasos de correo antes de dejarlo: más ya es que el formulario no avanza. */
+private const val MAX_CORREOS = 3
+
+/**
+ * Envíos de contraseña como mucho. Insistir con una que no vale bloquea la cuenta de
+ * Cisco, así que dos: el primero, y otro por si el primero se perdió por el camino.
+ */
+private const val MAX_CLAVES = 2
+
+/** Tras mandar un paso, Cisco tarda en pasar al siguiente. */
+private const val ESPERA_ACCESO_MS = 2_500L
+
 /** Presupuesto total del recorrido oculto por página, por si una nunca llega a terminar. */
 private const val VIGILANTE_POR_PAGINA_MS = 35_000L
 
@@ -132,6 +157,7 @@ fun NetacadScreen(
 ) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
     var confirmarDesconexion by remember { mutableStateOf(false) }
+    var editandoCuenta by remember { mutableStateOf(false) }
 
     // Entrar en la pantalla es el momento en que se quiere ver lo último.
     LaunchedEffect(Unit) { viewModel.actualizarSiConviene() }
@@ -140,7 +166,8 @@ fun NetacadScreen(
     // con la barra de «leyendo» puesta para siempre.
     LaunchedEffect(estado.modo) {
         if (estado.modo == ModoNetacad.OCULTO) {
-            delay(VIGILANTE_POR_PAGINA_MS * estado.paginas.coerceAtLeast(1) + 10_000L)
+            // Con margen para el acceso de Cisco, que son dos pantallas más.
+            delay(VIGILANTE_POR_PAGINA_MS * estado.paginas.coerceAtLeast(1) + 40_000L)
             viewModel.terminarRecorrido()
         }
     }
@@ -155,7 +182,8 @@ fun NetacadScreen(
                 alVolver = alVolver,
                 alRefrescar = viewModel::actualizar,
                 alAbrir = { viewModel.abrirVisible() },
-                alDesconectar = { confirmarDesconexion = true }
+                alDesconectar = { confirmarDesconexion = true },
+                alCuenta = { editandoCuenta = true }
             )
 
             if (estado.modo == ModoNetacad.OCULTO) {
@@ -164,8 +192,13 @@ fun NetacadScreen(
             if (estado.necesitaAcceso) {
                 Aviso(
                     icono = Icons.Default.Info,
-                    texto = "La sesión de NetAcad ha caducado. Entra otra vez con tu cuenta de " +
-                        "Cisco para seguir actualizando. Lo de abajo es de la última consulta.",
+                    texto = "La sesión de NetAcad ha caducado. Lo de abajo es de la última consulta." +
+                        when {
+                            estado.accesoAuto.isNotBlank() -> "\nAcceso automático: " + estado.accesoAuto + "."
+                            estado.usuarioGuardado.isBlank() && estado.almacenSeguro ->
+                                "\nGuarda tu cuenta en ⋮ → Cuenta de Cisco y entrará sola."
+                            else -> ""
+                        },
                     boton = "Entrar",
                     color = AmbarPendiente,
                     fondo = fondoDeEstado(AmbarPendienteFondo, AmbarPendienteOscuro)
@@ -192,6 +225,21 @@ fun NetacadScreen(
         }
     }
 
+    if (editandoCuenta) {
+        DialogoCuentaCisco(
+            estado = estado,
+            alGuardar = { correo, clave ->
+                viewModel.guardarCuenta(correo, clave)
+                editandoCuenta = false
+            },
+            alBorrar = {
+                viewModel.borrarCuenta()
+                editandoCuenta = false
+            },
+            alCerrar = { editandoCuenta = false }
+        )
+    }
+
     if (confirmarDesconexion) {
         AlertDialog(
             onDismissRequest = { confirmarDesconexion = false },
@@ -200,7 +248,7 @@ fun NetacadScreen(
             text = {
                 Text(
                     "Se cierra la sesión de Cisco en la app y se borran los trabajos " +
-                        "guardados y las páginas de curso aprendidas."
+                        "guardados, las páginas de curso aprendidas y la cuenta guardada."
                 )
             },
             confirmButton = {
@@ -222,7 +270,8 @@ private fun Cabecera(
     alVolver: () -> Unit,
     alRefrescar: () -> Unit,
     alAbrir: () -> Unit,
-    alDesconectar: () -> Unit
+    alDesconectar: () -> Unit,
+    alCuenta: () -> Unit
 ) {
     val resumen = estado.resumen
     val total = resumen.pendientes + resumen.entregadas + resumen.noEntregadas
@@ -263,9 +312,24 @@ private fun Cabecera(
                 IconButton(onClick = alAbrir) {
                     Icon(Icons.Default.School, "Abrir NetAcad", tint = Color.White)
                 }
-                if (estado.configurado || estado.leidoAlgunaVez) {
-                    IconButton(onClick = alDesconectar) {
-                        Icon(Icons.Default.LinkOff, "Desconectar NetAcad", tint = Color.White)
+                Box {
+                    var menu by remember { mutableStateOf(false) }
+                    IconButton(onClick = { menu = true }) {
+                        Icon(Icons.Default.MoreVert, "Más opciones", tint = Color.White)
+                    }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Cuenta de Cisco") },
+                            leadingIcon = { Icon(Icons.Default.Key, contentDescription = null) },
+                            onClick = { menu = false; alCuenta() }
+                        )
+                        if (estado.configurado || estado.leidoAlgunaVez || estado.usuarioGuardado.isNotBlank()) {
+                            DropdownMenuItem(
+                                text = { Text("Desconectar") },
+                                leadingIcon = { Icon(Icons.Default.LinkOff, contentDescription = null) },
+                                onClick = { menu = false; alDesconectar() }
+                            )
+                        }
                     }
                 }
             }
@@ -634,6 +698,13 @@ private class ContenedorNetacad {
     var accesosSeguidos = 0
     var visible = false
     var manual = false
+
+    /**
+     * Lo enviado al acceso de Cisco en toda la vida de este navegador. No se reinicia con
+     * cada página, a diferencia de lo demás: es lo que evita repetir una contraseña mala.
+     */
+    var correosEnviados = 0
+    var clavesEnviadas = 0
 }
 
 /** Lo que el sondeo puede hacer, sin atar las funciones de más abajo a Compose. */
@@ -642,7 +713,10 @@ private class AccionesNetacad(
     val pedirAcceso: () -> Unit,
     val siguiente: () -> String?,
     val terminar: () -> Unit,
-    val sinTrabajos: (List<String>) -> Unit
+    val sinTrabajos: (List<String>) -> Unit,
+    val cuenta: () -> Credenciales?,
+    val anotar: (String) -> Unit,
+    val rechazar: () -> Unit
 )
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -667,7 +741,10 @@ private fun NavegadorNetacad(
             pedirAcceso = viewModel::pedirAcceso,
             siguiente = viewModel::siguientePagina,
             terminar = viewModel::terminarRecorrido,
-            sinTrabajos = { pistas -> sinTrabajosAqui = pistas }
+            sinTrabajos = { pistas -> sinTrabajosAqui = pistas },
+            cuenta = viewModel::cuentaParaEntrar,
+            anotar = viewModel::anotarAcceso,
+            rechazar = viewModel::rechazarCuenta
         )
     }
 
@@ -866,15 +943,7 @@ private fun sondear(c: ContenedorNetacad, generacion: Int, a: AccionesNetacad) {
         val resultado = RespuestaNetacad.leer(crudo) ?: ResultadoNetacad(pagina = "cargando")
 
         if (resultado.pideAcceso) {
-            // A la vista lo resuelve el alumno, y la carga siguiente vuelve a mirar sola.
-            if (c.visible) return@evaluateJavascript
-            c.accesosSeguidos++
-            if (c.accesosSeguidos >= ACCESOS_PARA_RENDIRSE) {
-                c.generacion++
-                a.pedirAcceso()
-            } else {
-                web.postDelayed({ sondear(c, generacion, a) }, ESPERA_MS)
-            }
+            if (!entrarSolo(c, web, generacion, a)) esperarAcceso(c, web, generacion, a)
             return@evaluateJavascript
         }
         c.accesosSeguidos = 0
@@ -904,6 +973,88 @@ private fun sondear(c: ContenedorNetacad, generacion: Int, a: AccionesNetacad) {
     }
 }
 
+/**
+ * Delante está el acceso de Cisco y no se va a rellenar: a la vista lo hace el alumno; a
+ * oscuras se espera un poco —el OAuth de Cisco pasa por ahí y rebota solo si la sesión sigue
+ * viva— y si no se va, se deja de intentar y se pide entrar.
+ */
+private fun esperarAcceso(c: ContenedorNetacad, web: WebView, generacion: Int, a: AccionesNetacad) {
+    c.accesosSeguidos++
+    val tope = if (a.cuenta() != null) ACCESOS_CON_CUENTA else ACCESOS_PARA_RENDIRSE
+    if (c.accesosSeguidos >= tope) {
+        if (!c.visible) {
+            c.generacion++
+            a.pedirAcceso()
+        }
+        return
+    }
+    // A la vista sin cuenta no hay nada que esperar: la carga siguiente vuelve a mirar sola.
+    if (c.visible && a.cuenta() == null) return
+    web.postDelayed({ sondear(c, generacion, a) }, ESPERA_MS)
+}
+
+/**
+ * Rellena el paso del acceso de Cisco que haya en pantalla con la cuenta guardada. Devuelve
+ * false si no le toca —no hay cuenta, ya se insistió bastante o la página no es de Cisco—,
+ * y entonces se sigue como si no hubiera acceso automático.
+ *
+ * La comprobación del dominio se hace aquí, antes de meter la contraseña en ningún guion, y
+ * otra vez dentro del guion: una página ajena no llega a tenerla en ningún momento.
+ */
+private fun entrarSolo(c: ContenedorNetacad, web: WebView, generacion: Int, a: AccionesNetacad): Boolean {
+    val cuenta = a.cuenta() ?: return false
+    val url = web.url
+    if (!AutoAccesoNetacad.hostPermitido(url)) {
+        val host = runCatching { java.net.URI(url).host }.getOrNull() ?: "desconocida"
+        a.anotar("la página de acceso ($host) no es de Cisco, así que no se escribe nada")
+        return false
+    }
+    if (c.clavesEnviadas >= MAX_CLAVES) {
+        a.anotar("contraseña enviada $MAX_CLAVES veces y Cisco sigue pidiendo acceso")
+        return false
+    }
+    if (c.correosEnviados >= MAX_CORREOS) {
+        a.anotar("el correo se envió $MAX_CORREOS veces y no aparece la contraseña")
+        return false
+    }
+
+    web.evaluateJavascript(AutoAccesoNetacad.guion(cuenta.usuario, cuenta.clave)) { crudo ->
+        if (generacion != c.generacion) return@evaluateJavascript
+        val paso = RespuestaNetacad.leerAcceso(crudo)
+        when {
+            paso == null -> esperarAcceso(c, web, generacion, a)
+            paso.ajena -> {
+                a.anotar("la página de acceso (${paso.host}) no es de Cisco, así que no se escribe nada")
+                esperarAcceso(c, web, generacion, a)
+            }
+            paso.error -> {
+                // La única señal de que la cuenta no vale: se para y no se reintenta sola.
+                c.generacion++
+                a.rechazar()
+                if (!c.visible) a.pedirAcceso()
+            }
+            paso.mfa -> {
+                c.generacion++
+                a.anotar("Cisco pide verificación en dos pasos, y eso hay que hacerlo a mano")
+                if (!c.visible) a.pedirAcceso()
+            }
+            paso.accion == "correo" -> {
+                c.correosEnviados++
+                a.anotar("correo enviado por ${paso.via}")
+                web.postDelayed({ sondear(c, generacion, a) }, ESPERA_ACCESO_MS)
+            }
+            paso.accion == "clave" -> {
+                c.clavesEnviadas++
+                a.anotar("contraseña enviada por ${paso.via} (intento ${c.clavesEnviadas})")
+                web.postDelayed({ sondear(c, generacion, a) }, ESPERA_ACCESO_MS)
+            }
+            // El formulario aún no ha aparecido: se espera como sin cuenta.
+            else -> esperarAcceso(c, web, generacion, a)
+        }
+    }
+    return true
+}
+
 private fun pasarALaSiguiente(c: ContenedorNetacad, a: AccionesNetacad) {
     // Corta los sondeos que queden de esta página antes de cambiar de página.
     c.generacion++
@@ -914,4 +1065,90 @@ private fun pasarALaSiguiente(c: ContenedorNetacad, a: AccionesNetacad) {
         return
     }
     c.web?.loadUrl(siguiente)
+}
+
+/**
+ * La cuenta de Cisco con la que la app entra sola cuando caduca la sesión. Opcional, y se
+ * quita de un toque: guardar una contraseña nunca sale gratis.
+ */
+@Composable
+private fun DialogoCuentaCisco(
+    estado: NetacadUiState,
+    alGuardar: (String, String) -> Unit,
+    alBorrar: () -> Unit,
+    alCerrar: () -> Unit
+) {
+    var correo by remember { mutableStateOf(estado.usuarioGuardado) }
+    var clave by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = alCerrar,
+        icon = { Icon(Icons.Default.Key, contentDescription = null) },
+        title = { Text("Entrar solo en Cisco") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (!estado.almacenSeguro) {
+                    Text(
+                        "Este móvil no deja guardar la contraseña cifrada, así que no se guarda: " +
+                            "habrá que entrar a mano cuando caduque la sesión.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    return@Column
+                }
+                Text(
+                    "Cuando la sesión de NetAcad caduque, la app entrará sola con esta cuenta. " +
+                        "Se guarda cifrada en este móvil y solo se escribe en páginas de cisco.com " +
+                        "o netacad.com. Si Cisco pide un código de verificación, habrá que entrar a mano.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                if (estado.usuarioGuardado.isNotBlank()) {
+                    Text(
+                        "Guardada: " + estado.usuarioGuardado,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+                if (estado.cuentaRechazada) {
+                    Text(
+                        "Cisco rechazó esta cuenta la última vez. Revisa la contraseña: sola no se " +
+                            "vuelve a probar, para no bloquearte la cuenta.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                OutlinedTextField(
+                    value = correo,
+                    onValueChange = { correo = it.trim() },
+                    label = { Text("Correo de Cisco") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                )
+                OutlinedTextField(
+                    value = clave,
+                    onValueChange = { clave = it },
+                    label = { Text("Contraseña") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                )
+            }
+        },
+        confirmButton = {
+            if (estado.almacenSeguro) {
+                TextButton(
+                    onClick = { alGuardar(correo, clave) },
+                    enabled = correo.contains('@') && clave.isNotEmpty()
+                ) { Text("Guardar") }
+            } else {
+                TextButton(onClick = alCerrar) { Text("Entendido") }
+            }
+        },
+        dismissButton = {
+            Row {
+                if (estado.usuarioGuardado.isNotBlank()) {
+                    TextButton(onClick = alBorrar) { Text("Quitar cuenta") }
+                }
+                TextButton(onClick = alCerrar) { Text("Cancelar") }
+            }
+        }
+    )
 }

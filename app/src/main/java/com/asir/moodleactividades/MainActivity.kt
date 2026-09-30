@@ -41,6 +41,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -57,7 +58,7 @@ import com.asir.moodleactividades.data.Conectividad
 import com.asir.moodleactividades.data.AlmacenFaltas
 import com.asir.moodleactividades.data.AlmacenNetacad
 import com.asir.moodleactividades.data.CacheCalificaciones
-import com.asir.moodleactividades.data.CredencialesSeneca
+import com.asir.moodleactividades.data.CredencialesCifradas
 import com.asir.moodleactividades.data.DescargaAdjuntos
 import com.asir.moodleactividades.data.HistorialAvisos
 import com.asir.moodleactividades.data.PreferenciasAvisos
@@ -234,7 +235,7 @@ private fun PantallaPrincipal(
                 AlmacenFaltas(contexto),
                 sesionSeneca,
                 HistorialAvisos(contexto),
-                CredencialesSeneca(contexto)
+                CredencialesCifradas(contexto, CredencialesCifradas.SENECA)
             )
         }
     )
@@ -242,7 +243,12 @@ private fun PantallaPrincipal(
     val sesionNetacad = remember { SesionNetacad(contexto) }
     val netacadViewModel: NetacadViewModel = viewModel(
         factory = fabrica {
-            NetacadViewModel(AlmacenNetacad(contexto), sesionNetacad, HistorialAvisos(contexto))
+            NetacadViewModel(
+                AlmacenNetacad(contexto),
+                sesionNetacad,
+                HistorialAvisos(contexto),
+                CredencialesCifradas(contexto, CredencialesCifradas.NETACAD)
+            )
         }
     )
 
@@ -332,19 +338,19 @@ private fun PantallaPrincipal(
                             contentDescription = null
                         )
                     },
-                    label = { Text(Seccion.ACTIVIDADES.etiqueta) }
+                    label = { EtiquetaBarra(Seccion.ACTIVIDADES.etiqueta) }
                 )
                 NavigationBarItem(
                     selected = seccion == Seccion.NOTAS,
                     onClick = { seccion = Seccion.NOTAS },
                     icon = { Icon(Icons.Default.Grade, contentDescription = null) },
-                    label = { Text(Seccion.NOTAS.etiqueta) }
+                    label = { EtiquetaBarra(Seccion.NOTAS.etiqueta) }
                 )
                 NavigationBarItem(
                     selected = seccion == Seccion.FALTAS,
                     onClick = { seccion = Seccion.FALTAS },
                     icon = { Icon(Icons.Default.EventBusy, contentDescription = null) },
-                    label = { Text(Seccion.FALTAS.etiqueta) }
+                    label = { EtiquetaBarra(Seccion.FALTAS.etiqueta) }
                 )
                 NavigationBarItem(
                     selected = seccion == Seccion.AVISOS || seccion == Seccion.AJUSTES,
@@ -360,19 +366,19 @@ private fun PantallaPrincipal(
                             Icon(Icons.Default.Notifications, contentDescription = null)
                         }
                     },
-                    label = { Text(Seccion.AVISOS.etiqueta) }
+                    label = { EtiquetaBarra(Seccion.AVISOS.etiqueta) }
                 )
                 NavigationBarItem(
                     selected = seccion == Seccion.HORARIO,
                     onClick = { seccion = Seccion.HORARIO },
                     icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
-                    label = { Text(Seccion.HORARIO.etiqueta) }
+                    label = { EtiquetaBarra(Seccion.HORARIO.etiqueta) }
                 )
                 NavigationBarItem(
                     selected = seccion == Seccion.GRUPOS,
                     onClick = { seccion = Seccion.GRUPOS },
                     icon = { Icon(Icons.Default.Groups, contentDescription = null) },
-                    label = { Text(Seccion.GRUPOS.etiqueta) }
+                    label = { EtiquetaBarra(Seccion.GRUPOS.etiqueta) }
                 )
             }
         }
@@ -464,4 +470,13 @@ private fun PantallaPrincipal(
 private fun fabrica(crear: () -> ViewModel) = object : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T = crear() as T
+}
+
+/**
+ * Una sola línea siempre. Con la letra grande del sistema, «Horario» y «Grupos» se partían
+ * en dos («Horari / o»), subían el icono y descuadraban la barra entera.
+ */
+@Composable
+private fun EtiquetaBarra(texto: String) {
+    Text(texto, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
 }

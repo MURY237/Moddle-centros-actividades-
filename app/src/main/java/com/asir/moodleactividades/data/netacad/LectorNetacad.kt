@@ -56,6 +56,27 @@ object LectorNetacad {
             .sortedWith(compareBy({ it.fechaLimite ?: Long.MAX_VALUE }, { it.titulo }))
     }
 
+    /**
+     * El panel de NetAcad («Mi aprendizaje») enseña tarjetas de las clases —el nombre del
+     * instituto, las fechas del curso—, no trabajos. Leídas como trabajos salían como
+     * «IES … · fuera de plazo». Se reconocen por el título de la página, que es lo que se
+     * toma como curso cuando la tarjeta no dice el suyo.
+     */
+    private val TITULOS_DE_INICIO = setOf(
+        "mi aprendizaje", "my learning", "panel", "dashboard", "inicio", "home",
+        "mis cursos", "my courses", "cursos", "courses", "mis clases", "my classes"
+    )
+
+    fun esTituloDeInicio(curso: String): Boolean = FechaNetacad.normalizar(curso) in TITULOS_DE_INICIO
+
+    /** Las rutas del panel: ahí no hay trabajos, así que no se aprenden como página de curso. */
+    fun esUrlDeInicio(url: String?): Boolean {
+        val ruta = runCatching { java.net.URI(url ?: return false).path }.getOrNull().orEmpty()
+            .lowercase().trimEnd('/')
+        return ruta.isEmpty() || ruta == "/dashboard" || ruta.startsWith("/dashboard/") ||
+            ruta == "/home" || ruta == "/my-learning" || ruta == "/learning"
+    }
+
     private fun convertir(
         candidato: CandidatoNetacad,
         ahora: Long,
@@ -64,6 +85,7 @@ object LectorNetacad {
     ): TrabajoNetacad? {
         val titulo = candidato.titulo.trim()
         if (titulo.length < TITULO_MINIMO) return null
+        if (esTituloDeInicio(candidato.curso)) return null
 
         val fechaLimite = FechaNetacad.parsear(candidato.fecha, ahora, orden, zona)
         val marcado = marcaDeEstado(candidato)

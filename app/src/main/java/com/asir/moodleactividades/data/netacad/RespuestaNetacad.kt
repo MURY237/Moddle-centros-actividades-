@@ -12,4 +12,9 @@ object RespuestaNetacad {
         val contenido = RespuestaJs.desenvolver(crudo) ?: return null
         return runCatching { json.decodeFromString<ResultadoNetacad>(contenido) }.getOrNull()
     }
+
+    fun leerAcceso(crudo: String?): ResultadoAccesoNetacad? {
+        val contenido = RespuestaJs.desenvolver(crudo) ?: return null
+        return runCatching { json.decodeFromString<ResultadoAccesoNetacad>(contenido) }.getOrNull()
+    }
 }
