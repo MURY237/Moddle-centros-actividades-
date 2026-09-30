@@ -2,6 +2,8 @@ package com.asir.moodleactividades.ui.netacad
 
 import androidx.lifecycle.ViewModel
 import com.asir.moodleactividades.data.AlmacenNetacad
+import com.asir.moodleactividades.data.Credenciales
+import com.asir.moodleactividades.data.CredencialesCifradas
 import com.asir.moodleactividades.data.Aviso
 import com.asir.moodleactividades.data.HistorialAvisos
 import com.asir.moodleactividades.data.SesionNetacad
@@ -41,7 +43,15 @@ data class NetacadUiState(
     val paginas: Int = 0,
     /** Confirmación en el navegador visible: «5 trabajos de CCNA1». Vacío si aún nada. */
     val ultimaLectura: String = "",
-    val ahora: Long = System.currentTimeMillis() / 1000
+    val ahora: Long = System.currentTimeMillis() / 1000,
+    /** Con qué cuenta de Cisco entra sola la app; vacío si no hay ninguna guardada. */
+    val usuarioGuardado: String = "",
+    /** Sin almacén cifrado no se ofrece guardar nada: una contraseña no se guarda en claro. */
+    val almacenSeguro: Boolean = true,
+    /** Cisco dijo que la cuenta no vale: no se reintenta sola, para no bloquearla. */
+    val cuentaRechazada: Boolean = false,
+    /** Lo último que hizo el acceso automático, para saber dónde se quedó si falla. */
+    val accesoAuto: String = ""
 ) {
     private val delCurso: List<TrabajoNetacad>
         get() {
@@ -64,7 +74,8 @@ data class NetacadUiState(
 class NetacadViewModel(
     private val almacen: AlmacenNetacad,
     private val sesion: SesionNetacad,
-    private val historial: HistorialAvisos
+    private val historial: HistorialAvisos,
+    private val credenciales: CredencialesCifradas
 ) : ViewModel() {
 
     private val _estado = MutableStateFlow(NetacadUiState())
@@ -80,10 +91,14 @@ class NetacadViewModel(
 
     init {
         val guardados = almacen.leer()
+        // Las tarjetas del panel que se leyeron como trabajos en versiones anteriores.
+        val trabajos = guardados?.trabajos.orEmpty().filterNot { LectorNetacad.esTituloDeInicio(it.curso) }
         _estado.value = NetacadUiState(
-            trabajos = guardados?.trabajos.orEmpty(),
+            trabajos = trabajos,
             momento = guardados?.momento,
-            paginas = sesion.urls().size
+            paginas = sesion.urls().size,
+            usuarioGuardado = credenciales.usuario(),
+            almacenSeguro = credenciales.disponible
         )
     }
 
@@ -107,6 +122,9 @@ class NetacadViewModel(
             it.copy(
                 modo = ModoNetacad.OCULTO,
                 necesitaAcceso = false,
+                // Pedirlo a mano es una decisión del alumno: la cuenta se vuelve a probar.
+                cuentaRechazada = false,
+                accesoAuto = "",
                 sinExito = false,
                 pistas = emptyList(),
                 ahora = ahora()
@@ -228,13 +246,40 @@ class NetacadViewModel(
 
     fun elegirCurso(curso: String?) = _estado.update { it.copy(curso = curso) }
 
-    /** Cierra la sesión de NetAcad y de Cisco y olvida todo lo leído y aprendido. */
+    /** Cierra la sesión de NetAcad y de Cisco y olvida todo: lo leído, lo aprendido y la cuenta. */
     fun desconectar() {
         cola.clear()
         acumulado = emptyList()
         sesion.borrar()
         almacen.borrar()
-        _estado.value = NetacadUiState()
+        credenciales.borrar()
+        _estado.value = NetacadUiState(almacenSeguro = credenciales.disponible)
+    }
+
+    /**
+     * La cuenta con la que entrar sola, o null si no hay o si Cisco ya la rechazó: insistir
+     * con una contraseña mala acaba bloqueando la cuenta.
+     */
+    fun cuentaParaEntrar(): Credenciales? =
+        if (_estado.value.cuentaRechazada) null else credenciales.leer()
+
+    fun guardarCuenta(correo: String, clave: String) {
+        credenciales.guardar(Credenciales(correo, clave))
+        _estado.update {
+            it.copy(usuarioGuardado = credenciales.usuario(), cuentaRechazada = false, accesoAuto = "")
+        }
+    }
+
+    fun borrarCuenta() {
+        credenciales.borrar()
+        _estado.update { it.copy(usuarioGuardado = "", cuentaRechazada = false) }
+    }
+
+    fun anotarAcceso(paso: String) = _estado.update { it.copy(accesoAuto = paso) }
+
+    /** Cisco dijo que la cuenta no vale. Se deja de intentar hasta que el alumno la revise. */
+    fun rechazarCuenta() = _estado.update {
+        it.copy(cuentaRechazada = true, accesoAuto = "Cisco dice que el correo o la contraseña no son correctos")
     }
 
     private fun guardar(trabajos: List<TrabajoNetacad>) {

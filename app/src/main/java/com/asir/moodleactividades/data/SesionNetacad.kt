@@ -2,6 +2,7 @@ package com.asir.moodleactividades.data
 
 import android.content.Context
 import android.webkit.CookieManager
+import com.asir.moodleactividades.data.netacad.LectorNetacad
 
 /**
  * Conserva la sesión de NetAcad entre aperturas de la app, igual que [SesionSeneca]: el
@@ -62,13 +63,16 @@ class SesionNetacad(contexto: Context) {
      */
     fun guardarUrl(url: String?) {
         if (url.isNullOrBlank() || !ORIGEN.containsMatchIn(url)) return
+        if (LectorNetacad.esUrlDeInicio(url)) return
         val limpia = url.substringBefore('#')
         val lista = (listOf(limpia) + urls().filterNot { it == limpia }).take(MAX_PAGINAS)
         prefs.edit().putString(URLS, lista.joinToString("\n")).apply()
     }
 
+    // El panel se llegó a aprender como página de curso: se descarta también al leer.
     fun urls(): List<String> =
-        prefs.getString(URLS, null).orEmpty().split('\n').filter { it.isNotBlank() }
+        prefs.getString(URLS, null).orEmpty().split('\n')
+            .filter { it.isNotBlank() && !LectorNetacad.esUrlDeInicio(it) }
 
     /** Solo los nombres: los valores son la sesión y no deben salir de aquí. */
     fun nombres(): List<String> =

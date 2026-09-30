@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import com.asir.moodleactividades.data.AlmacenFaltas
 import com.asir.moodleactividades.data.Aviso
 import com.asir.moodleactividades.data.Credenciales
-import com.asir.moodleactividades.data.CredencialesSeneca
+import com.asir.moodleactividades.data.CredencialesCifradas
 import com.asir.moodleactividades.data.HistorialAvisos
 import com.asir.moodleactividades.data.SesionSeneca
 import com.asir.moodleactividades.data.TipoAviso
@@ -52,7 +52,7 @@ class FaltasViewModel(
     private val almacen: AlmacenFaltas,
     private val sesion: SesionSeneca,
     private val historial: HistorialAvisos,
-    private val credenciales: CredencialesSeneca
+    private val credenciales: CredencialesCifradas
 ) : ViewModel() {
 
     private val _estado = MutableStateFlow(FaltasUiState())
