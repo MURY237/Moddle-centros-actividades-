@@ -71,8 +71,17 @@ class DescargaAdjuntos(
     /** Sin tipo MIME muchos visores descartan el archivo; el comodín deja elegir al usuario. */
     private fun tipoUtil(tipo: String) = tipo.ifBlank { "*/*" }
 
-    private fun nombreSeguro(nombre: String): String =
-        nombre.replace(Regex("[^A-Za-z0-9._-]"), "_").take(60).ifBlank { "adjunto" }
+    /**
+     * Solo letras, números, punto, guion y guion bajo, y como mucho 60 caracteres. Se recorta
+     * el nombre y no la extensión: sin ella, el visor no sabe qué tipo de archivo es.
+     */
+    private fun nombreSeguro(nombre: String): String {
+        val limpio = nombre.replace(Regex("[^A-Za-z0-9._-]"), "_")
+        val punto = limpio.lastIndexOf('.')
+        val extension = if (punto > 0 && limpio.length - punto <= 10) limpio.substring(punto) else ""
+        val base = limpio.removeSuffix(extension).take(60 - extension.length)
+        return (base + extension).ifBlank { "adjunto" }
+    }
 
     private fun huella(url: String): String = Integer.toHexString(url.hashCode())
 }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -121,9 +122,11 @@ private fun Dia(dia: LocalDate, examenes: Int, esHoy: Boolean, elegido: Boolean,
             else -> ", $examenes exámenes"
         }
 
+    // Ocupa la celda entera, que es cuadrada: ajustada al texto, el círculo salía ovalado.
     Column(
         modifier = Modifier
-            .padding(2.dp)
+            .fillMaxSize()
+            .padding(3.dp)
             .clip(CircleShape)
             .then(if (elegido) Modifier.background(colores.primary) else Modifier)
             .then(if (esHoy && !elegido) Modifier.border(1.5.dp, colores.primary, CircleShape) else Modifier)
