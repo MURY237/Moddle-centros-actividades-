@@ -1,44 +1,39 @@
 package com.asir.moodleactividades.ui.avisos
 
 import android.content.Intent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsNone
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,19 +42,21 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.asir.moodleactividades.data.Aviso
 import com.asir.moodleactividades.data.TipoAviso
+import com.asir.moodleactividades.ui.componentes.CabeceraPantalla
+import com.asir.moodleactividades.ui.componentes.Espacio
 import com.asir.moodleactividades.ui.componentes.EstadoVacio
+import com.asir.moodleactividades.ui.componentes.EtiquetaEstado
+import com.asir.moodleactividades.ui.componentes.IconoTonal
+import com.asir.moodleactividades.ui.componentes.Tarjeta
+import com.asir.moodleactividades.ui.componentes.TituloSeccion
 import com.asir.moodleactividades.ui.haceCuanto
-import com.asir.moodleactividades.ui.theme.AmbarPendiente
-import com.asir.moodleactividades.ui.theme.AmbarPendienteFondo
-import com.asir.moodleactividades.ui.theme.AmbarPendienteOscuro
-import com.asir.moodleactividades.ui.theme.DegradadoCabecera
-import com.asir.moodleactividades.ui.theme.RojoNoEntregada
-import com.asir.moodleactividades.ui.theme.RojoNoEntregadaFondo
-import com.asir.moodleactividades.ui.theme.RojoNoEntregadaOscuro
-import com.asir.moodleactividades.ui.theme.VerdeEntregada
-import com.asir.moodleactividades.ui.theme.VerdeEntregadaFondo
-import com.asir.moodleactividades.ui.theme.VerdeEntregadaOscuro
-import com.asir.moodleactividades.ui.theme.fondoDeEstado
+import com.asir.moodleactividades.ui.theme.Tono
+
+data class AccionesAvisos(
+    val vaciar: () -> Unit = {},
+    val abrirAjustes: () -> Unit = {},
+    val abrirEnlace: (String) -> Unit = {}
+)
 
 @Composable
 fun AvisosScreen(
@@ -70,118 +67,122 @@ fun AvisosScreen(
     val estado by viewModel.estado.collectAsStateWithLifecycle()
     val contexto = LocalContext.current
 
-    Column(modifier = modifier.fillMaxSize()) {
-
-        Cabecera(cantidad = estado.avisos.size, alVaciar = viewModel::vaciar, alAbrirAjustes = alAbrirAjustes)
-
-        if (estado.avisos.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                EstadoVacio(
-                    icono = Icons.Default.NotificationsNone,
-                    titulo = "Sin avisos todavía",
-                    detalle = "Aquí se guardan las notificaciones que te envía la app: entregas " +
-                        "cercanas, actividades nuevas y notas recién publicadas."
-                )
+    AvisosContenido(
+        estado = estado,
+        acciones = AccionesAvisos(
+            vaciar = viewModel::vaciar,
+            abrirAjustes = alAbrirAjustes,
+            abrirEnlace = { enlace ->
+                runCatching { contexto.startActivity(Intent(Intent.ACTION_VIEW, enlace.toUri())) }
             }
-            return@Column
-        }
-
-        LazyColumn(
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // La clave tiene que ser única de verdad: con la hora y el título, cinco faltas
-            // de la misma asignatura anotadas en el mismo segundo repetían clave y la lista
-            // se llevaba por delante la pantalla entera.
-            items(estado.avisos, key = { it.id }) { aviso ->
-                TarjetaAviso(aviso) {
-                    aviso.url?.let { enlace ->
-                        runCatching {
-                            contexto.startActivity(Intent(Intent.ACTION_VIEW, enlace.toUri()))
-                        }
-                    }
-                }
-            }
-        }
-    }
+        ),
+        modifier = modifier
+    )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Cabecera(cantidad: Int, alVaciar: () -> Unit, alAbrirAjustes: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-            .background(DegradadoCabecera)
-    ) {
-        Row(
-            modifier = Modifier
-                .statusBarsPadding()
-                .padding(horizontal = 20.dp)
-                .padding(top = 14.dp, bottom = 22.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Avisos",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = Color.White
-                )
-                Text(
-                    text = when (cantidad) {
-                        0 -> "Ninguna notificación guardada"
-                        1 -> "1 notificación guardada"
-                        else -> "$cantidad notificaciones guardadas"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.82f)
-                )
+fun AvisosContenido(
+    estado: AvisosUiState,
+    acciones: AccionesAvisos,
+    modifier: Modifier = Modifier,
+    ahora: Long = System.currentTimeMillis() / 1000
+) {
+    var confirmarVaciado by rememberSaveable { mutableStateOf(false) }
+    val grupos = remember(estado.avisos, ahora) { agruparPorDia(estado.avisos, ahora) }
+
+    Column(modifier = modifier.fillMaxSize()) {
+        CabeceraPantalla(
+            titulo = "Avisos",
+            subtitulo = when (val cantidad = estado.avisos.size) {
+                0 -> "Ninguna notificación guardada"
+                1 -> "1 notificación guardada"
+                else -> "$cantidad notificaciones guardadas"
             }
-            if (cantidad > 0) {
-                IconButton(onClick = alVaciar) {
-                    Icon(Icons.Default.DeleteSweep, "Vaciar el historial", tint = Color.White)
+        ) {
+            if (estado.avisos.isNotEmpty()) {
+                IconButton(onClick = { confirmarVaciado = true }) {
+                    Icon(Icons.Default.DeleteSweep, contentDescription = "Vaciar el historial")
                 }
             }
             // Los ajustes de los avisos viven junto a los avisos: así la barra de abajo
             // tiene sitio para Grupos sin pasar de seis pestañas.
-            IconButton(onClick = alAbrirAjustes) {
-                Icon(Icons.Default.Settings, "Ajustes", tint = Color.White)
+            IconButton(onClick = acciones.abrirAjustes) {
+                Icon(Icons.Default.Settings, contentDescription = "Ajustes")
             }
         }
+
+        if (estado.avisos.isEmpty()) {
+            EstadoVacio(
+                icono = Icons.Default.NotificationsNone,
+                titulo = "Sin avisos todavía",
+                detalle = "Aquí se guardan las notificaciones que te envía la app: entregas " +
+                    "cercanas, actividades nuevas, notas recién publicadas y faltas.",
+                modifier = Modifier.padding(top = Espacio.xxl)
+            )
+            return@Column
+        }
+
+        LazyColumn(
+            contentPadding = PaddingValues(bottom = Espacio.xl),
+            verticalArrangement = Arrangement.spacedBy(Espacio.s)
+        ) {
+            grupos.forEach { (dia, avisos) ->
+                stickyHeader(key = "dia-" + dia.name) {
+                    TituloSeccion(
+                        texto = dia.etiqueta,
+                        extra = avisos.size.toString(),
+                        modifier = Modifier.padding(horizontal = Espacio.lateral)
+                    )
+                }
+                // La clave tiene que ser única de verdad: con la hora y el título, cinco faltas
+                // de la misma asignatura anotadas en el mismo segundo repetían clave y la lista
+                // se llevaba por delante la pantalla entera.
+                items(avisos, key = { it.id }) { aviso ->
+                    TarjetaAviso(
+                        aviso = aviso,
+                        ahora = ahora,
+                        modifier = Modifier.padding(horizontal = Espacio.lateral)
+                    ) { aviso.url?.let(acciones.abrirEnlace) }
+                }
+            }
+        }
+    }
+
+    if (confirmarVaciado) {
+        AlertDialog(
+            onDismissRequest = { confirmarVaciado = false },
+            icon = { Icon(Icons.Default.DeleteSweep, contentDescription = null) },
+            title = { Text("¿Vaciar el historial?") },
+            text = { Text("Se borrarán las ${estado.avisos.size} notificaciones guardadas. No se puede deshacer.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmarVaciado = false
+                    acciones.vaciar()
+                }) { Text("Vaciar", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmarVaciado = false }) { Text("Cancelar") }
+            }
+        )
     }
 }
 
 @Composable
-private fun TarjetaAviso(aviso: Aviso, alPulsar: () -> Unit) {
-    val color = colorDe(aviso.tipo)
-    val fondo = fondoDe(aviso.tipo)
+private fun TarjetaAviso(aviso: Aviso, ahora: Long, modifier: Modifier = Modifier, alPulsar: () -> Unit) {
+    val tono = tonoDe(aviso.tipo)
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = aviso.url != null, onClick = alPulsar),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    Tarjeta(
+        modifier = modifier,
+        alPulsar = if (aviso.url != null) alPulsar else null,
+        relleno = PaddingValues(Espacio.m)
     ) {
-        Row(modifier = Modifier.padding(14.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(fondo, RoundedCornerShape(14.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = iconoDe(aviso.tipo),
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
+        Row {
+            IconoTonal(iconoDe(aviso.tipo), tono)
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 14.dp)
+                    .padding(start = Espacio.m)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -196,7 +197,7 @@ private fun TarjetaAviso(aviso: Aviso, alPulsar: () -> Unit) {
                             imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.padding(start = Espacio.xs).size(14.dp)
                         )
                     }
                 }
@@ -207,21 +208,14 @@ private fun TarjetaAviso(aviso: Aviso, alPulsar: () -> Unit) {
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.height(6.dp))
                 Row(
+                    modifier = Modifier.padding(top = Espacio.s),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Espacio.s)
                 ) {
+                    EtiquetaEstado(aviso.tipo.etiqueta, tono)
                     Text(
-                        text = aviso.tipo.etiqueta,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = color,
-                        modifier = Modifier
-                            .background(fondo, RoundedCornerShape(8.dp))
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                    Text(
-                        text = haceCuanto(aviso.momento),
+                        text = haceCuanto(aviso.momento, ahora),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -238,16 +232,9 @@ private fun iconoDe(tipo: TipoAviso): ImageVector = when (tipo) {
     TipoAviso.FALTA -> Icons.Default.EventBusy
 }
 
-private fun colorDe(tipo: TipoAviso): Color = when (tipo) {
-    TipoAviso.ENTREGA -> AmbarPendiente
-    TipoAviso.NUEVA -> AmbarPendiente
-    TipoAviso.NOTA -> VerdeEntregada
-    TipoAviso.FALTA -> RojoNoEntregada
-}
-
-@Composable
-private fun fondoDe(tipo: TipoAviso): Color = when (tipo) {
-    TipoAviso.NOTA -> fondoDeEstado(VerdeEntregadaFondo, VerdeEntregadaOscuro)
-    TipoAviso.FALTA -> fondoDeEstado(RojoNoEntregadaFondo, RojoNoEntregadaOscuro)
-    else -> fondoDeEstado(AmbarPendienteFondo, AmbarPendienteOscuro)
+private fun tonoDe(tipo: TipoAviso): Tono = when (tipo) {
+    TipoAviso.ENTREGA -> Tono.AVISO
+    TipoAviso.NUEVA -> Tono.INFO
+    TipoAviso.NOTA -> Tono.EXITO
+    TipoAviso.FALTA -> Tono.PELIGRO
 }

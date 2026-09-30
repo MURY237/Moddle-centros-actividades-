@@ -18,7 +18,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.asir.moodleactividades.data.AjustesAvisos
 import com.asir.moodleactividades.data.net.Actualizacion
+import com.asir.moodleactividades.domain.SondeoAsistencia
+import com.asir.moodleactividades.ui.acercade.AcercaDeScreen
+import com.asir.moodleactividades.ui.asistencia.AsistenciaUiState
 import com.asir.moodleactividades.ui.actividades.AccionesTareas
 import com.asir.moodleactividades.ui.actividades.ActividadesUiState
 import com.asir.moodleactividades.ui.actividades.DescargaUi
@@ -26,7 +30,11 @@ import com.asir.moodleactividades.ui.actividades.DetalleActividadContenido
 import com.asir.moodleactividades.ui.actividades.EstadoDescarga
 import com.asir.moodleactividades.ui.actividades.TareasContenido
 import com.asir.moodleactividades.ui.actualizacion.ActualizacionUiState
+import com.asir.moodleactividades.ui.avisos.AccionesAvisos
+import com.asir.moodleactividades.ui.avisos.AvisosContenido
 import com.asir.moodleactividades.ui.componentes.Aviso
+import com.asir.moodleactividades.ui.notas.AccionesNotas
+import com.asir.moodleactividades.ui.notas.NotasContenido
 import com.asir.moodleactividades.ui.componentes.BarraProgreso
 import com.asir.moodleactividades.ui.componentes.CabeceraPantalla
 import com.asir.moodleactividades.ui.componentes.Espacio
@@ -46,8 +54,10 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.io.File
 
 /**
  * Pinta pantallas y componentes a PNG sin emulador, con Robolectric. No comprueba nada: sirve
@@ -81,7 +91,7 @@ class CapturasTest {
             Muestras.tareas.copy(
                 datosDeCache = true,
                 error = "No hay conexión con el centro.",
-                momentoDatos = Muestras.ahora - 3 * 3_600_000L
+                momentoDatos = Muestras.ahora - 3 * Muestras.HORA
             ),
             ActualizacionUiState(disponible = Actualizacion("1.60", "", "")),
             AccionesTareas()
@@ -97,23 +107,51 @@ class CapturasTest {
     }
 
     @Test fun detalle() = capturar("13-detalle") {
-        DetalleActividadContenido(
-            actividad = Muestras.actividades.first { it.adjuntos.isNotEmpty() },
-            descargas = mapOf(
-                "https://moodle.ejemplo.es/a.pdf" to DescargaUi(EstadoDescarga.LISTA)
+        // La ficha va en una hoja inferior, que es de color superficie y no de fondo.
+        Surface(color = MaterialTheme.colorScheme.surface) {
+            DetalleActividadContenido(
+                actividad = Muestras.actividades.first { it.adjuntos.isNotEmpty() },
+                descargas = mapOf(
+                    "https://moodle.ejemplo.es/a.pdf" to DescargaUi(EstadoDescarga.LISTA, File("enunciado.pdf"))
+                )
             )
-        )
+        }
     }
 
+    @Test fun notas() = capturar("20-notas") { NotasContenido(Muestras.notas, AccionesNotas()) }
+
+    @Test fun notasOscuro() = capturar("20-notas-oscuro", oscuro = true) {
+        NotasContenido(Muestras.notas, AccionesNotas())
+    }
+
+    @Test fun avisos() = capturar("30-avisos") {
+        AvisosContenido(Muestras.avisos, AccionesAvisos(), ahora = Muestras.ahora)
+    }
+
+    @Test fun avisosOscuro() = capturar("30-avisos-oscuro", oscuro = true) {
+        AvisosContenido(Muestras.avisos, AccionesAvisos(), ahora = Muestras.ahora)
+    }
+
+    @Test fun ajustes() = capturar("40-ajustes", alto = 1500) { Ajustes() }
+
+    @Test fun ajustesOscuro() = capturar("40-ajustes-oscuro", oscuro = true, alto = 1500) { Ajustes() }
+
     @Test fun detalleOscuro() = capturar("13-detalle-oscuro", oscuro = true) {
-        DetalleActividadContenido(
-            actividad = Muestras.actividades.first { it.adjuntos.isNotEmpty() },
-            descargas = emptyMap()
-        )
+        Surface(color = MaterialTheme.colorScheme.surface) {
+            DetalleActividadContenido(
+                actividad = Muestras.actividades.first { it.adjuntos.isNotEmpty() },
+                descargas = emptyMap()
+            )
+        }
     }
 }
 
-fun capturar(nombre: String, oscuro: Boolean = false, contenido: @Composable () -> Unit) {
+/**
+ * Pinta [contenido] con el tema de la app en `build/capturas/<nombre>.png`. Con [alto] la
+ * pantalla se alarga para que quepa entera una que se desplaza.
+ */
+fun capturar(nombre: String, oscuro: Boolean = false, alto: Int? = null, contenido: @Composable () -> Unit) {
+    if (alto != null) RuntimeEnvironment.setQualifiers("+h${alto}dp")
     captureRoboImage("build/capturas/$nombre.png") {
         MoodleActividadesTheme(oscuro = oscuro) {
             Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -121,6 +159,26 @@ fun capturar(nombre: String, oscuro: Boolean = false, contenido: @Composable () 
             }
         }
     }
+}
+
+@Composable
+private fun Ajustes() {
+    AcercaDeScreen(
+        ajustes = AjustesAvisos(),
+        puedeNotificar = false,
+        alCambiarEntregas = {},
+        alCambiarNuevas = {},
+        alCambiarNotas = {},
+        alCambiarAntelacion = {},
+        alCambiarFrecuencia = {},
+        alCambiarHora = {},
+        asistencia = AsistenciaUiState(
+            sondeo = SondeoAsistencia("moodle.ejemplo.es", "4.1.9", 412, emptyList())
+        ),
+        alComprobarAsistencia = {},
+        alVerFaltasSeneca = {},
+        alVolver = {}
+    )
 }
 
 @Composable
