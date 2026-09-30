@@ -31,7 +31,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -142,6 +144,7 @@ fun FaltasScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FaltasContenido(
     estado: FaltasUiState,
@@ -171,94 +174,101 @@ fun FaltasContenido(
             }
         }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = Espacio.lateral, end = Espacio.lateral, bottom = Espacio.xl),
-            verticalArrangement = Arrangement.spacedBy(Espacio.s)
+        // Tirar de la lista hacia abajo recarga, como en cualquier app.
+        PullToRefreshBox(
+            isRefreshing = consultando,
+            onRefresh = acciones.actualizar,
+            modifier = Modifier.fillMaxSize()
         ) {
-            if (estado.necesitaAcceso) {
-                item(key = "caducada") {
-                    // Se avisa y se ofrece entrar, pero no se entra solo: el alumno estaba
-                    // mirando sus faltas y quitárselas de delante sin pedirlo es peor.
-                    Aviso(
-                        titulo = "La sesión de Séneca ha caducado",
-                        texto = "Estas faltas son las de la última consulta." +
-                            // Aquí y no escondido en el diagnóstico: cuando el acceso automático
-                            // falla, es lo único que dice por qué.
-                            estado.diagnosticoSeneca.acceso.takeIf { it.isNotBlank() }
-                                ?.let { "\nAcceso automático: $it." }.orEmpty(),
-                        tono = Tono.AVISO,
-                        accion = "Entrar",
-                        alPulsarAccion = acciones.actualizar
-                    )
-                }
-            }
-
-            if (estado.porAsignatura.isEmpty()) {
-                item(key = "vacio") {
-                    EstadoVacio(
-                        icono = Icons.Default.EventBusy,
-                        titulo = "Aún no hay faltas guardadas",
-                        detalle = "Séneca no ofrece ninguna forma de consultarlas desde fuera, así " +
-                            "que la app entra por ti y te enseña aquí lo que encuentra. La primera " +
-                            "vez tendrás que identificarte en la web de Séneca."
-                    ) {
-                        Button(onClick = acciones.actualizar, enabled = !consultando) { Text("Traer mis faltas") }
-                    }
-                }
-            } else {
-                item(key = "resumen") {
-                    FranjaResumen(
-                        listOf(
-                            Metrica(estado.total.toString(), "Total"),
-                            Metrica((estado.total - estado.injustificadas).toString(), "Justificadas", Tono.EXITO),
-                            Metrica(estado.injustificadas.toString(), "Sin justificar", Tono.PELIGRO)
-                        ),
-                        modifier = Modifier.padding(top = Espacio.xs)
-                    )
-                }
-                item(key = "titulo-asignaturas") {
-                    TituloSeccion("Por asignatura", extra = estado.porAsignatura.size.toString())
-                }
-                items(estado.porAsignatura, key = { it.asignatura }) { asignatura ->
-                    TarjetaAsignatura(asignatura)
-                }
-            }
-
-            item(key = "titulo-seneca") { TituloSeccion("Séneca") }
-            item(key = "seneca") {
-                Tarjeta(relleno = PaddingValues(0.dp)) {
-                    FilaAjuste(
-                        titulo = "Entrar solo cuando caduque",
-                        detalle = when {
-                            !estado.almacenSeguroDisponible -> "No disponible en este móvil"
-                            estado.credencialesRechazadas -> "Séneca rechazó la cuenta guardada"
-                            estado.usuarioGuardado.isNotBlank() -> "Cuenta guardada: " + estado.usuarioGuardado
-                            else -> "Sin configurar"
-                        },
-                        icono = Icons.Default.Key,
-                        tono = if (estado.credencialesRechazadas) Tono.PELIGRO else Tono.INFO,
-                        alPulsar = { editandoCuenta = true }
-                    )
-                    if (estado.diagnosticoSeneca.paginasVistas > 0 || estado.leidoAlgunaVez) {
-                        DivisorFila()
-                        FilaAjuste(
-                            titulo = "Qué vio la app en Séneca",
-                            detalle = "Para saber dónde se atasca si no llega a las faltas",
-                            icono = Icons.Default.Info,
-                            tono = Tono.NEUTRO,
-                            alPulsar = { viendoDiagnostico = true }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = Espacio.lateral, end = Espacio.lateral, bottom = Espacio.xl),
+                verticalArrangement = Arrangement.spacedBy(Espacio.s)
+            ) {
+                if (estado.necesitaAcceso) {
+                    item(key = "caducada") {
+                        // Se avisa y se ofrece entrar, pero no se entra solo: el alumno estaba
+                        // mirando sus faltas y quitárselas de delante sin pedirlo es peor.
+                        Aviso(
+                            titulo = "La sesión de Séneca ha caducado",
+                            texto = "Estas faltas son las de la última consulta." +
+                                // Aquí y no escondido en el diagnóstico: cuando el acceso automático
+                                // falla, es lo único que dice por qué.
+                                estado.diagnosticoSeneca.acceso.takeIf { it.isNotBlank() }
+                                    ?.let { "\nAcceso automático: $it." }.orEmpty(),
+                            tono = Tono.AVISO,
+                            accion = "Entrar",
+                            alPulsarAccion = acciones.actualizar
                         )
                     }
-                    if (estado.leidoAlgunaVez || estado.usuarioGuardado.isNotBlank()) {
-                        DivisorFila()
-                        FilaAjuste(
-                            titulo = "Desconectar Séneca",
-                            detalle = "Borra las faltas, la sesión y la cuenta guardada",
-                            icono = Icons.Default.LinkOff,
-                            tono = Tono.PELIGRO,
-                            alPulsar = { confirmarDesconexion = true }
+                }
+
+                if (estado.porAsignatura.isEmpty()) {
+                    item(key = "vacio") {
+                        EstadoVacio(
+                            icono = Icons.Default.EventBusy,
+                            titulo = "Aún no hay faltas guardadas",
+                            detalle = "Séneca no ofrece ninguna forma de consultarlas desde fuera, así " +
+                                "que la app entra por ti y te enseña aquí lo que encuentra. La primera " +
+                                "vez tendrás que identificarte en la web de Séneca."
+                        ) {
+                            Button(onClick = acciones.actualizar, enabled = !consultando) { Text("Traer mis faltas") }
+                        }
+                    }
+                } else {
+                    item(key = "resumen") {
+                        FranjaResumen(
+                            listOf(
+                                Metrica(estado.total.toString(), "Total"),
+                                Metrica((estado.total - estado.injustificadas).toString(), "Justificadas", Tono.EXITO),
+                                Metrica(estado.injustificadas.toString(), "Sin justificar", Tono.PELIGRO)
+                            ),
+                            modifier = Modifier.padding(top = Espacio.xs)
                         )
+                    }
+                    item(key = "titulo-asignaturas") {
+                        TituloSeccion("Por asignatura", extra = estado.porAsignatura.size.toString())
+                    }
+                    items(estado.porAsignatura, key = { it.asignatura }) { asignatura ->
+                        TarjetaAsignatura(asignatura)
+                    }
+                }
+
+                item(key = "titulo-seneca") { TituloSeccion("Séneca") }
+                item(key = "seneca") {
+                    Tarjeta(relleno = PaddingValues(0.dp)) {
+                        FilaAjuste(
+                            titulo = "Entrar solo cuando caduque",
+                            detalle = when {
+                                !estado.almacenSeguroDisponible -> "No disponible en este móvil"
+                                estado.credencialesRechazadas -> "Séneca rechazó la cuenta guardada"
+                                estado.usuarioGuardado.isNotBlank() -> "Cuenta guardada: " + estado.usuarioGuardado
+                                else -> "Sin configurar"
+                            },
+                            icono = Icons.Default.Key,
+                            tono = if (estado.credencialesRechazadas) Tono.PELIGRO else Tono.INFO,
+                            alPulsar = { editandoCuenta = true }
+                        )
+                        if (estado.diagnosticoSeneca.paginasVistas > 0 || estado.leidoAlgunaVez) {
+                            DivisorFila()
+                            FilaAjuste(
+                                titulo = "Qué vio la app en Séneca",
+                                detalle = "Para saber dónde se atasca si no llega a las faltas",
+                                icono = Icons.Default.Info,
+                                tono = Tono.NEUTRO,
+                                alPulsar = { viendoDiagnostico = true }
+                            )
+                        }
+                        if (estado.leidoAlgunaVez || estado.usuarioGuardado.isNotBlank()) {
+                            DivisorFila()
+                            FilaAjuste(
+                                titulo = "Desconectar Séneca",
+                                detalle = "Borra las faltas, la sesión y la cuenta guardada",
+                                icono = Icons.Default.LinkOff,
+                                tono = Tono.PELIGRO,
+                                alPulsar = { confirmarDesconexion = true }
+                            )
+                        }
                     }
                 }
             }

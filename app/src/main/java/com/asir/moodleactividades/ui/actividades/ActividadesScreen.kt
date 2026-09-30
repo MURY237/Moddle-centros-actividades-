@@ -35,7 +35,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -149,7 +151,7 @@ fun ActividadesScreen(
     )
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TareasContenido(
     estado: ActividadesUiState,
@@ -183,83 +185,90 @@ fun TareasContenido(
             )
         }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = Espacio.xl),
-            verticalArrangement = Arrangement.spacedBy(Espacio.s)
+        // Tirar de la lista hacia abajo recarga, como en cualquier app.
+        PullToRefreshBox(
+            isRefreshing = estado.cargando,
+            onRefresh = acciones.refrescar,
+            modifier = Modifier.fillMaxSize()
         ) {
-            if (actualizacion.visible) {
-                item(key = "actualizacion") {
-                    BannerActualizacion(
-                        estado = actualizacion,
-                        alInstalar = acciones.instalarActualizacion,
-                        alDescartar = acciones.descartarActualizacion,
-                        modifier = Modifier.padding(horizontal = Espacio.lateral)
-                    )
-                }
-            }
-
-            if (estado.mostrandoDatosAntiguos) {
-                item(key = "sin-conexion") {
-                    Aviso(
-                        titulo = "Sin actualizar",
-                        texto = estado.error.orEmpty() +
-                            (estado.momentoDatos?.let { " Datos de " + haceCuanto(it).lowercase() + "." } ?: ""),
-                        tono = Tono.AVISO,
-                        accion = "Reintentar",
-                        alPulsarAccion = acciones.refrescar,
-                        modifier = Modifier.padding(horizontal = Espacio.lateral)
-                    )
-                }
-            }
-
-            if (estado.todas.isNotEmpty()) {
-                item(key = "resumen") { Resumen(estado) }
-            }
-
-            item(key = "netacad") { AccesoNetacad(acciones.abrirNetacad) }
-
-            item(key = "filtros") { Filtros(estado, acciones) }
-
-            when {
-                estado.cargando && estado.todas.isEmpty() -> item(key = "cargando") {
-                    Box(Modifier.fillMaxWidth().padding(Espacio.xxl), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(strokeWidth = 3.dp, modifier = Modifier.size(32.dp))
-                    }
-                }
-
-                estado.error != null && estado.todas.isEmpty() -> item(key = "error") {
-                    EstadoVacio(
-                        icono = Icons.Default.CloudOff,
-                        titulo = "No se pudieron cargar las actividades",
-                        detalle = estado.error.orEmpty()
-                    ) {
-                        Button(onClick = acciones.refrescar, enabled = !estado.cargando) { Text("Reintentar") }
-                    }
-                }
-
-                estado.secciones.isEmpty() -> item(key = "vacio") { SinResultados(estado) }
-
-                else -> estado.secciones.forEach { seccion ->
-                    stickyHeader(key = "seccion-" + seccion.grupo.name) {
-                        TituloSeccion(
-                            texto = seccion.grupo.etiqueta,
-                            extra = seccion.actividades.size.toString(),
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = Espacio.xl),
+                verticalArrangement = Arrangement.spacedBy(Espacio.s)
+            ) {
+                if (actualizacion.visible) {
+                    item(key = "actualizacion") {
+                        BannerActualizacion(
+                            estado = actualizacion,
+                            alInstalar = acciones.instalarActualizacion,
+                            alDescartar = acciones.descartarActualizacion,
                             modifier = Modifier.padding(horizontal = Espacio.lateral)
                         )
                     }
-                    // El id de una tarea y el de un evento de calendario pueden coincidir,
-                    // y dos claves iguales rompen la lista.
-                    items(
-                        seccion.actividades,
-                        key = { "${seccion.grupo.name}-${it.tipo.name}-${it.id}" }
-                    ) { actividad ->
-                        TarjetaActividad(
-                            actividad = actividad,
-                            modifier = Modifier
-                                .padding(horizontal = Espacio.lateral)
-                                .animateItem()
-                        ) { acciones.abrirDetalle(actividad) }
+                }
+
+                if (estado.mostrandoDatosAntiguos) {
+                    item(key = "sin-conexion") {
+                        Aviso(
+                            titulo = "Sin actualizar",
+                            texto = estado.error.orEmpty() +
+                                (estado.momentoDatos?.let { " Datos de " + haceCuanto(it).lowercase() + "." } ?: ""),
+                            tono = Tono.AVISO,
+                            accion = "Reintentar",
+                            alPulsarAccion = acciones.refrescar,
+                            modifier = Modifier.padding(horizontal = Espacio.lateral)
+                        )
+                    }
+                }
+
+                if (estado.todas.isNotEmpty()) {
+                    item(key = "resumen") { Resumen(estado) }
+                }
+
+                item(key = "netacad") { AccesoNetacad(acciones.abrirNetacad) }
+
+                item(key = "filtros") { Filtros(estado, acciones) }
+
+                when {
+                    estado.cargando && estado.todas.isEmpty() -> item(key = "cargando") {
+                        Box(Modifier.fillMaxWidth().padding(Espacio.xxl), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(strokeWidth = 3.dp, modifier = Modifier.size(32.dp))
+                        }
+                    }
+
+                    estado.error != null && estado.todas.isEmpty() -> item(key = "error") {
+                        EstadoVacio(
+                            icono = Icons.Default.CloudOff,
+                            titulo = "No se pudieron cargar las actividades",
+                            detalle = estado.error.orEmpty()
+                        ) {
+                            Button(onClick = acciones.refrescar, enabled = !estado.cargando) { Text("Reintentar") }
+                        }
+                    }
+
+                    estado.secciones.isEmpty() -> item(key = "vacio") { SinResultados(estado) }
+
+                    else -> estado.secciones.forEach { seccion ->
+                        stickyHeader(key = "seccion-" + seccion.grupo.name) {
+                            TituloSeccion(
+                                texto = seccion.grupo.etiqueta,
+                                extra = seccion.actividades.size.toString(),
+                                modifier = Modifier.padding(horizontal = Espacio.lateral)
+                            )
+                        }
+                        // El id de una tarea y el de un evento de calendario pueden coincidir,
+                        // y dos claves iguales rompen la lista.
+                        items(
+                            seccion.actividades,
+                            key = { "${seccion.grupo.name}-${it.tipo.name}-${it.id}" }
+                        ) { actividad ->
+                            TarjetaActividad(
+                                actividad = actividad,
+                                modifier = Modifier
+                                    .padding(horizontal = Espacio.lateral)
+                                    .animateItem()
+                            ) { acciones.abrirDetalle(actividad) }
+                        }
                     }
                 }
             }

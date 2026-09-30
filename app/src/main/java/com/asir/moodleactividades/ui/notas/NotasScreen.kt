@@ -28,7 +28,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -89,6 +91,7 @@ fun NotasScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotasContenido(
     estado: NotasUiState,
@@ -115,69 +118,76 @@ fun NotasContenido(
             }
         }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = Espacio.xl),
-            verticalArrangement = Arrangement.spacedBy(Espacio.m)
+        // Tirar de la lista hacia abajo recarga, como en cualquier app.
+        PullToRefreshBox(
+            isRefreshing = estado.cargando,
+            onRefresh = acciones.refrescar,
+            modifier = Modifier.fillMaxSize()
         ) {
-            if (estado.mostrandoDatosAntiguos) {
-                item(key = "sin-conexion") {
-                    Aviso(
-                        titulo = "Sin actualizar",
-                        texto = estado.error.orEmpty(),
-                        tono = Tono.AVISO,
-                        accion = "Reintentar",
-                        alPulsarAccion = acciones.refrescar,
-                        modifier = Modifier.padding(horizontal = Espacio.lateral)
-                    )
-                }
-            }
-
-            if (estado.todos.isNotEmpty()) {
-                item(key = "resumen") { Resumen(estado) }
-                item(key = "filtros") { Filtros(estado, acciones) }
-            }
-
-            when {
-                estado.cargando && estado.cursos.isEmpty() -> item(key = "cargando") {
-                    Box(Modifier.fillMaxWidth().padding(Espacio.xxl), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(strokeWidth = 3.dp, modifier = Modifier.size(32.dp))
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = Espacio.xl),
+                verticalArrangement = Arrangement.spacedBy(Espacio.m)
+            ) {
+                if (estado.mostrandoDatosAntiguos) {
+                    item(key = "sin-conexion") {
+                        Aviso(
+                            titulo = "Sin actualizar",
+                            texto = estado.error.orEmpty(),
+                            tono = Tono.AVISO,
+                            accion = "Reintentar",
+                            alPulsarAccion = acciones.refrescar,
+                            modifier = Modifier.padding(horizontal = Espacio.lateral)
+                        )
                     }
                 }
 
-                estado.error != null && estado.cursos.isEmpty() -> item(key = "error") {
-                    EstadoVacio(
-                        icono = Icons.Default.CloudOff,
-                        titulo = "No se pudieron cargar las notas",
-                        detalle = estado.error.orEmpty()
-                    ) {
-                        Button(onClick = acciones.refrescar, enabled = !estado.cargando) { Text("Reintentar") }
-                    }
+                if (estado.todos.isNotEmpty()) {
+                    item(key = "resumen") { Resumen(estado) }
+                    item(key = "filtros") { Filtros(estado, acciones) }
                 }
 
-                estado.cursos.isEmpty() -> item(key = "vacio") {
-                    EstadoVacio(
-                        icono = Icons.Default.Grade,
-                        titulo = if (estado.todos.isEmpty()) "Todavía sin notas" else "Sin resultados",
-                        detalle = if (estado.todos.isEmpty()) {
-                            "Cuando tus asignaturas tengan actividades evaluables aparecerán aquí."
-                        } else {
-                            "Ninguna calificación encaja con estos filtros."
+                when {
+                    estado.cargando && estado.cursos.isEmpty() -> item(key = "cargando") {
+                        Box(Modifier.fillMaxWidth().padding(Espacio.xxl), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(strokeWidth = 3.dp, modifier = Modifier.size(32.dp))
                         }
-                    )
-                }
+                    }
 
-                // Dos matrículas pueden resolverse al mismo nombre de curso: la posición entra
-                // en la clave para que no se repita.
-                else -> itemsIndexed(
-                    estado.cursos,
-                    key = { indice, curso -> "curso-$indice-${curso.curso}" }
-                ) { _, curso ->
-                    TarjetaCurso(
-                        curso = curso,
-                        alAbrir = acciones.abrirEnlace,
-                        modifier = Modifier.padding(horizontal = Espacio.lateral)
-                    )
+                    estado.error != null && estado.cursos.isEmpty() -> item(key = "error") {
+                        EstadoVacio(
+                            icono = Icons.Default.CloudOff,
+                            titulo = "No se pudieron cargar las notas",
+                            detalle = estado.error.orEmpty()
+                        ) {
+                            Button(onClick = acciones.refrescar, enabled = !estado.cargando) { Text("Reintentar") }
+                        }
+                    }
+
+                    estado.cursos.isEmpty() -> item(key = "vacio") {
+                        EstadoVacio(
+                            icono = Icons.Default.Grade,
+                            titulo = if (estado.todos.isEmpty()) "Todavía sin notas" else "Sin resultados",
+                            detalle = if (estado.todos.isEmpty()) {
+                                "Cuando tus asignaturas tengan actividades evaluables aparecerán aquí."
+                            } else {
+                                "Ninguna calificación encaja con estos filtros."
+                            }
+                        )
+                    }
+
+                    // Dos matrículas pueden resolverse al mismo nombre de curso: la posición entra
+                    // en la clave para que no se repita.
+                    else -> itemsIndexed(
+                        estado.cursos,
+                        key = { indice, curso -> "curso-$indice-${curso.curso}" }
+                    ) { _, curso ->
+                        TarjetaCurso(
+                            curso = curso,
+                            alAbrir = acciones.abrirEnlace,
+                            modifier = Modifier.padding(horizontal = Espacio.lateral)
+                        )
+                    }
                 }
             }
         }
