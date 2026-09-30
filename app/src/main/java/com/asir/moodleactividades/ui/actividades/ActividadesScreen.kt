@@ -2,72 +2,49 @@ package com.asir.moodleactividades.ui.actividades
 
 import android.content.Intent
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Forum
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.asir.moodleactividades.BuildConfig
 import com.asir.moodleactividades.domain.Actividad
 import com.asir.moodleactividades.domain.EstadoActividad
 import com.asir.moodleactividades.domain.FiltroEstado
@@ -75,26 +52,41 @@ import com.asir.moodleactividades.domain.RangoTiempo
 import com.asir.moodleactividades.domain.TipoActividad
 import com.asir.moodleactividades.ui.actualizacion.ActualizacionUiState
 import com.asir.moodleactividades.ui.actualizacion.BannerActualizacion
-import com.asir.moodleactividades.ui.componentes.AnilloProgreso
+import com.asir.moodleactividades.ui.componentes.Aviso
+import com.asir.moodleactividades.ui.componentes.BarraProgreso
+import com.asir.moodleactividades.ui.componentes.CabeceraPantalla
+import com.asir.moodleactividades.ui.componentes.EntreFiltros
+import com.asir.moodleactividades.ui.componentes.Espacio
 import com.asir.moodleactividades.ui.componentes.EstadoVacio
-import com.asir.moodleactividades.ui.componentes.Etiqueta
-import com.asir.moodleactividades.ui.componentes.FilaEstadisticas
+import com.asir.moodleactividades.ui.componentes.EtiquetaEstado
+import com.asir.moodleactividades.ui.componentes.FranjaResumen
+import com.asir.moodleactividades.ui.componentes.IconoTonal
+import com.asir.moodleactividades.ui.componentes.MenuMas
+import com.asir.moodleactividades.ui.componentes.Metrica
+import com.asir.moodleactividades.ui.componentes.OpcionMenu
 import com.asir.moodleactividades.ui.componentes.SelectorAsignatura
+import com.asir.moodleactividades.ui.componentes.Tarjeta
+import com.asir.moodleactividades.ui.componentes.TituloSeccion
+import com.asir.moodleactividades.ui.componentes.tono
 import com.asir.moodleactividades.ui.formatearFecha
+import com.asir.moodleactividades.ui.haceCuanto
 import com.asir.moodleactividades.ui.textoRelativo
-import com.asir.moodleactividades.ui.theme.AmbarPendiente
-import com.asir.moodleactividades.ui.theme.AmbarPendienteFondo
-import com.asir.moodleactividades.ui.theme.AmbarPendienteOscuro
-import com.asir.moodleactividades.ui.theme.DegradadoCabecera
-import com.asir.moodleactividades.ui.theme.RojoNoEntregada
-import com.asir.moodleactividades.ui.theme.RojoNoEntregadaFondo
-import com.asir.moodleactividades.ui.theme.RojoNoEntregadaOscuro
-import com.asir.moodleactividades.ui.theme.VerdeEntregada
-import com.asir.moodleactividades.ui.theme.VerdeEntregadaFondo
-import com.asir.moodleactividades.ui.theme.VerdeEntregadaOscuro
-import com.asir.moodleactividades.ui.theme.fondoDeEstado
+import com.asir.moodleactividades.ui.theme.Tono
+import com.asir.moodleactividades.ui.theme.colores
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+/** Lo que se puede hacer desde la pantalla. Todo con valor por defecto, para las capturas. */
+data class AccionesTareas(
+    val refrescar: () -> Unit = {},
+    val cerrarSesion: () -> Unit = {},
+    val abrirNetacad: () -> Unit = {},
+    val cambiarFiltro: (FiltroEstado) -> Unit = {},
+    val cambiarRango: (RangoTiempo) -> Unit = {},
+    val cambiarAsignatura: (String?) -> Unit = {},
+    val abrirDetalle: (Actividad) -> Unit = {},
+    val instalarActualizacion: () -> Unit = {},
+    val descartarActualizacion: () -> Unit = {}
+)
+
 @Composable
 fun ActividadesScreen(
     viewModel: ActividadesViewModel,
@@ -125,95 +117,126 @@ fun ActividadesScreen(
             descargas = estado.descargas,
             alCerrar = viewModel::cerrarDetalle,
             alDescargar = viewModel::descargar,
-            alAbrirArchivo = { adjunto, archivo ->
-                abrirIntent(viewModel.intentAbrir(adjunto, archivo))
-            },
-            alCompartirArchivo = { adjunto, archivo ->
-                abrirIntent(viewModel.intentCompartir(adjunto, archivo))
-            },
+            alAbrirArchivo = { adjunto, archivo -> abrirIntent(viewModel.intentAbrir(adjunto, archivo)) },
+            alCompartirArchivo = { adjunto, archivo -> abrirIntent(viewModel.intentCompartir(adjunto, archivo)) },
             alAbrirEnMoodle = {
-                actividad.url?.let { enlace ->
-                    abrirIntent(Intent(Intent.ACTION_VIEW, enlace.toUri()))
-                }
+                actividad.url?.let { enlace -> abrirIntent(Intent(Intent.ACTION_VIEW, enlace.toUri())) }
             }
         )
     }
 
+    TareasContenido(
+        estado = estado,
+        actualizacion = actualizacion,
+        acciones = AccionesTareas(
+            refrescar = viewModel::refrescar,
+            cerrarSesion = viewModel::cerrarSesion,
+            abrirNetacad = alAbrirNetacad,
+            cambiarFiltro = viewModel::cambiarFiltro,
+            cambiarRango = viewModel::cambiarRango,
+            cambiarAsignatura = viewModel::cambiarAsignatura,
+            abrirDetalle = viewModel::abrirDetalle,
+            instalarActualizacion = alInstalarActualizacion,
+            descartarActualizacion = alDescartarActualizacion
+        ),
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun TareasContenido(
+    estado: ActividadesUiState,
+    actualizacion: ActualizacionUiState,
+    acciones: AccionesTareas,
+    modifier: Modifier = Modifier
+) {
     Column(modifier = modifier.fillMaxSize()) {
-
-        Cabecera(
-            estado = estado,
-            alRefrescar = viewModel::refrescar,
-            alCerrarSesion = viewModel::cerrarSesion,
-            alAbrirNetacad = alAbrirNetacad
-        )
-
-        AnimatedVisibility(visible = actualizacion.visible, enter = fadeIn(), exit = fadeOut()) {
-            BannerActualizacion(
-                estado = actualizacion,
-                alInstalar = alInstalarActualizacion,
-                alDescartar = alDescartarActualizacion
+        CabeceraPantalla(
+            titulo = "Tareas",
+            subtitulo = subtituloDe(estado)
+        ) {
+            if (estado.cargando) {
+                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                }
+            } else {
+                IconButton(onClick = acciones.refrescar) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Actualizar")
+                }
+            }
+            MenuMas(
+                listOf(
+                    OpcionMenu("Trabajos de Cisco NetAcad", Icons.Default.School, alPulsar = acciones.abrirNetacad),
+                    OpcionMenu("Cerrar sesión", Icons.AutoMirrored.Filled.Logout, peligrosa = true, alPulsar = acciones.cerrarSesion)
+                )
             )
         }
 
-        AnimatedVisibility(visible = estado.mostrandoDatosAntiguos, enter = fadeIn(), exit = fadeOut()) {
-            AvisoSinConexion(estado, viewModel::refrescar)
-        }
-
-        Filtros(estado, viewModel)
-
-        when {
-            estado.cargando && estado.todas.isEmpty() -> Caja {
-                CircularProgressIndicator()
-            }
-
-            estado.error != null && estado.todas.isEmpty() -> Caja {
-                EstadoVacio(
-                    icono = Icons.Default.CloudOff,
-                    titulo = "No se pudieron cargar las actividades",
-                    detalle = estado.error.orEmpty()
-                ) {
-                    Button(onClick = viewModel::refrescar, enabled = !estado.cargando) {
-                        Text("Reintentar")
-                    }
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = Espacio.xl),
+            verticalArrangement = Arrangement.spacedBy(Espacio.s)
+        ) {
+            if (actualizacion.visible) {
+                item(key = "actualizacion") {
+                    BannerActualizacion(
+                        estado = actualizacion,
+                        alInstalar = acciones.instalarActualizacion,
+                        alDescartar = acciones.descartarActualizacion,
+                        modifier = Modifier.padding(horizontal = Espacio.lateral)
+                    )
                 }
             }
 
-            estado.secciones.isEmpty() -> Caja {
-                // Una asignatura recién creada aparece en el filtro sin tener nada dentro:
-                // decir «ninguna actividad encaja» ahí sería engañoso.
-                val asignaturaVacia = estado.asignatura != null &&
-                    estado.todas.none { it.curso == estado.asignatura }
-
-                EstadoVacio(
-                    icono = when {
-                        asignaturaVacia -> Icons.Default.SearchOff
-                        estado.todas.isEmpty() -> Icons.Default.DoneAll
-                        else -> Icons.Default.SearchOff
-                    },
-                    titulo = when {
-                        asignaturaVacia -> "Asignatura sin actividades"
-                        estado.todas.isEmpty() -> "Nada pendiente"
-                        else -> "Sin resultados"
-                    },
-                    detalle = when {
-                        asignaturaVacia ->
-                            "«${estado.asignatura}» todavía no tiene ninguna actividad publicada."
-                        estado.todas.isEmpty() ->
-                            "No hay ninguna actividad en tu Moodle ahora mismo."
-                        else ->
-                            "Ninguna actividad encaja con estos filtros. Prueba con «Todo»."
-                    }
-                )
+            if (estado.mostrandoDatosAntiguos) {
+                item(key = "sin-conexion") {
+                    Aviso(
+                        titulo = "Sin actualizar",
+                        texto = estado.error.orEmpty() +
+                            (estado.momentoDatos?.let { " Datos de " + haceCuanto(it).lowercase() + "." } ?: ""),
+                        tono = Tono.AVISO,
+                        accion = "Reintentar",
+                        alPulsarAccion = acciones.refrescar,
+                        modifier = Modifier.padding(horizontal = Espacio.lateral)
+                    )
+                }
             }
 
-            else -> LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                estado.secciones.forEach { seccion ->
-                    stickyHeader(key = seccion.grupo.name) {
-                        CabeceraSeccion(seccion.grupo.etiqueta, seccion.actividades.size)
+            if (estado.todas.isNotEmpty()) {
+                item(key = "resumen") { Resumen(estado) }
+            }
+
+            item(key = "netacad") { AccesoNetacad(acciones.abrirNetacad) }
+
+            item(key = "filtros") { Filtros(estado, acciones) }
+
+            when {
+                estado.cargando && estado.todas.isEmpty() -> item(key = "cargando") {
+                    Box(Modifier.fillMaxWidth().padding(Espacio.xxl), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(strokeWidth = 3.dp, modifier = Modifier.size(32.dp))
+                    }
+                }
+
+                estado.error != null && estado.todas.isEmpty() -> item(key = "error") {
+                    EstadoVacio(
+                        icono = Icons.Default.CloudOff,
+                        titulo = "No se pudieron cargar las actividades",
+                        detalle = estado.error.orEmpty()
+                    ) {
+                        Button(onClick = acciones.refrescar, enabled = !estado.cargando) { Text("Reintentar") }
+                    }
+                }
+
+                estado.secciones.isEmpty() -> item(key = "vacio") { SinResultados(estado) }
+
+                else -> estado.secciones.forEach { seccion ->
+                    stickyHeader(key = "seccion-" + seccion.grupo.name) {
+                        TituloSeccion(
+                            texto = seccion.grupo.etiqueta,
+                            extra = seccion.actividades.size.toString(),
+                            modifier = Modifier.padding(horizontal = Espacio.lateral)
+                        )
                     }
                     // El id de una tarea y el de un evento de calendario pueden coincidir,
                     // y dos claves iguales rompen la lista.
@@ -223,10 +246,10 @@ fun ActividadesScreen(
                     ) { actividad ->
                         TarjetaActividad(
                             actividad = actividad,
-                            modifier = Modifier.animateItem()
-                        ) {
-                            viewModel.abrirDetalle(actividad)
-                        }
+                            modifier = Modifier
+                                .padding(horizontal = Espacio.lateral)
+                                .animateItem()
+                        ) { acciones.abrirDetalle(actividad) }
                     }
                 }
             }
@@ -234,283 +257,135 @@ fun ActividadesScreen(
     }
 }
 
-@Composable
-private fun Caja(contenido: @Composable () -> Unit) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-        content = { contenido() }
-    )
+private fun subtituloDe(estado: ActividadesUiState): String = when {
+    estado.nombreUsuario.isNotBlank() && estado.nombreSitio.isNotBlank() ->
+        estado.nombreUsuario + " · " + estado.nombreSitio
+    estado.nombreUsuario.isNotBlank() -> estado.nombreUsuario
+    else -> estado.nombreSitio
 }
 
 @Composable
-private fun Cabecera(
-    estado: ActividadesUiState,
-    alRefrescar: () -> Unit,
-    alCerrarSesion: () -> Unit,
-    alAbrirNetacad: () -> Unit
-) {
+private fun Resumen(estado: ActividadesUiState) {
     val resumen = estado.resumen
     val total = resumen.pendientes + resumen.entregadas + resumen.noEntregadas
     val progreso = if (total == 0) 0f else resumen.entregadas.toFloat() / total
-    val porcentaje by animateFloatAsState(
-        targetValue = progreso * 100,
-        animationSpec = tween(700),
-        label = "porcentaje"
-    )
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-            .background(DegradadoCabecera)
-    ) {
-        Column(
-            modifier = Modifier
-                .statusBarsPadding()
-                .padding(horizontal = 20.dp)
-                .padding(top = 12.dp, bottom = 20.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Mis actividades",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "v${BuildConfig.VERSION_NAME}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White,
-                            modifier = Modifier
-                                .padding(start = 8.dp)
-                                .background(
-                                    Color.White.copy(alpha = 0.22f),
-                                    RoundedCornerShape(7.dp)
-                                )
-                                .padding(horizontal = 7.dp, vertical = 2.dp)
-                        )
-                    }
-                    if (estado.nombreUsuario.isNotBlank()) {
-                        Text(
-                            text = estado.nombreUsuario,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.82f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                IconButton(onClick = alRefrescar, enabled = !estado.cargando) {
-                    Icon(Icons.Default.Refresh, "Actualizar", tint = Color.White)
-                }
-                IconButton(onClick = alCerrarSesion) {
-                    Icon(Icons.Default.Logout, "Cerrar sesión", tint = Color.White)
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AnilloProgreso(
-                    progreso = progreso,
-                    etiquetaCentral = "${porcentaje.toInt()}%",
-                    subEtiqueta = "entregado",
-                    color = Color.White,
-                    colorPista = Color.White.copy(alpha = 0.3f)
-                )
-                Spacer(Modifier.width(18.dp))
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = when {
-                            total == 0 -> "Sin actividades"
-                            resumen.noEntregadas > 0 -> "Tienes ${resumen.noEntregadas} sin entregar"
-                            resumen.pendientes > 0 -> "Te quedan ${resumen.pendientes} por entregar"
-                            else -> "Todo al día"
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "$total ${if (total == 1) "actividad" else "actividades"} en total",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            FilaEstadisticas(
-                pendientes = resumen.pendientes,
-                entregadas = resumen.entregadas,
-                noEntregadas = resumen.noEntregadas,
-                colorPendiente = Color.White,
-                fondoPendiente = Color.White.copy(alpha = 0.16f),
-                colorEntregada = Color.White,
-                fondoEntregada = Color.White.copy(alpha = 0.16f),
-                colorNoEntregada = Color.White,
-                fondoNoEntregada = Color.White.copy(alpha = 0.16f)
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            // Los trabajos de Cisco son la otra mitad de lo que hay por entregar: su sitio es
-            // junto a los de Moodle, no una pestaña más en una barra que ya va llena.
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Color.White.copy(alpha = 0.16f))
-                    .clickable(onClick = alAbrirNetacad)
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.School,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    text = "Trabajos de Cisco NetAcad",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.White,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 10.dp)
-                )
-                Icon(
-                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = Color.White
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CabeceraSeccion(etiqueta: String, cantidad: Int) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = etiqueta,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = cantidad.toString(),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier
-                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp))
-                .padding(horizontal = 7.dp, vertical = 2.dp)
-        )
-    }
-}
-
-@Composable
-private fun AvisoSinConexion(estado: ActividadesUiState, alReintentar: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = fondoDeEstado(AmbarPendienteFondo, AmbarPendienteOscuro)
-        )
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.CloudOff,
-                contentDescription = null,
-                tint = AmbarPendiente,
-                modifier = Modifier.size(24.dp)
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Datos sin actualizar",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = AmbarPendiente
-                )
-                Text(
-                    text = "Son los de ${formatearFecha(estado.momentoDatos)}. ${estado.error.orEmpty()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AmbarPendiente
-                )
-            }
-            TextButton(onClick = alReintentar, enabled = !estado.cargando) {
-                Text("Reintentar", color = AmbarPendiente)
-            }
-        }
-    }
-}
-
-@Composable
-private fun Filtros(estado: ActividadesUiState, viewModel: ActividadesViewModel) {
     Column(
-        modifier = Modifier.padding(top = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        modifier = Modifier.padding(horizontal = Espacio.lateral),
+        verticalArrangement = Arrangement.spacedBy(Espacio.s)
+    ) {
+        FranjaResumen(
+            listOf(
+                Metrica(resumen.pendientes.toString(), "Pendientes", Tono.AVISO),
+                Metrica(resumen.entregadas.toString(), "Entregadas", Tono.EXITO),
+                Metrica(resumen.noEntregadas.toString(), "Sin entregar", Tono.PELIGRO)
+            )
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BarraProgreso(progreso, modifier = Modifier.weight(1f), tono = Tono.EXITO)
+            Text(
+                text = "${(progreso * 100).toInt()} % entregado",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = Espacio.m)
+            )
+        }
+    }
+}
+
+/** Los trabajos de Cisco son la otra mitad de lo que hay por entregar: su sitio es aquí. */
+@Composable
+private fun AccesoNetacad(alPulsar: () -> Unit) {
+    Tarjeta(
+        alPulsar = alPulsar,
+        relleno = PaddingValues(horizontal = Espacio.l, vertical = Espacio.m),
+        modifier = Modifier.padding(horizontal = Espacio.lateral)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconoTonal(Icons.Default.School, Tono.INFO, tamano = 36.dp)
+            Column(modifier = Modifier.weight(1f).padding(horizontal = Espacio.m)) {
+                Text("Trabajos de Cisco NetAcad", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Exámenes y prácticas de tus cursos de Cisco",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun Filtros(estado: ActividadesUiState, acciones: AccionesTareas) {
+    Column(
+        modifier = Modifier.padding(top = Espacio.xs),
+        verticalArrangement = Arrangement.spacedBy(Espacio.xs)
     ) {
         if (estado.asignaturas.isNotEmpty()) {
             SelectorAsignatura(
                 asignaturas = estado.asignaturas,
                 seleccionada = estado.asignatura,
-                alElegir = viewModel::cambiarAsignatura,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                alElegir = acciones.cambiarAsignatura,
+                modifier = Modifier.padding(horizontal = Espacio.lateral, vertical = Espacio.xs)
             )
         }
-
         Row(
             modifier = Modifier
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = Espacio.lateral),
+            horizontalArrangement = EntreFiltros
         ) {
             FiltroEstado.entries.forEach { filtro ->
                 FilterChip(
                     selected = estado.filtroEstado == filtro,
-                    onClick = { viewModel.cambiarFiltro(filtro) },
-                    label = { Text(filtro.etiqueta) },
-                    shape = RoundedCornerShape(14.dp)
+                    onClick = { acciones.cambiarFiltro(filtro) },
+                    label = { Text(filtro.etiqueta) }
                 )
             }
         }
         Row(
             modifier = Modifier
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = Espacio.lateral),
+            horizontalArrangement = EntreFiltros
         ) {
             RangoTiempo.entries.forEach { rango ->
                 FilterChip(
                     selected = estado.rango == rango,
-                    onClick = { viewModel.cambiarRango(rango) },
-                    label = { Text(rango.etiqueta) },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
+                    onClick = { acciones.cambiarRango(rango) },
+                    label = { Text(rango.etiqueta) }
                 )
             }
         }
     }
 }
 
-private fun iconoDe(tipo: TipoActividad) = when (tipo) {
+@Composable
+private fun SinResultados(estado: ActividadesUiState) {
+    // Una asignatura recién creada aparece en el filtro sin tener nada dentro: decir
+    // «ninguna actividad encaja» ahí sería engañoso.
+    val asignaturaVacia = estado.asignatura != null && estado.todas.none { it.curso == estado.asignatura }
+    EstadoVacio(
+        icono = if (estado.todas.isEmpty() && !asignaturaVacia) Icons.Default.DoneAll else Icons.Default.SearchOff,
+        titulo = when {
+            asignaturaVacia -> "Asignatura sin actividades"
+            estado.todas.isEmpty() -> "Nada pendiente"
+            else -> "Sin resultados"
+        },
+        detalle = when {
+            asignaturaVacia -> "«${estado.asignatura}» todavía no tiene ninguna actividad publicada."
+            estado.todas.isEmpty() -> "No hay ninguna actividad en tu Moodle ahora mismo."
+            else -> "Ninguna actividad encaja con estos filtros. Prueba con «Todo»."
+        }
+    )
+}
+
+fun iconoDe(tipo: TipoActividad) = when (tipo) {
     TipoActividad.TAREA -> Icons.AutoMirrored.Filled.Assignment
     TipoActividad.CUESTIONARIO -> Icons.Default.Quiz
     TipoActividad.FORO -> Icons.Default.Forum
@@ -518,60 +393,29 @@ private fun iconoDe(tipo: TipoActividad) = when (tipo) {
 }
 
 @Composable
-private fun TarjetaActividad(
+fun TarjetaActividad(
     actividad: Actividad,
     modifier: Modifier = Modifier,
     alPulsar: () -> Unit
 ) {
-    val color = when (actividad.estado) {
-        EstadoActividad.ENTREGADA -> VerdeEntregada
-        EstadoActividad.PENDIENTE -> AmbarPendiente
-        EstadoActividad.NO_ENTREGADA -> RojoNoEntregada
-    }
-    val fondo = when (actividad.estado) {
-        EstadoActividad.ENTREGADA -> fondoDeEstado(VerdeEntregadaFondo, VerdeEntregadaOscuro)
-        EstadoActividad.PENDIENTE -> fondoDeEstado(AmbarPendienteFondo, AmbarPendienteOscuro)
-        EstadoActividad.NO_ENTREGADA -> fondoDeEstado(RojoNoEntregadaFondo, RojoNoEntregadaOscuro)
-    }
+    val tono = actividad.estado.tono()
+    val relativo = textoRelativo(actividad.fechaLimite)
+    val urgente = actividad.estado != EstadoActividad.ENTREGADA && relativo.startsWith("Vence")
 
-    Card(
-        modifier = modifier.fillMaxWidth().clickable(onClick = alPulsar),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(modifier = Modifier.padding(14.dp)) {
-            Box(
+    Tarjeta(modifier = modifier, alPulsar = alPulsar, relleno = PaddingValues(Espacio.m)) {
+        Row {
+            IconoTonal(iconoDe(actividad.tipo), tono)
+            Column(
                 modifier = Modifier
-                    .size(44.dp)
-                    .background(fondo, RoundedCornerShape(14.dp)),
-                contentAlignment = Alignment.Center
+                    .weight(1f)
+                    .padding(start = Espacio.m)
             ) {
-                Icon(
-                    imageVector = iconoDe(actividad.tipo),
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(22.dp)
+                Text(
+                    text = actividad.nombre,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
-            }
-            Column(modifier = Modifier.weight(1f).padding(start = 14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = actividad.nombre,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (actividad.url != null) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
                 Text(
                     text = actividad.curso,
                     style = MaterialTheme.typography.bodySmall,
@@ -580,36 +424,42 @@ private fun TarjetaActividad(
                     overflow = TextOverflow.Ellipsis
                 )
                 Row(
-                    modifier = Modifier.padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = Espacio.s),
+                    horizontalArrangement = Arrangement.spacedBy(Espacio.xs + 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Etiqueta(actividad.estado.etiqueta, color, fondo)
+                    EtiquetaEstado(actividad.estado.etiqueta, tono)
+                    actividad.nota?.let { nota -> EtiquetaEstado("Nota $nota", Tono.INFO, conPunto = false) }
                     if (actividad.adjuntos.isNotEmpty()) {
-                        Etiqueta(
-                            texto = "${actividad.adjuntos.size} archivo" +
-                                if (actividad.adjuntos.size == 1) "" else "s",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fondo = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    }
-                    actividad.nota?.let { nota ->
-                        Etiqueta(
-                            texto = "Nota $nota",
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            fondo = MaterialTheme.colorScheme.secondaryContainer
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.AttachFile,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                actividad.adjuntos.size.toString(),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
                 Text(
                     text = buildString {
                         append(formatearFecha(actividad.fechaLimite))
-                        val relativo = textoRelativo(actividad.fechaLimite)
-                        if (relativo.isNotBlank()) append(" · ").append(relativo)
+                        if (relativo.isNotBlank() && actividad.estado != EstadoActividad.ENTREGADA) {
+                            append(" · ").append(relativo)
+                        }
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 6.dp)
+                    color = if (urgente || actividad.estado == EstadoActividad.NO_ENTREGADA) {
+                        tono.colores().contenido
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.padding(top = Espacio.s)
                 )
             }
         }
