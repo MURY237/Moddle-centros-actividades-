@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -107,16 +109,17 @@ fun SelectorAsignatura(
     Box(modifier = modifier) {
         Row(
             modifier = Modifier
-                .clip(RoundedCornerShape(14.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clip(MaterialTheme.shapes.small)
+                .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+                .background(MaterialTheme.colorScheme.surface)
                 .clickable { desplegado = true }
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = seleccionada ?: "Todas las asignaturas",
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false)
@@ -189,11 +192,11 @@ fun Etiqueta(
 ) {
     Text(
         text = texto,
-        style = MaterialTheme.typography.labelSmall,
+        style = MaterialTheme.typography.labelMedium,
         color = color,
-        fontWeight = FontWeight.SemiBold,
+        maxLines = 1,
         modifier = modifier
-            .background(fondo, RoundedCornerShape(8.dp))
+            .background(fondo, RoundedCornerShape(50))
             .padding(horizontal = 8.dp, vertical = 3.dp)
     )
 }
@@ -213,20 +216,21 @@ fun EstadoVacio(
     ) {
         Box(
             modifier = Modifier
-                .size(72.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(24.dp)),
+                .size(64.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icono,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(34.dp)
+                modifier = Modifier.size(28.dp)
             )
         }
         Text(
             text = titulo,
             style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center
         )
         Text(
