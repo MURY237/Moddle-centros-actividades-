@@ -33,7 +33,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -144,7 +146,7 @@ fun NetacadScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun NetacadContenido(
     estado: NetacadUiState,
@@ -182,103 +184,110 @@ fun NetacadContenido(
         // Una línea fina y no un círculo: la lista de debajo sigue siendo útil mientras lee.
         if (leyendo) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = Espacio.xl),
-            verticalArrangement = Arrangement.spacedBy(Espacio.s)
+        // Tirar de la lista hacia abajo recarga, como en cualquier app.
+        PullToRefreshBox(
+            isRefreshing = leyendo,
+            onRefresh = acciones.actualizar,
+            modifier = Modifier.fillMaxSize()
         ) {
-            if (estado.necesitaAcceso) {
-                item(key = "acceso") {
-                    Aviso(
-                        titulo = "La sesión de NetAcad ha caducado",
-                        texto = "Lo de abajo es de la última consulta." + when {
-                            estado.accesoAuto.isNotBlank() -> "\nAcceso automático: " + estado.accesoAuto + "."
-                            estado.usuarioGuardado.isBlank() && estado.almacenSeguro ->
-                                "\nGuarda tu cuenta en ⋮ → Cuenta de Cisco y entrará sola."
-                            else -> ""
-                        },
-                        tono = Tono.AVISO,
-                        accion = "Entrar",
-                        alPulsarAccion = { acciones.abrir(null) },
-                        modifier = Modifier.padding(horizontal = Espacio.lateral, vertical = Espacio.xs)
-                    )
-                }
-            }
-
-            if (estado.sinExito) {
-                item(key = "sin-exito") {
-                    // Se enseña lo que sí se vio —cabeceras y títulos, nunca datos personales—
-                    // para poder ajustar el lector si Cisco cambia su web.
-                    Aviso(
-                        titulo = "No he encontrado trabajos",
-                        texto = "Abre tus páginas de curso en NetAcad para que las vuelva a reconocer." +
-                            if (estado.pistas.isEmpty()) "" else {
-                                "\nVisto en la página: " + estado.pistas.take(6).joinToString(" · ")
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = Espacio.xl),
+                verticalArrangement = Arrangement.spacedBy(Espacio.s)
+            ) {
+                if (estado.necesitaAcceso) {
+                    item(key = "acceso") {
+                        Aviso(
+                            titulo = "La sesión de NetAcad ha caducado",
+                            texto = "Lo de abajo es de la última consulta." + when {
+                                estado.accesoAuto.isNotBlank() -> "\nAcceso automático: " + estado.accesoAuto + "."
+                                estado.usuarioGuardado.isBlank() && estado.almacenSeguro ->
+                                    "\nGuarda tu cuenta en ⋮ → Cuenta de Cisco y entrará sola."
+                                else -> ""
                             },
-                        tono = Tono.PELIGRO,
-                        accion = "Abrir NetAcad",
-                        alPulsarAccion = { acciones.abrir(null) },
-                        modifier = Modifier.padding(horizontal = Espacio.lateral, vertical = Espacio.xs)
-                    )
-                }
-            }
-
-            if (estado.trabajos.isNotEmpty()) {
-                item(key = "resumen") { Resumen(estado) }
-                item(key = "filtros") { Filtros(estado, acciones) }
-            }
-
-            when {
-                estado.trabajos.isEmpty() && leyendo -> item(key = "cargando") {
-                    Box(Modifier.fillMaxWidth().padding(Espacio.xxl), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(strokeWidth = 3.dp, modifier = Modifier.size(32.dp))
-                    }
-                }
-
-                estado.trabajos.isEmpty() && !estado.leidoAlgunaVez -> item(key = "conectar") {
-                    EstadoVacio(
-                        icono = Icons.Default.School,
-                        titulo = "Conecta tu NetAcad",
-                        detalle = "Entra con tu cuenta de Cisco y abre la página de calificaciones de " +
-                            "cada curso. La app la reconoce sola, la recuerda y a partir de ahí se " +
-                            "actualiza sin enseñarte la web."
-                    ) {
-                        Button(onClick = { acciones.abrir(null) }) { Text("Abrir NetAcad") }
-                    }
-                }
-
-                estado.trabajos.isEmpty() -> item(key = "nada") {
-                    EstadoVacio(
-                        icono = Icons.Default.CheckCircle,
-                        titulo = "Nada en NetAcad",
-                        detalle = "En las páginas de curso guardadas no hay ningún trabajo con plazo."
-                    )
-                }
-
-                estado.secciones.isEmpty() -> item(key = "sin-resultados") {
-                    EstadoVacio(
-                        icono = Icons.Default.SearchOff,
-                        titulo = "Sin resultados",
-                        detalle = "Ningún trabajo encaja con este filtro. Prueba con «Todos»."
-                    )
-                }
-
-                else -> estado.secciones.forEach { seccion ->
-                    stickyHeader(key = "cabecera-" + seccion.grupo.name) {
-                        TituloSeccion(
-                            texto = seccion.grupo.etiqueta,
-                            extra = seccion.trabajos.size.toString(),
-                            modifier = Modifier.padding(horizontal = Espacio.lateral)
+                            tono = Tono.AVISO,
+                            accion = "Entrar",
+                            alPulsarAccion = { acciones.abrir(null) },
+                            modifier = Modifier.padding(horizontal = Espacio.lateral, vertical = Espacio.xs)
                         )
                     }
-                    items(seccion.trabajos, key = { seccion.grupo.name + "|" + it.id }) { trabajo ->
-                        TarjetaTrabajo(
-                            trabajo = trabajo,
-                            ahora = estado.ahora,
-                            modifier = Modifier
-                                .padding(horizontal = Espacio.lateral)
-                                .animateItem()
-                        ) { acciones.abrir(trabajo.url) }
+                }
+
+                if (estado.sinExito) {
+                    item(key = "sin-exito") {
+                        // Se enseña lo que sí se vio —cabeceras y títulos, nunca datos personales—
+                        // para poder ajustar el lector si Cisco cambia su web.
+                        Aviso(
+                            titulo = "No he encontrado trabajos",
+                            texto = "Abre tus páginas de curso en NetAcad para que las vuelva a reconocer." +
+                                if (estado.pistas.isEmpty()) "" else {
+                                    "\nVisto en la página: " + estado.pistas.take(6).joinToString(" · ")
+                                },
+                            tono = Tono.PELIGRO,
+                            accion = "Abrir NetAcad",
+                            alPulsarAccion = { acciones.abrir(null) },
+                            modifier = Modifier.padding(horizontal = Espacio.lateral, vertical = Espacio.xs)
+                        )
+                    }
+                }
+
+                if (estado.trabajos.isNotEmpty()) {
+                    item(key = "resumen") { Resumen(estado) }
+                    item(key = "filtros") { Filtros(estado, acciones) }
+                }
+
+                when {
+                    estado.trabajos.isEmpty() && leyendo -> item(key = "cargando") {
+                        Box(Modifier.fillMaxWidth().padding(Espacio.xxl), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(strokeWidth = 3.dp, modifier = Modifier.size(32.dp))
+                        }
+                    }
+
+                    estado.trabajos.isEmpty() && !estado.leidoAlgunaVez -> item(key = "conectar") {
+                        EstadoVacio(
+                            icono = Icons.Default.School,
+                            titulo = "Conecta tu NetAcad",
+                            detalle = "Entra con tu cuenta de Cisco y abre la página de calificaciones de " +
+                                "cada curso. La app la reconoce sola, la recuerda y a partir de ahí se " +
+                                "actualiza sin enseñarte la web."
+                        ) {
+                            Button(onClick = { acciones.abrir(null) }) { Text("Abrir NetAcad") }
+                        }
+                    }
+
+                    estado.trabajos.isEmpty() -> item(key = "nada") {
+                        EstadoVacio(
+                            icono = Icons.Default.CheckCircle,
+                            titulo = "Nada en NetAcad",
+                            detalle = "En las páginas de curso guardadas no hay ningún trabajo con plazo."
+                        )
+                    }
+
+                    estado.secciones.isEmpty() -> item(key = "sin-resultados") {
+                        EstadoVacio(
+                            icono = Icons.Default.SearchOff,
+                            titulo = "Sin resultados",
+                            detalle = "Ningún trabajo encaja con este filtro. Prueba con «Todos»."
+                        )
+                    }
+
+                    else -> estado.secciones.forEach { seccion ->
+                        stickyHeader(key = "cabecera-" + seccion.grupo.name) {
+                            TituloSeccion(
+                                texto = seccion.grupo.etiqueta,
+                                extra = seccion.trabajos.size.toString(),
+                                modifier = Modifier.padding(horizontal = Espacio.lateral)
+                            )
+                        }
+                        items(seccion.trabajos, key = { seccion.grupo.name + "|" + it.id }) { trabajo ->
+                            TarjetaTrabajo(
+                                trabajo = trabajo,
+                                ahora = estado.ahora,
+                                modifier = Modifier
+                                    .padding(horizontal = Espacio.lateral)
+                                    .animateItem()
+                            ) { acciones.abrir(trabajo.url) }
+                        }
                     }
                 }
             }
