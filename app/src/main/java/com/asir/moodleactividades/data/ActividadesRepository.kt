@@ -13,6 +13,7 @@ import com.asir.moodleactividades.data.net.NotasTareasDto
 import com.asir.moodleactividades.data.net.ResultadoSso
 import com.asir.moodleactividades.data.net.SiteInfoDto
 import com.asir.moodleactividades.data.net.SsoLogin
+import com.asir.moodleactividades.data.net.UrlsMoodle
 import com.asir.moodleactividades.data.net.decodificar
 import com.asir.moodleactividades.data.net.limpiarHtml
 import com.asir.moodleactividades.data.net.notaVisible
@@ -47,9 +48,8 @@ class ActividadesRepository(
      * URL. Se añade solo al descargar para no dejarlo escrito en la caché.
      */
     fun urlDescargable(adjunto: Adjunto): String? {
-        val token = sesionStore.leer()?.token ?: return null
-        val separador = if ('?' in adjunto.url) '&' else '?'
-        return "${adjunto.url}${separador}token=$token"
+        val sesion = sesionStore.leer() ?: return null
+        return UrlsMoodle.conToken(adjunto.url, sesion.urlSitio, sesion.token)
     }
 
     fun ultimaUrl(): String = sesionStore.ultimaUrl()
@@ -83,6 +83,12 @@ class ActividadesRepository(
         cache.borrar()
         cacheNotas.borrar()
     }
+
+    /**
+     * El token ha dejado de valer: se olvida para no volver a arrancar con él, pero se
+     * conservan las copias de tareas y notas, que siguen siendo del mismo alumno.
+     */
+    fun caducarSesion() = sesionStore.borrar()
 
     suspend fun iniciarSesion(url: String, usuario: String, contrasena: String): Sesion {
         val sitio = MoodleClient.normalizarUrl(url)

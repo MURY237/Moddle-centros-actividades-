@@ -83,6 +83,7 @@ class RecordatoriosWorker(
         ajustes: AjustesAvisos
     ) {
         val yaAvisadas = AvisosEnviados(contexto)
+        yaAvisadas.olvidarVencidos(System.currentTimeMillis() / 1000)
         Clasificador.porVencer(
             actividades,
             System.currentTimeMillis() / 1000,
@@ -155,6 +156,22 @@ class AvisosEnviados(contexto: Context) {
     fun marcar(id: Long, fechaLimite: Long?) {
         prefs.edit().putBoolean(clave(id, fechaLimite), true).apply()
     }
+
+    /**
+     * Lo avisado de plazos que vencieron hace más de un mes ya no se va a volver a mirar.
+     * Sin esto la lista crecía con cada entrega de cada curso y no se vaciaba nunca.
+     */
+    fun olvidarVencidos(ahora: Long) {
+        val corte = ahora - 30L * 24 * 3600
+        val viejas = prefs.all.keys.filter { clave ->
+            val fecha = clave.substringAfterLast('-').toLongOrNull()
+            fecha != null && fecha in 1 until corte
+        }
+        if (viejas.isEmpty()) return
+        prefs.edit().apply { viejas.forEach { remove(it) } }.apply()
+    }
+
+    fun borrarTodo() = prefs.edit().clear().apply()
 
     // La fecha entra en la clave para que un plazo aplazado vuelva a avisar.
     private fun clave(id: Long, fechaLimite: Long?) = "$id-${fechaLimite ?: 0}"

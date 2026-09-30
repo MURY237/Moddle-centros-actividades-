@@ -89,7 +89,8 @@ class LoginViewModel(private val repositorio: ActividadesRepository) : ViewModel
             }
             resultado.fold(
                 onSuccess = {
-                    _estado.update { it.copy(cargando = false) }
+                    // Ya se tiene el token de sesión: la contraseña no pinta nada en memoria.
+                    _estado.update { it.copy(cargando = false, contrasena = "", token = "") }
                     alCompletar()
                 },
                 onFailure = { fallo ->

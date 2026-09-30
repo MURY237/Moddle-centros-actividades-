@@ -82,8 +82,12 @@ class MoodleClient(
         /**
          * Baja un archivo de `pluginfile.php` a [destino]. Devuelve false y no deja restos si
          * el servidor no lo sirvió, para que un archivo a medias no se quede en la caché.
+         *
+         * Se escribe primero en un «.parte» y se renombra al terminar: si la app moría a mitad
+         * de la descarga, el archivo cortado se quedaba y luego se abría como si estuviera bien.
          */
         fun descargarArchivo(url: String, destino: File): Boolean {
+            val parte = File(destino.path + ".parte")
             val correcto = runCatching {
                 val peticion = Request.Builder()
                     .url(url)
@@ -99,12 +103,13 @@ class MoodleClient(
                     }
                     destino.parentFile?.mkdirs()
                     cuerpo.byteStream().use { entrada ->
-                        destino.outputStream().use { salida -> entrada.copyTo(salida) }
+                        parte.outputStream().use { salida -> entrada.copyTo(salida) }
                     }
-                    true
+                    destino.delete()
+                    parte.renameTo(destino)
                 }
             }.getOrDefault(false)
-            if (!correcto) runCatching { destino.delete() }
+            if (!correcto) runCatching { parte.delete(); destino.delete() }
             return correcto
         }
 
@@ -137,11 +142,16 @@ class MoodleClient(
         /**
          * La URL se copia normalmente desde la barra del navegador, sin esquema y con la ruta
          * de la página en la que estaba el usuario colgando del final.
+         *
+         * Siempre sale en HTTPS, también si se escribió «http://»: la app no deja pasar tráfico
+         * en claro, y por ahí irían la contraseña y el token.
          */
         fun normalizarUrl(entrada: String): String {
             var url = entrada.trim()
             if (url.isEmpty()) return ""
-            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            if (url.startsWith("http://", ignoreCase = true)) {
+                url = "https://" + url.substring("http://".length)
+            } else if (!url.startsWith("https://", ignoreCase = true)) {
                 url = "https://$url"
             }
             url = url.substringBefore('?').substringBefore('#')
