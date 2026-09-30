@@ -15,6 +15,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -123,9 +124,15 @@ fun PantallaPrincipal(
     // Volver a la app es el momento en que se quiere ver lo último, así que ahí se refresca
     // todo. Cada pantalla decide si le toca: si acaba de cargar, no repite la consulta.
     val ciclo = LocalLifecycleOwner.current.lifecycle
+    // Se vuelve a mirar al volver: el permiso se concede o se quita desde los ajustes de Android.
+    var puedeNotificar by remember { mutableStateOf(Recordatorios.puedeNotificar(contexto)) }
     DisposableEffect(ciclo) {
         val observador = LifecycleEventObserver { _, evento ->
             if (evento == Lifecycle.Event.ON_RESUME) {
+                val ahora = Recordatorios.puedeNotificar(contexto)
+                // Recién concedido desde los ajustes: hasta ahora no había nada programado.
+                if (ahora && !puedeNotificar) RecordatoriosWorker.programar(contexto)
+                puedeNotificar = ahora
                 actividades.refrescarSiConviene()
                 notas.refrescarSiConviene()
                 faltas.actualizarSiConviene()
@@ -196,7 +203,7 @@ fun PantallaPrincipal(
             Seccion.AJUSTES -> AcercaDeScreen(
                 alVolver = { seccion = Seccion.AVISOS },
                 ajustes = estadoAjustes,
-                puedeNotificar = Recordatorios.puedeNotificar(contexto),
+                puedeNotificar = puedeNotificar,
                 alCambiarEntregas = { ajustes.cambiarAvisoEntregas(it, contexto) },
                 alCambiarNuevas = { ajustes.cambiarAvisoNuevas(it, contexto) },
                 alCambiarNotas = { ajustes.cambiarAvisoNotas(it, contexto) },
