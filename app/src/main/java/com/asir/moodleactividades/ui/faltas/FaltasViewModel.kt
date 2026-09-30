@@ -1,6 +1,5 @@
 package com.asir.moodleactividades.ui.faltas
 
-import android.webkit.CookieManager
 import androidx.lifecycle.ViewModel
 import com.asir.moodleactividades.data.AlmacenFaltas
 import com.asir.moodleactividades.data.Aviso
@@ -218,19 +217,42 @@ class FaltasViewModel(
         // caducada que obligaría a reintentar en balde en la próxima apertura.
         sesion.guardar()
 
-        _estado.value = FaltasUiState(
-            faltas = resultado.faltas,
-            porAsignatura = ResumenFaltas.porAsignatura(resultado.faltas),
-            momento = System.currentTimeMillis() / 1000,
-            modo = ModoSeneca.NINGUNO,
-            leidoAlgunaVez = true,
-            diagnosticoSeneca = _estado.value.diagnosticoSeneca.copy(
-                tablaEncontrada = true,
-                cookiesGuardadas = sesion.nombres(),
-                cookiesVivas = sesion.vivasAhora()
+        // copy y no un estado nuevo: uno nuevo perdía la cuenta guardada, y la tarjeta decía
+        // «Sin configurar» justo después de haber entrado con ella.
+        _estado.update {
+            it.copy(
+                faltas = resultado.faltas,
+                porAsignatura = ResumenFaltas.porAsignatura(resultado.faltas),
+                momento = System.currentTimeMillis() / 1000,
+                modo = ModoSeneca.NINGUNO,
+                diagnostico = emptyList(),
+                buscadaSinExito = false,
+                leidoAlgunaVez = true,
+                necesitaAcceso = false,
+                credencialesRechazadas = false,
+                diagnosticoSeneca = it.diagnosticoSeneca.copy(
+                    tablaEncontrada = true,
+                    cookiesGuardadas = sesion.nombres(),
+                    cookiesVivas = sesion.vivasAhora()
+                )
             )
-        )
+        }
         return true
+    }
+
+    /**
+     * El recorrido a oscuras no ha terminado a tiempo: una página de Séneca que no acaba de
+     * cargar no avisa de nada, y sin esto el indicador de «leyendo» se quedaba para siempre.
+     */
+    fun terminarPorTiempo() = _estado.update {
+        if (it.modo != ModoSeneca.OCULTO) {
+            it
+        } else {
+            it.copy(
+                modo = ModoSeneca.NINGUNO,
+                diagnosticoSeneca = it.diagnosticoSeneca.copy(acceso = "Séneca no respondió a tiempo")
+            )
+        }
     }
 
     /** Lo que llega nuevo se apunta en «Avisos», para enterarse aunque no se mire aquí. */
@@ -247,15 +269,11 @@ class FaltasViewModel(
         }
     }
 
-    /** Borra las faltas, la sesión del navegador y la cuenta guardada. Todo, de un toque. */
+    /** Borra las faltas, la sesión de Séneca y la cuenta guardada; NetAcad no se toca. */
     fun desconectar() {
         almacen.borrar()
         sesion.borrar()
         credenciales.borrar()
-        runCatching {
-            CookieManager.getInstance().removeAllCookies(null)
-            CookieManager.getInstance().flush()
-        }
         _estado.value = FaltasUiState()
         anotarCuenta()
     }

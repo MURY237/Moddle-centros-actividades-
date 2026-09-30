@@ -89,11 +89,17 @@ object HorariosBus {
     fun salidasDeHoy(linea: LineaBus, diaHoy: Int): List<Int> =
         if (diaHoy in linea.dias) linea.horasOrdenadas else emptyList()
 
-    /** «L, M, X», o «Todos los días» cuando no hay nada que distinguir. */
+    /** «L, M, X», o una frase cuando la hay: «Todos los días», «Solo los sábados». */
     fun etiquetaDias(dias: Set<Int>): String = when {
         dias.isEmpty() -> "Sin días"
         dias == (1..7).toSet() -> "Todos los días"
         dias == LineaBus.LABORABLES -> "De lunes a viernes"
+        dias == setOf(6, 7) -> "Fines de semana"
+        // Una sola letra suelta («S») no se entiende: con un día se escribe entero.
+        dias.size == 1 -> "Solo los " + PLURALES_DIAS[dias.first() - 1]
         else -> dias.sorted().joinToString(", ") { LineaBus.NOMBRES_DIAS[it - 1] }
     }
+
+    private val PLURALES_DIAS =
+        listOf("lunes", "martes", "miércoles", "jueves", "viernes", "sábados", "domingos")
 }
