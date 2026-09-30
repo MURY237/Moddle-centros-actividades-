@@ -57,6 +57,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.asir.moodleactividades.BuildConfig
 import com.asir.moodleactividades.R
 import com.asir.moodleactividades.ui.componentes.Aviso
+import com.asir.moodleactividades.ui.componentes.CampoSecreto
 import com.asir.moodleactividades.ui.componentes.DivisorFila
 import com.asir.moodleactividades.ui.componentes.Espacio
 import com.asir.moodleactividades.ui.componentes.Tarjeta
@@ -261,31 +262,3 @@ fun LoginContenido(
     }
 }
 
-/** Un campo para contraseñas y tokens: oculto por defecto, con el ojo para comprobarlo. */
-@Composable
-private fun CampoSecreto(
-    valor: String,
-    alCambiar: (String) -> Unit,
-    etiqueta: String,
-    acciones: KeyboardActions
-) {
-    var visible by rememberSaveable { mutableStateOf(false) }
-    OutlinedTextField(
-        value = valor,
-        onValueChange = alCambiar,
-        label = { Text(etiqueta) },
-        singleLine = true,
-        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
-        trailingIcon = {
-            IconButton(onClick = { visible = !visible }) {
-                Icon(
-                    if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                    contentDescription = if (visible) "Ocultar" else "Mostrar"
-                )
-            }
-        },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-        keyboardActions = acciones,
-        modifier = Modifier.fillMaxWidth()
-    )
-}

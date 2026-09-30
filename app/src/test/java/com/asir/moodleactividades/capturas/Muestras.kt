@@ -7,6 +7,9 @@ import com.asir.moodleactividades.domain.Adjunto
 import com.asir.moodleactividades.domain.Calificacion
 import com.asir.moodleactividades.domain.Clasificador
 import com.asir.moodleactividades.domain.EstadoActividad
+import com.asir.moodleactividades.domain.Falta
+import com.asir.moodleactividades.domain.ResumenFaltas
+import com.asir.moodleactividades.ui.faltas.FaltasUiState
 import com.asir.moodleactividades.domain.NotasDeCurso
 import com.asir.moodleactividades.domain.TipoActividad
 import com.asir.moodleactividades.ui.actividades.ActividadesUiState
@@ -136,6 +139,22 @@ object Muestras {
             Aviso(ahora - 12 * DIA, TipoAviso.NOTA, "Nueva nota: Práctica 1",
                 "Planificación y Administración de Redes · 8,50", id = "5")
         )
+    )
+
+    private val faltasDeEjemplo = listOf(
+        Falta("22/09/2026", "1.ª hora", "Implantación de Sistemas Operativos", "Injustificada"),
+        Falta("15/09/2026", "4.ª hora", "Implantación de Sistemas Operativos", "Justificada"),
+        Falta("18/09/2026", "2.ª hora", "Planificación y Administración de Redes", "Justificada"),
+        Falta("26/09/2026", "5.ª hora", "Gestión de Bases de Datos", "Injustificada"),
+        Falta("25/09/2026", "6.ª hora", "Gestión de Bases de Datos", "Injustificada")
+    )
+
+    val faltas = FaltasUiState(
+        faltas = faltasDeEjemplo,
+        porAsignatura = ResumenFaltas.porAsignatura(faltasDeEjemplo),
+        momento = ahora - 2 * HORA,
+        leidoAlgunaVez = true,
+        usuarioGuardado = "alumno.asir"
     )
 
     /** Un lunes a las 7:40, con la ida que sale en diez minutos y la vuelta por la tarde. */

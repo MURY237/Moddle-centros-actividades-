@@ -88,7 +88,34 @@ class SesionSeneca(contexto: Context) {
             .size
     }.getOrDefault(0)
 
-    fun borrar() = prefs.edit().clear().apply()
+    /**
+     * Olvida la sesión: lo guardado y las cookies de Séneca que tenga el navegador. Antes se
+     * usaba removeAllCookies, que cerraba también la sesión de NetAcad; ahora se caducan una
+     * a una, en cada ruta y dominio donde pueden vivir, porque una cookie solo se borra
+     * nombrando exactamente su ruta y su dominio.
+     */
+    fun borrar() {
+        runCatching {
+            val gestor = CookieManager.getInstance()
+            val nombres = RUTAS
+                .flatMap { gestor.getCookie(it).orEmpty().split(';') }
+                .map { it.trim().substringBefore('=') }
+                .filter { it.isNotEmpty() }
+                .distinct()
+            nombres.forEach { nombre ->
+                RUTAS.forEach { ruta ->
+                    CAMINOS.forEach { camino ->
+                        gestor.setCookie(ruta, "$nombre=; Max-Age=0; Path=$camino")
+                        DOMINIOS.forEach { dominio ->
+                            gestor.setCookie(ruta, "$nombre=; Max-Age=0; Path=$camino; Domain=$dominio")
+                        }
+                    }
+                }
+            }
+            gestor.flush()
+        }
+        prefs.edit().clear().apply()
+    }
 
     private companion object {
         val RUTAS = listOf(
@@ -96,6 +123,10 @@ class SesionSeneca(contexto: Context) {
             "https://seneca.juntadeandalucia.es/seneca/",
             "https://seneca.juntadeandalucia.es/seneca/jsp/"
         )
+
+        /** Las rutas con que pueden venir: las del servidor y las que pone restaurar(). */
+        val CAMINOS = listOf("/", "/seneca", "/seneca/", "/seneca/jsp", "/seneca/jsp/")
+        val DOMINIOS = listOf(".seneca.juntadeandalucia.es", ".juntadeandalucia.es")
         const val COOKIES = "cookies"
         const val MOMENTO = "momento"
         const val URL = "url"
