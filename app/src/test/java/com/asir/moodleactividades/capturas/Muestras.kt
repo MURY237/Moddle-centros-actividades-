@@ -10,7 +10,11 @@ import com.asir.moodleactividades.domain.EstadoActividad
 import com.asir.moodleactividades.domain.NotasDeCurso
 import com.asir.moodleactividades.domain.TipoActividad
 import com.asir.moodleactividades.ui.actividades.ActividadesUiState
+import com.asir.moodleactividades.domain.HorariosBus
+import com.asir.moodleactividades.domain.LineaBus
 import com.asir.moodleactividades.ui.avisos.AvisosUiState
+import com.asir.moodleactividades.ui.bus.BusUiState
+import com.asir.moodleactividades.ui.bus.LineaConSalida
 import com.asir.moodleactividades.ui.notas.NotasUiState
 
 /**
@@ -133,4 +137,22 @@ object Muestras {
                 "Planificación y Administración de Redes · 8,50", id = "5")
         )
     )
+
+    /** Un lunes a las 7:40, con la ida que sale en diez minutos y la vuelta por la tarde. */
+    val bus: BusUiState = run {
+        val lunes = 1
+        val minuto = 7 * 60 + 40
+        val lineas = listOf(
+            LineaBus(1, "Pueblo → Instituto", listOf(6 * 60 + 50, 7 * 60 + 20, 7 * 60 + 50, 8 * 60 + 20, 9 * 60 + 15)),
+            LineaBus(2, "Instituto → Pueblo", listOf(14 * 60 + 35, 15 * 60 + 10, 17 * 60 + 45, 20 * 60 + 30)),
+            LineaBus(3, "Búho del sábado", listOf(23 * 60 + 30), dias = setOf(6))
+        )
+        BusUiState(
+            lineas = lineas.map {
+                LineaConSalida(it, HorariosBus.proxima(it, lunes, minuto), HorariosBus.salidasDeHoy(it, lunes))
+            },
+            minutoAhora = minuto,
+            diaHoy = lunes
+        )
+    }
 }

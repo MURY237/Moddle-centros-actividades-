@@ -41,8 +41,8 @@ class BusViewModel(private val almacen: AlmacenBus) : ViewModel() {
     }
 
     /**
-     * La cuenta atrás se rehace al volver a la pantalla en vez de con un temporizador: un
-     * reloj corriendo en segundo plano gastaría batería para algo que se mira de pasada.
+     * Rehace la cuenta atrás. La pantalla la llama al entrar y una vez por minuto mientras
+     * está a la vista; en segundo plano no corre nada.
      */
     fun recalcular() {
         val ahora = LocalDateTime.now()
@@ -62,10 +62,18 @@ class BusViewModel(private val almacen: AlmacenBus) : ViewModel() {
         )
     }
 
-    fun anadir(nombre: String, horasEscritas: String, dias: Set<Int>) {
-        val horas = horasEscritas.split(',', ' ', '\n')
-            .mapNotNull { HorariosBus.parsearHora(it) }
-        if (nombre.isBlank() && horas.isEmpty()) return
+    /**
+     * Guarda la línea y devuelve null, o devuelve por qué no la guarda. Antes una hora mal
+     * escrita se descartaba en silencio y podía quedar guardada una línea sin ninguna salida.
+     */
+    fun anadir(nombre: String, horasEscritas: String, dias: Set<Int>): String? {
+        val trozos = horasEscritas.split(',', ';', ' ', '\n').filter { it.isNotBlank() }
+        val horas = trozos.mapNotNull { HorariosBus.parsearHora(it) }
+        val malas = trozos.filter { HorariosBus.parsearHora(it) == null }
+        when {
+            horas.isEmpty() -> return "Escribe al menos una hora, por ejemplo 07:15."
+            malas.isNotEmpty() -> return "No se entiende: " + malas.joinToString(", ") { "«${it.trim()}»" }
+        }
 
         val nueva = LineaBus(
             id = System.currentTimeMillis(),
@@ -74,6 +82,7 @@ class BusViewModel(private val almacen: AlmacenBus) : ViewModel() {
             dias = dias.ifEmpty { LineaBus.LABORABLES }
         )
         guardar(lineas + nueva)
+        return null
     }
 
     fun borrar(id: Long) = guardar(lineas.filterNot { it.id == id })
