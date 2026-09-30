@@ -9,6 +9,8 @@ import com.asir.moodleactividades.domain.Clasificador
 import com.asir.moodleactividades.domain.EstadoActividad
 import com.asir.moodleactividades.domain.Falta
 import com.asir.moodleactividades.domain.ResumenFaltas
+import com.asir.moodleactividades.domain.TrabajoNetacad
+import com.asir.moodleactividades.ui.netacad.NetacadUiState
 import com.asir.moodleactividades.ui.faltas.FaltasUiState
 import com.asir.moodleactividades.domain.NotasDeCurso
 import com.asir.moodleactividades.domain.TipoActividad
@@ -155,6 +157,24 @@ object Muestras {
         momento = ahora - 2 * HORA,
         leidoAlgunaVez = true,
         usuarioGuardado = "alumno.asir"
+    )
+
+    val netacad = NetacadUiState(
+        trabajos = listOf(
+            TrabajoNetacad("1", "Checkpoint Exam: Ethernet Concepts", "CCNA 1: Introduction to Networks",
+                ahora - 3 * DIA, EstadoActividad.NO_ENTREGADA),
+            TrabajoNetacad("2", "Packet Tracer - Configure Initial Switch Settings", "CCNA 1: Introduction to Networks",
+                ahora + 2 * DIA, EstadoActividad.PENDIENTE, url = "https://www.netacad.com/"),
+            TrabajoNetacad("3", "Modules 11 - 13: IP Addressing Exam", "CCNA 1: Introduction to Networks",
+                ahora + 9 * DIA, EstadoActividad.PENDIENTE, url = "https://www.netacad.com/"),
+            TrabajoNetacad("4", "Modules 1 - 3: Basic Network Connectivity Exam", "CCNA 1: Introduction to Networks",
+                ahora - 20 * DIA, EstadoActividad.ENTREGADA, nota = "92%"),
+            TrabajoNetacad("5", "Modules 1 - 4: Switching Concepts Exam", "CCNA 2: Switching, Routing",
+                ahora + 25 * DIA, EstadoActividad.PENDIENTE)
+        ),
+        momento = ahora - 40 * 60,
+        paginas = 2,
+        ahora = ahora
     )
 
     /** Un lunes a las 7:40, con la ida que sale en diez minutos y la vuelta por la tarde. */
