@@ -36,6 +36,8 @@ import com.asir.moodleactividades.ui.bus.AccionesBus
 import com.asir.moodleactividades.ui.bus.BusContenido
 import com.asir.moodleactividades.ui.componentes.Aviso
 import com.asir.moodleactividades.ui.faltas.AccionesFaltas
+import com.asir.moodleactividades.ui.grupos.AccionesGrupos
+import com.asir.moodleactividades.ui.grupos.GruposContenido
 import com.asir.moodleactividades.ui.netacad.AccionesNetacad
 import com.asir.moodleactividades.ui.netacad.NetacadContenido
 import com.asir.moodleactividades.ui.netacad.NetacadUiState
@@ -162,6 +164,18 @@ class CapturasTest {
     }
 
     @Test fun netacadVacio() = capturar("16-netacad-vacio") { NetacadContenido(NetacadUiState(), AccionesNetacad()) }
+
+    @Test fun grupos() = capturar("70-grupos") { GruposContenido(Muestras.gruposLista, AccionesGrupos()) }
+
+    @Test fun grupoChat() = capturar("71-grupo-chat") { GruposContenido(Muestras.grupoChat, AccionesGrupos()) }
+
+    @Test fun grupoChatOscuro() = capturar("71-grupo-chat-oscuro", oscuro = true) {
+        GruposContenido(Muestras.grupoChat, AccionesGrupos())
+    }
+
+    @Test fun grupoExamenes() = capturar("72-grupo-examenes", alto = 1200) {
+        GruposContenido(Muestras.grupoExamenes, AccionesGrupos())
+    }
 
     @Test fun login() = capturar("60-login", alto = 1000) {
         LoginContenido(LoginUiState(url = "https://educacionadistancia.juntadeandalucia.es/centros/sevilla"), AccionesLogin())

@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
@@ -144,26 +143,3 @@ fun MoodleActividadesTheme(
         )
     }
 }
-
-// ---------------------------------------------------------------------------------------
-// Nombres anteriores al rediseño. Solo los usan las pantallas que aún no se han pasado a
-// los tonos; se quitan cuando no quede ninguna.
-// ---------------------------------------------------------------------------------------
-
-val VerdeEntregada = Color(0xFF1B7F4E)
-val AmbarPendiente = Color(0xFF9A5B00)
-val RojoNoEntregada = Color(0xFFB42318)
-
-val VerdeEntregadaFondo = Color(0xFFE3F4EA)
-val AmbarPendienteFondo = Color(0xFFFDF1DC)
-val RojoNoEntregadaFondo = Color(0xFFFDE8E7)
-
-val VerdeEntregadaOscuro = Color(0xFF133427)
-val AmbarPendienteOscuro = Color(0xFF3A2A10)
-val RojoNoEntregadaOscuro = Color(0xFF3F1A18)
-
-val DegradadoCabecera = Brush.linearGradient(listOf(Color(0xFF1F5FD1), Color(0xFF2A6BDE)))
-
-@Composable
-fun fondoDeEstado(claro: Color, oscuro: Color): Color =
-    if (LocalTemaOscuro.current) oscuro else claro

@@ -7,7 +7,13 @@ import com.asir.moodleactividades.domain.Adjunto
 import com.asir.moodleactividades.domain.Calificacion
 import com.asir.moodleactividades.domain.Clasificador
 import com.asir.moodleactividades.domain.EstadoActividad
+import com.asir.moodleactividades.domain.Examen
 import com.asir.moodleactividades.domain.Falta
+import com.asir.moodleactividades.domain.Grupo
+import com.asir.moodleactividades.domain.Mensaje
+import com.asir.moodleactividades.domain.Miembro
+import com.asir.moodleactividades.ui.grupos.GruposUiState
+import com.asir.moodleactividades.ui.grupos.PestanaGrupo
 import com.asir.moodleactividades.domain.ResumenFaltas
 import com.asir.moodleactividades.domain.TrabajoNetacad
 import com.asir.moodleactividades.ui.netacad.NetacadUiState
@@ -175,6 +181,50 @@ object Muestras {
         momento = ahora - 40 * 60,
         paginas = 2,
         ahora = ahora
+    )
+
+    private fun iso(segundos: Long): String =
+        java.time.Instant.ofEpochSecond(segundos).atOffset(java.time.ZoneOffset.UTC).toString()
+
+    private fun fecha(dias: Long): String = java.time.LocalDate.now().plusDays(dias).toString()
+
+    private val clase = Grupo("g1", "2º ASIR mañana", "7K3QX9MA", creador = "yo")
+
+    val gruposLista = GruposUiState(
+        configurado = true,
+        cargadoAlgunaVez = true,
+        yo = "yo",
+        grupos = listOf(
+            clase,
+            Grupo("g2", "Proyecto final", "Q2W8ZT4N", creador = "otra"),
+            Grupo("g3", "Delegados de ciclo", "H6P0RD1C", creador = "otra")
+        )
+    )
+
+    val grupoChat = gruposLista.copy(
+        abierto = clase,
+        pestana = PestanaGrupo.CHAT,
+        miembros = listOf(Miembro(usuario = "yo", apodo = "Mury"), Miembro(usuario = "ana", apodo = "Ana"),
+            Miembro(usuario = "leo", apodo = "Leo")),
+        mensajesCargados = true,
+        mensajes = listOf(
+            Mensaje(1, autor = "ana", texto = "¿Alguien tiene la práctica de VLAN hecha?", enviado = iso(ahora - DIA - 3 * HORA)),
+            Mensaje(2, autor = "yo", texto = "Casi, me falta el router-on-a-stick", enviado = iso(ahora - DIA - 2 * HORA)),
+            Mensaje(3, autor = "leo", texto = "El examen de redes es el jueves, lo he puesto en el calendario",
+                enviado = iso(ahora - 40 * 60)),
+            Mensaje(4, autor = "yo", texto = "Perfecto, gracias", enviado = iso(ahora - 30 * 60))
+        )
+    )
+
+    val grupoExamenes = grupoChat.copy(
+        pestana = PestanaGrupo.EXAMENES,
+        examenesCargados = true,
+        examenes = listOf(
+            Examen(1, autor = "leo", asignatura = "Planificación y Administración de Redes", fecha = fecha(2),
+                hora = "09:15:00", notas = "Temas 3 y 4: VLAN, STP y enrutamiento"),
+            Examen(2, autor = "yo", asignatura = "Gestión de Bases de Datos", fecha = fecha(9), notas = "SQL: GROUP BY y subconsultas"),
+            Examen(3, autor = "ana", asignatura = "Implantación de Sistemas Operativos", fecha = fecha(16), hora = "11:45:00")
+        )
     )
 
     /** Un lunes a las 7:40, con la ida que sale en diez minutos y la vuelta por la tarde. */
