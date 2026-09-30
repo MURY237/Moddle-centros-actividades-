@@ -34,7 +34,7 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Probar el guion de NetAcad
+      - name: Probar los guiones de NetAcad y Séneca
         run: |
           mkdir -p "$RUNNER_TEMP/jsdom"
           npm install --prefix "$RUNNER_TEMP/jsdom" --no-save --no-audit --no-fund jsdom@30.1.1
@@ -42,6 +42,8 @@ jobs:
             app/src/main/java/com/asir/moodleactividades/data/netacad/ExtractorNetacad.kt
           NODE_PATH="$RUNNER_TEMP/jsdom/node_modules" node app/src/test/js/acceso-netacad.test.js \
             app/src/main/java/com/asir/moodleactividades/data/netacad/AutoAccesoNetacad.kt
+          NODE_PATH="$RUNNER_TEMP/jsdom/node_modules" node app/src/test/js/acceso-seneca.test.js \
+            app/src/main/java/com/asir/moodleactividades/data/seneca/AutoAcceso.kt
 
       # Las reglas de seguridad de los grupos se prueban contra un PostgreSQL de verdad
       # (PGlite), con usuarios distintos intentando leer y escribir lo que no deben.
