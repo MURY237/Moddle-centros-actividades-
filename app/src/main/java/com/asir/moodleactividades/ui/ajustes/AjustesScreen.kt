@@ -1,5 +1,7 @@
 package com.asir.moodleactividades.ui.ajustes
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.asir.moodleactividades.data.AjustesAvisos
@@ -46,12 +49,22 @@ fun AjustesAvisosSeccion(
         TituloSeccion("Notificaciones")
 
         if (!puedeNotificar) {
+            val contexto = LocalContext.current
             Aviso(
                 titulo = "Notificaciones bloqueadas",
                 texto = "Android tiene bloqueadas las notificaciones de esta app. Actívalas en " +
                     "los ajustes del sistema para que estos avisos lleguen.",
                 tono = Tono.PELIGRO,
                 icono = Icons.Default.NotificationsOff,
+                accion = "Abrir ajustes",
+                alPulsarAccion = {
+                    runCatching {
+                        contexto.startActivity(
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, contexto.packageName)
+                        )
+                    }
+                },
                 modifier = Modifier.padding(bottom = Espacio.m)
             )
         }
