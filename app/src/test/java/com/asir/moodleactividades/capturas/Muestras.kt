@@ -1,19 +1,28 @@
 package com.asir.moodleactividades.capturas
 
+import com.asir.moodleactividades.data.Aviso
+import com.asir.moodleactividades.data.TipoAviso
 import com.asir.moodleactividades.domain.Actividad
 import com.asir.moodleactividades.domain.Adjunto
+import com.asir.moodleactividades.domain.Calificacion
 import com.asir.moodleactividades.domain.Clasificador
 import com.asir.moodleactividades.domain.EstadoActividad
+import com.asir.moodleactividades.domain.NotasDeCurso
 import com.asir.moodleactividades.domain.TipoActividad
 import com.asir.moodleactividades.ui.actividades.ActividadesUiState
+import com.asir.moodleactividades.ui.avisos.AvisosUiState
+import com.asir.moodleactividades.ui.notas.NotasUiState
 
-/** Datos inventados, con fechas relativas a hoy para que los grupos por plazo salgan llenos. */
+/**
+ * Datos inventados, con fechas relativas a hoy para que los grupos por plazo salgan llenos.
+ * Como en toda la app, los momentos van en segundos desde 1970.
+ */
 object Muestras {
 
-    private const val HORA = 3_600_000L
-    private const val DIA = 24 * HORA
+    const val HORA = 3_600L
+    const val DIA = 24 * HORA
 
-    val ahora: Long = System.currentTimeMillis()
+    val ahora: Long = System.currentTimeMillis() / 1000
 
     val actividades: List<Actividad> = listOf(
         Actividad(
@@ -71,5 +80,57 @@ object Muestras {
         resumen = Clasificador.resumir(actividades),
         asignaturas = actividades.map { it.curso }.distinct().sorted(),
         momentoDatos = ahora
+    )
+
+    private fun nota(curso: String, nombre: String, nota: String, tipo: TipoActividad = TipoActividad.TAREA,
+                     maxima: Double = 10.0, dias: Int = 10, url: String? = "https://moodle.ejemplo.es") =
+        Calificacion(curso, nombre, nota, porcentaje = "", notaMaxima = maxima, esTotalDelCurso = false,
+            tipo = tipo, fecha = ahora - dias * DIA, url = url)
+
+    private val redes = "Planificación y Administración de Redes"
+    private val sistemas = "Administración de Sistemas Operativos"
+    private val bases = "Gestión de Bases de Datos"
+
+    val cursos: List<NotasDeCurso> = listOf(
+        NotasDeCurso(
+            redes,
+            total = nota(redes, "Total del curso", "7,35").copy(esTotalDelCurso = true),
+            calificaciones = listOf(
+                nota(redes, "Práctica 1: subnetting VLSM", "8,50", dias = 30),
+                nota(redes, "Práctica 2: STP y EtherChannel", "6,75", dias = 18),
+                nota(redes, "Cuestionario OSPF", "4,20", TipoActividad.CUESTIONARIO, dias = 6),
+                nota(redes, "Práctica 3: VLAN y enrutamiento entre VLAN", "", url = null)
+            )
+        ),
+        NotasDeCurso(
+            sistemas,
+            total = null,
+            calificaciones = listOf(
+                nota(sistemas, "Cuestionario tema 5: RAID y LVM", "92,00", TipoActividad.CUESTIONARIO, maxima = 100.0),
+                nota(sistemas, "Script de copias de seguridad en Bash", "Apto")
+            )
+        ),
+        NotasDeCurso(bases, total = null, calificaciones = emptyList())
+    )
+
+    val notas = NotasUiState(
+        todos = cursos,
+        cursos = cursos,
+        asignaturas = cursos.map { it.curso }
+    )
+
+    val avisos = AvisosUiState(
+        avisos = listOf(
+            Aviso(ahora - 20 * 60, TipoAviso.NOTA, "Nueva nota: Cuestionario OSPF",
+                "Planificación y Administración de Redes · 4,20", "https://moodle.ejemplo.es", id = "1"),
+            Aviso(ahora - 3 * HORA, TipoAviso.ENTREGA, "Vence mañana: Práctica 3",
+                "VLAN y enrutamiento entre VLAN. Aún no la has entregado.", "https://moodle.ejemplo.es", id = "2"),
+            Aviso(ahora - DIA, TipoAviso.FALTA, "Falta en Implantación de Sistemas Operativos",
+                "Injustificada · 1.ª hora", id = "3"),
+            Aviso(ahora - 3 * DIA, TipoAviso.NUEVA, "Nueva actividad: Script de copias en Bash",
+                "Administración de Sistemas Operativos · entrega en 20 días", "https://moodle.ejemplo.es", id = "4"),
+            Aviso(ahora - 12 * DIA, TipoAviso.NOTA, "Nueva nota: Práctica 1",
+                "Planificación y Administración de Redes · 8,50", id = "5")
+        )
     )
 }

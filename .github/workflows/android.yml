@@ -113,13 +113,17 @@ jobs:
         continue-on-error: true
         run: ./gradlew testDebugUnitTest -Proborazzi.test.record=true -Pcapturas=true --tests '*CapturasTest*' --stacktrace
 
+      # Aunque falle alguna captura se publican las demás, con el informe de los tests para
+      # ver cuál falló y por qué.
       - name: Publicar capturas
-        if: steps.capturas.outcome == 'success'
+        if: always() && steps.capturas.outcome != 'skipped'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
+          mkdir -p app/build/capturas
+          cp app/build/test-results/testDebugUnitTest/TEST-*CapturasTest.xml app/build/capturas/resultado.xml 2>/dev/null || true
           cd app/build/capturas
           ls
           git init -q

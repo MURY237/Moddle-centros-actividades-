@@ -20,10 +20,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material3.Button
@@ -31,7 +31,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -236,6 +236,7 @@ private fun FilaAdjunto(
     alAbrir: (File) -> Unit,
     alCompartir: (File) -> Unit
 ) {
+    val archivo = descarga.archivo.takeIf { descarga.estado == EstadoDescarga.LISTA }
     Tarjeta(relleno = PaddingValues(Espacio.m)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconoTonal(iconoDeArchivo(adjunto), Tono.INFO)
@@ -252,11 +253,11 @@ private fun FilaAdjunto(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = when (descarga.estado) {
-                        EstadoDescarga.DESCARGANDO -> "Descargando…"
-                        EstadoDescarga.LISTA -> "Guardado en el móvil"
-                        EstadoDescarga.ERROR -> "No se pudo descargar"
-                        EstadoDescarga.PENDIENTE -> tamanoLegible(adjunto.tamano)
+                    text = when {
+                        descarga.estado == EstadoDescarga.DESCARGANDO -> "Descargando…"
+                        archivo != null -> "Guardado en el móvil"
+                        descarga.estado == EstadoDescarga.ERROR -> "No se pudo descargar"
+                        else -> tamanoLegible(adjunto.tamano)
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = if (descarga.estado == EstadoDescarga.ERROR) {
@@ -267,54 +268,38 @@ private fun FilaAdjunto(
                 )
             }
 
-            when (descarga.estado) {
-                EstadoDescarga.DESCARGANDO -> CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.dp
-                )
+            // Botones de icono: uno con texto le quitaba medio ancho al nombre del archivo.
+            when {
+                descarga.estado == EstadoDescarga.DESCARGANDO -> Box(
+                    modifier = Modifier.size(40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                }
 
-                EstadoDescarga.LISTA -> {
-                    val archivo = descarga.archivo
-                    if (archivo == null) {
-                        BotonDescarga(alDescargar)
-                    } else {
-                        IconButton(onClick = { alCompartir(archivo) }) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = "Compartir",
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        FilledTonalButton(onClick = { alAbrir(archivo) }) {
-                            Text("Abrir")
-                        }
+                archivo != null -> {
+                    IconButton(onClick = { alCompartir(archivo) }) {
+                        Icon(Icons.Default.Share, contentDescription = "Compartir", modifier = Modifier.size(20.dp))
+                    }
+                    FilledTonalIconButton(onClick = { alAbrir(archivo) }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.OpenInNew,
+                            contentDescription = "Abrir",
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
 
-                EstadoDescarga.ERROR -> IconButton(onClick = alDescargar) {
-                    Icon(
-                        imageVector = Icons.Default.ErrorOutline,
-                        contentDescription = "Reintentar",
-                        tint = MaterialTheme.colorScheme.error
-                    )
+                descarga.estado == EstadoDescarga.ERROR -> FilledTonalIconButton(onClick = alDescargar) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Reintentar la descarga", modifier = Modifier.size(20.dp))
                 }
 
-                EstadoDescarga.PENDIENTE -> BotonDescarga(alDescargar)
+                // Pendiente, o lista sin fichero (no debería pasar): se ofrece bajarlo.
+                else -> FilledTonalIconButton(onClick = alDescargar) {
+                    Icon(Icons.Default.Download, contentDescription = "Descargar", modifier = Modifier.size(20.dp))
+                }
             }
         }
-    }
-}
-
-@Composable
-private fun BotonDescarga(alDescargar: () -> Unit) {
-    FilledTonalButton(onClick = alDescargar) {
-        Icon(
-            imageVector = Icons.Default.Download,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(Modifier.size(6.dp))
-        Text("Descargar")
     }
 }
 
