@@ -18,6 +18,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.asir.moodleactividades.data.net.Actualizacion
+import com.asir.moodleactividades.ui.actividades.AccionesTareas
+import com.asir.moodleactividades.ui.actividades.ActividadesUiState
+import com.asir.moodleactividades.ui.actividades.DescargaUi
+import com.asir.moodleactividades.ui.actividades.DetalleActividadContenido
+import com.asir.moodleactividades.ui.actividades.EstadoDescarga
+import com.asir.moodleactividades.ui.actividades.TareasContenido
+import com.asir.moodleactividades.ui.actualizacion.ActualizacionUiState
 import com.asir.moodleactividades.ui.componentes.Aviso
 import com.asir.moodleactividades.ui.componentes.BarraProgreso
 import com.asir.moodleactividades.ui.componentes.CabeceraPantalla
@@ -59,6 +67,50 @@ class CapturasTest {
     @Test fun catalogo() = capturar("00-catalogo") { Catalogo() }
 
     @Test fun catalogoOscuro() = capturar("00-catalogo-oscuro", oscuro = true) { Catalogo() }
+
+    @Test fun tareas() = capturar("10-tareas") {
+        TareasContenido(Muestras.tareas, ActualizacionUiState(), AccionesTareas())
+    }
+
+    @Test fun tareasOscuro() = capturar("10-tareas-oscuro", oscuro = true) {
+        TareasContenido(Muestras.tareas, ActualizacionUiState(), AccionesTareas())
+    }
+
+    @Test fun tareasConAvisos() = capturar("11-tareas-avisos") {
+        TareasContenido(
+            Muestras.tareas.copy(
+                datosDeCache = true,
+                error = "No hay conexión con el centro.",
+                momentoDatos = Muestras.ahora - 3 * 3_600_000L
+            ),
+            ActualizacionUiState(disponible = Actualizacion("1.60", "", "")),
+            AccionesTareas()
+        )
+    }
+
+    @Test fun tareasError() = capturar("12-tareas-error") {
+        TareasContenido(
+            ActividadesUiState(error = "El servidor de Moodle no responde."),
+            ActualizacionUiState(),
+            AccionesTareas()
+        )
+    }
+
+    @Test fun detalle() = capturar("13-detalle") {
+        DetalleActividadContenido(
+            actividad = Muestras.actividades.first { it.adjuntos.isNotEmpty() },
+            descargas = mapOf(
+                "https://moodle.ejemplo.es/a.pdf" to DescargaUi(EstadoDescarga.LISTA)
+            )
+        )
+    }
+
+    @Test fun detalleOscuro() = capturar("13-detalle-oscuro", oscuro = true) {
+        DetalleActividadContenido(
+            actividad = Muestras.actividades.first { it.adjuntos.isNotEmpty() },
+            descargas = emptyMap()
+        )
+    }
 }
 
 fun capturar(nombre: String, oscuro: Boolean = false, contenido: @Composable () -> Unit) {
