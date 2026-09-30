@@ -32,9 +32,10 @@ el correo solo funciona si el centro tiene activada la opción
 nombre de usuario.
 
 El token se obtiene contra `/login/token.php` con el servicio `moodle_mobile_app`.
-La contraseña **no se almacena**: solo se guarda el token en las `SharedPreferences`
-privadas de la app, con copia de seguridad del sistema desactivada
-(`allowBackup="false"`).
+La contraseña **no se almacena**: solo se guarda el token, cifrado con una clave del
+almacén de claves de Android (`EncryptedSharedPreferences`) y con la copia de
+seguridad del sistema desactivada (`allowBackup="false"`). La URL del centro siempre
+se usa en HTTPS, aunque se escriba con `http://`.
 
 Para generar un token manualmente en Moodle:
 *Perfil → Preferencias → Claves de seguridad → «Moodle mobile web service»*.
@@ -254,6 +255,27 @@ por el mismo motivo: lo que sigue estando por hacer no debe esconderse.
   ningún recorte temporal puede dejarla fuera; va a su propio grupo, «Sin fecha límite»,
   al final de la lista.
 
+## Privacidad y seguridad
+
+- **Contraseñas:** la de Moodle nunca pasa por la app con iDEA. Las de Séneca y Cisco
+  solo se guardan si el alumno quiere, cifradas con el almacén de claves de Android,
+  y solo se escriben en páginas de `juntadeandalucia.es`, `cisco.com` o `netacad.com`
+  (se comprueba antes de meterlas en el guion y otra vez dentro de él). Sin almacén
+  cifrado no se guardan.
+- **Token de Moodle:** cifrado igual que las contraseñas, y solo se añade a archivos
+  del propio centro por HTTPS; nunca a un enlace de otro dominio.
+- **Red:** sin tráfico en claro en toda la app (`seguridad_red.xml`).
+- **Navegadores de Séneca y NetAcad:** sin acceso a ficheros del móvil, y se destruyen
+  al salir de su pantalla.
+- **Archivos compartidos:** el `FileProvider` solo expone las carpetas de adjuntos y
+  de actualización, no la caché entera.
+- **Actualizaciones:** solo se bajan de las releases de este repositorio, se comprueba
+  la huella SHA-256 que publica GitHub y el archivo no se da por bueno hasta que está
+  completo.
+- **Cerrar sesión** borra el token, las copias de tareas y notas, los adjuntos, el
+  historial de avisos y las notificaciones de la barra. Séneca, NetAcad y los grupos
+  se desconectan desde su propia pantalla, y cada uno borra solo lo suyo.
+
 ## Compilar
 
 ### Con Android Studio
@@ -280,6 +302,29 @@ nada —su contraseña es pública—, pero mantiene la firma estable entre
 compilaciones: sin ella Android rechazaría instalar una actualización sobre la
 versión anterior.
 
+#### Firmar con una clave propia (opcional)
+
+Con la clave pública cualquiera podría firmar un APK que Android aceptase como
+actualización. El workflow ya sabe firmar con una clave propia si encuentra estos
+secretos en *Settings → Secrets and variables → Actions*:
+
+| Secreto | Contenido |
+|---|---|
+| `FIRMA_BASE64` | El almacén `.jks` en Base64 (`base64 -w0 firma.jks`) |
+| `FIRMA_CLAVE_ALMACEN` | Contraseña del almacén |
+| `FIRMA_ALIAS` | Alias de la clave |
+| `FIRMA_CLAVE` | Contraseña de la clave |
+
+```bash
+keytool -genkeypair -v -keystore firma.jks -alias actividades \
+  -keyalg RSA -keysize 4096 -validity 10000
+base64 -w0 firma.jks > firma.b64   # su contenido va en FIRMA_BASE64
+```
+
+Cambiar de clave obliga a desinstalar la versión firmada con la anterior **una
+vez**: Android no deja actualizar una app firmada por otra clave. Guarda el `.jks`
+fuera del repositorio; si se pierde, habrá que volver a desinstalar.
+
 ## Requisitos
 
 - Android 8.0 (API 26) o superior
@@ -290,17 +335,39 @@ versión anterior.
 
 ```
 app/src/main/java/com/asir/moodleactividades/
-├── data/
-│   ├── net/              Cliente Retrofit, DTOs y errores de Moodle
-│   ├── SesionStore.kt    Persistencia del token
-│   └── ActividadesRepository.kt
-├── domain/
-│   ├── Modelos.kt        Actividad, estados, grupos y filtros
-│   └── Clasificador.kt   Lógica pura de clasificación (cubierta por tests)
+├── AppActividades / Dependencias.kt   Construye todo en un sitio: repositorios y ViewModels
+├── MainActivity.kt                    Arranque, enlace de iDEA y acceso o app
+├── data/          Moodle (net/), Séneca (seneca/), NetAcad (netacad/), grupos (grupos/),
+│                  almacenes locales y preferencias cifradas
+├── domain/        Lógica pura: clasificar, agrupar, comparar notas, horarios… (con tests)
+├── notificaciones/ Trabajo periódico y notificaciones
 └── ui/
-    ├── login/            Pantalla de acceso
-    ├── actividades/      Listado, filtros y resumen
-    └── theme/
+    ├── PantallaPrincipal.kt  Barra inferior y sección elegida
+    ├── navegacion/           Secciones y barra
+    ├── componentes/          Sistema de diseño: cabecera, tarjeta, avisos, filas, métricas…
+    ├── theme/                Colores, tonos de estado, tipografía y formas
+    └── actividades/, notas/, faltas/, netacad/, avisos/, horario/, bus/,
+        grupos/, ajustes/, acercade/, login/
+```
+
+Cada pantalla se divide en dos: `XxxScreen`, que conecta con su ViewModel, y
+`XxxContenido`, que solo pinta un estado y avisa de lo que se toca. Así se puede
+pintar cualquier pantalla con datos de ejemplo, que es lo que hacen las capturas.
+
+### Diseño y capturas
+
+Un solo acento azul, grises fríos y cinco tonos de estado (neutro, información,
+éxito, aviso, peligro) que se usan igual en todas las pantallas, con modo claro y
+oscuro. Los componentes comunes están en `ui/componentes/Diseno.kt`.
+
+La app solo se compila en CI, así que CI también pinta cada pantalla con
+[Roborazzi](https://github.com/takahirom/roborazzi) y Robolectric
+(`CapturasTest.kt`) y publica los PNG en la rama
+[`capturas`](../../tree/capturas). En local:
+
+```bash
+./gradlew testDebugUnitTest -Proborazzi.test.record=true -Pcapturas=true --tests '*CapturasTest*'
+# quedan en app/build/capturas/
 ```
 
 ## Limitaciones conocidas

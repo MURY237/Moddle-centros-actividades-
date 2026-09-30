@@ -61,7 +61,9 @@ fun PantallaPrincipal(
     dependencias: Dependencias,
     generacion: Int,
     alCerrarSesion: () -> Unit,
-    alCaducarSesion: () -> Unit
+    alCaducarSesion: () -> Unit,
+    seccionPedida: Seccion? = null,
+    alConsumirSeccion: () -> Unit = {}
 ) {
     val contexto = LocalContext.current
     // Guardable: al girar el móvil se seguía en la pantalla, pero se volvía a Tareas.
@@ -83,6 +85,14 @@ fun PantallaPrincipal(
     val estadoAjustes by ajustes.estado.collectAsStateWithLifecycle()
     val estadoAsistencia by asistencia.estado.collectAsStateWithLifecycle()
     val estadoAvisos by avisos.estado.collectAsStateWithLifecycle()
+
+    // Tocar una notificación lleva a su sección, también con la app ya abierta.
+    LaunchedEffect(seccionPedida) {
+        seccionPedida?.let {
+            seccion = it
+            alConsumirSeccion()
+        }
+    }
 
     // Las subpantallas vuelven a su pestaña con «atrás» en vez de cerrar la app.
     BackHandler(enabled = seccion == Seccion.AJUSTES) { seccion = Seccion.AVISOS }

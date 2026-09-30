@@ -61,7 +61,7 @@ object Recordatorios {
             contexto = contexto,
             canal = CANAL_ENTREGAS,
             tipo = TipoAviso.ENTREGA,
-            id = actividad.id.toInt(),
+            id = actividad.id.hashCode(),
             titulo = actividad.nombre,
             texto = "${actividad.curso} · ${textoRelativo(actividad.fechaLimite)}",
             url = actividad.url
@@ -78,7 +78,8 @@ object Recordatorios {
                 contexto = contexto,
                 canal = CANAL_NOTAS,
                 tipo = TipoAviso.NOTA,
-                id = ID_NOTAS + idEstable(calificacion.curso + calificacion.nombre),
+                // Estable entre comprobaciones, para que la misma nota no se duplique.
+                id = (calificacion.curso + "|" + calificacion.nombre).hashCode(),
                 titulo = "Nota publicada: ${calificacion.nota}",
                 texto = "${calificacion.nombre} · ${calificacion.curso}",
                 url = calificacion.url
@@ -101,7 +102,7 @@ object Recordatorios {
             contexto = contexto,
             canal = CANAL_NOVEDADES,
             tipo = TipoAviso.NUEVA,
-            id = ID_NOVEDADES,
+            id = 1,
             titulo = titulo,
             texto = texto,
             url = nuevas.singleOrNull()?.url
@@ -131,15 +132,20 @@ object Recordatorios {
 
         if (!puedeNotificar(contexto)) return
 
+        // Tocar el aviso lleva a donde está lo que cuenta: una nota a Notas, una entrega a
+        // Tareas. Un PendingIntent por tipo basta, porque solo cambia la sección.
         val abrirApp = PendingIntent.getActivity(
             contexto,
-            id,
-            Intent(contexto, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            tipo.ordinal,
+            Intent(contexto, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .putExtra(MainActivity.EXTRA_SECCION, if (tipo == TipoAviso.NOTA) "NOTAS" else "ACTIVIDADES"),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         val aviso = NotificationCompat.Builder(contexto, canal)
             .setSmallIcon(R.drawable.ic_aviso)
+            .setColor(COLOR_MARCA)
             .setContentTitle(titulo)
             .setContentText(texto)
             .setStyle(NotificationCompat.BigTextStyle().bigText(texto))
@@ -148,13 +154,12 @@ object Recordatorios {
             .setContentIntent(abrirApp)
             .build()
 
-        runCatching { NotificationManagerCompat.from(contexto).notify(id, aviso) }
+        // La etiqueta es el canal: así el número de una tarea no puede pisar el de una nota.
+        runCatching { NotificationManagerCompat.from(contexto).notify(canal, id, aviso) }
     }
 
-    private const val ID_NOVEDADES = 90_001
-    private const val ID_NOTAS = 91_000
     private const val MAX_NOTAS_POR_VEZ = 5
 
-    /** El identificador debe repetirse entre comprobaciones para no duplicar la notificación. */
-    private fun idEstable(clave: String) = (clave.hashCode() and 0xFF)
+    /** El azul de la app, para el icono pequeño de la barra de estado. */
+    private val COLOR_MARCA = 0xFF1F5FD1.toInt()
 }
