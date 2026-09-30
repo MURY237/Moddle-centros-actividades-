@@ -10,6 +10,18 @@ package com.asir.moodleactividades.data.seneca
  */
 object AutoAcceso {
 
+    /**
+     * La contraseña de Séneca solo se escribe en páginas de la Junta: juntadeandalucia.es y
+     * sus subdominios, por HTTPS. Si el navegador acabara en otro sitio —un enlace, una
+     * redirección—, no recibe nada. Se comprueba aquí y otra vez dentro del guion.
+     */
+    fun hostPermitido(url: String?): Boolean {
+        val destino = runCatching { java.net.URI(url ?: return false) }.getOrNull() ?: return false
+        if (!destino.scheme.equals("https", ignoreCase = true)) return false
+        val host = destino.host?.lowercase() ?: return false
+        return host == "juntadeandalucia.es" || host.endsWith(".juntadeandalucia.es")
+    }
+
     fun guion(usuario: String, clave: String): String =
         cuerpo(comoLiteral(usuario), comoLiteral(clave), actuar = true)
 
@@ -239,6 +251,10 @@ object AutoAcceso {
             return /incorrect|no son correct|erroneo|no es valid|no valid|no coincide/.test(texto);
           }
 
+          function deLaJunta(doc) {
+            try { return /(^|\.)juntadeandalucia\.es${'$'}/i.test(doc.location.hostname); } catch (e) { return false; }
+          }
+
           var docs = documentos();
           var accion = '';
           var hayFormulario = false;
@@ -255,6 +271,8 @@ object AutoAcceso {
             hayFormulario = true;
             hayFallo = hayError(docs[d]);
             propio = !!par.propio;
+            // Un formulario que no es de la Junta no recibe la contraseña, se parezca o no.
+            if (actuar && !deLaJunta(docs[d])) break;
             if (actuar) {
               escribir(par.usuario, usuario);
               escribir(par.clave, clave);

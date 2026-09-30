@@ -35,7 +35,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -45,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -274,12 +274,17 @@ fun Aviso(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 if (accion != null && alPulsarAccion != null) {
-                    TextButton(
-                        onClick = alPulsarAccion,
-                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = Espacio.xs)
-                    ) {
-                        Text(accion, color = colores.contenido, style = MaterialTheme.typography.labelLarge)
-                    }
+                    // Texto pulsable y no botón: el alto mínimo de un botón dejaba el aviso hueco.
+                    Text(
+                        text = accion,
+                        color = colores.contenido,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier
+                            .padding(top = Espacio.s)
+                            .clip(MaterialTheme.shapes.small)
+                            .clickable(role = Role.Button, onClick = alPulsarAccion)
+                            .padding(vertical = Espacio.xs)
+                    )
                 }
             }
             if (alCerrar != null) {
@@ -370,7 +375,10 @@ fun BarraProgreso(
             .clip(RoundedCornerShape(50)),
         color = tono.colores().contenido,
         trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        strokeCap = StrokeCap.Round
+        strokeCap = StrokeCap.Round,
+        // Una sola línea continua: el hueco y el punto final de Material 3 aquí solo estorban.
+        gapSize = 0.dp,
+        drawStopIndicator = {}
     )
 }
 

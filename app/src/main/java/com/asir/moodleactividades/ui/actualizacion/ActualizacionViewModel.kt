@@ -54,7 +54,7 @@ class ActualizacionViewModel : ViewModel() {
         viewModelScope.launch {
             val destino = Instalador.archivoDestino(contexto)
             val bajado = withContext(Dispatchers.IO) {
-                actualizaciones.descargar(actualizacion.urlApk, destino)
+                actualizaciones.descargar(actualizacion.urlApk, destino, actualizacion.sha256)
             }
 
             if (!bajado) {

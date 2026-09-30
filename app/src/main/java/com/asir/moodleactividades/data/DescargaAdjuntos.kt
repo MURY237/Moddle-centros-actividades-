@@ -31,6 +31,14 @@ class DescargaAdjuntos(
     fun archivoDe(adjunto: Adjunto): File =
         File(carpeta, "${huella(adjunto.url)}-${nombreSeguro(adjunto.nombre)}")
 
+    /**
+     * Al cerrar sesión: los enunciados y adjuntos son del alumno y no deben quedarse en el
+     * móvil para quien entre después.
+     */
+    fun borrarTodo() {
+        runCatching { carpeta.deleteRecursively() }
+    }
+
     fun yaDescargado(adjunto: Adjunto): File? =
         archivoDe(adjunto).takeIf { it.exists() && it.length() > 0 }
 

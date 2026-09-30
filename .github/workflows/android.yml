@@ -51,12 +51,28 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/pglite" --no-save --no-audit --no-fund @electric-sql/pglite@0.5.8
           NODE_PATH="$RUNNER_TEMP/pglite/node_modules" node supabase/pruebas/reglas.test.js supabase/esquema.sql
 
+      # Firma propia, solo si están los secretos. Sin ellos se firma como siempre.
+      - name: Preparar la firma propia
+        env:
+          FIRMA_BASE64: ${{ secrets.FIRMA_BASE64 }}
+        run: |
+          if [ -n "$FIRMA_BASE64" ]; then
+            echo "$FIRMA_BASE64" | base64 -d > "$RUNNER_TEMP/firma.jks"
+            echo "FIRMA_ALMACEN=$RUNNER_TEMP/firma.jks" >> "$GITHUB_ENV"
+            echo "Se firma con la clave propia."
+          else
+            echo "Sin secretos de firma: se usa la clave de depuración del repositorio."
+          fi
+
       # La URL y la clave pública del servidor de grupos, si están como secretos del
       # repositorio. Sin ellos se compila igual y la pestaña explica qué falta.
       - name: Compilar APK
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_CLAVE: ${{ secrets.SUPABASE_CLAVE }}
+          FIRMA_CLAVE_ALMACEN: ${{ secrets.FIRMA_CLAVE_ALMACEN }}
+          FIRMA_ALIAS: ${{ secrets.FIRMA_ALIAS }}
+          FIRMA_CLAVE: ${{ secrets.FIRMA_CLAVE }}
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Leer la versión del proyecto

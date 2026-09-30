@@ -166,6 +166,7 @@ private fun App(enlaceSso: String?, alConsumirEnlace: () -> Unit) {
             generacion = generacion,
             alCerrarSesion = {
                 RecordatoriosWorker.cancelar(contexto)
+                DescargaAdjuntos(contexto, repositorio).borrarTodo()
                 generacion++
                 haySesion = false
             }

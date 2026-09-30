@@ -57,14 +57,30 @@ android {
         buildConfigField("String", "SUPABASE_CLAVE", "\"$supabaseClave\"")
     }
 
-    // Firma fija en el repositorio: sin ella cada compilación firmaría distinto y Android
-    // rechazaría instalar la actualización sobre la versión anterior.
+    // Firma fija: sin ella cada compilación firmaría distinto y Android rechazaría instalar
+    // la actualización sobre la versión anterior.
+    //
+    // Por defecto, la clave de depuración del repositorio. Es pública, así que cualquiera
+    // podría firmar un APK que Android aceptara como actualización de esta app. Con los
+    // secretos FIRMA_* en CI se firma con una clave propia y privada (ver README); cambiar de
+    // una a otra obliga a desinstalar una vez, porque Android no acepta el cambio de firma.
     signingConfigs {
         getByName("debug") {
-            storeFile = rootProject.file("debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            val almacenPropio = System.getenv("FIRMA_ALMACEN")
+                ?.takeIf { it.isNotBlank() }
+                ?.let { file(it) }
+                ?.takeIf { it.exists() }
+            if (almacenPropio != null) {
+                storeFile = almacenPropio
+                storePassword = System.getenv("FIRMA_CLAVE_ALMACEN")
+                keyAlias = System.getenv("FIRMA_ALIAS")
+                keyPassword = System.getenv("FIRMA_CLAVE")
+            } else {
+                storeFile = rootProject.file("debug.keystore")
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
         }
     }
 

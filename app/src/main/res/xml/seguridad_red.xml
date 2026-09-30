@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Todo el tráfico va cifrado: Moodle, Séneca, NetAcad, Supabase y GitHub hablan HTTPS. Si
+    alguien pegara un Moodle con «http://», el token viajaría en claro; así no sale ni la
+    petición.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

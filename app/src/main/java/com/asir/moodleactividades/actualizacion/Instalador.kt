@@ -12,7 +12,15 @@ object Instalador {
 
     const val NOMBRE_APK = "actualizacion.apk"
 
-    fun archivoDestino(contexto: Context) = File(contexto.cacheDir, NOMBRE_APK)
+    /**
+     * En su propia carpeta de la caché: el FileProvider solo comparte esa y la de adjuntos,
+     * no la caché entera. Se borra de paso el APK que versiones anteriores dejaban en la raíz.
+     */
+    fun archivoDestino(contexto: Context): File {
+        File(contexto.cacheDir, NOMBRE_APK).delete()
+        val carpeta = File(contexto.cacheDir, "actualizacion").apply { mkdirs() }
+        return File(carpeta, NOMBRE_APK)
+    }
 
     fun puedeInstalar(contexto: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
