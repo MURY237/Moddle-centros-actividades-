@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.Refresh
@@ -43,9 +42,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.asir.moodleactividades.domain.Aprobado
 import com.asir.moodleactividades.domain.Calificacion
 import com.asir.moodleactividades.domain.FiltroNotas
 import com.asir.moodleactividades.domain.NotasDeCurso
+import com.asir.moodleactividades.domain.OrigenVeredicto
+import com.asir.moodleactividades.domain.Veredicto
 import com.asir.moodleactividades.ui.componentes.Aviso
 import com.asir.moodleactividades.ui.componentes.BarraProgreso
 import com.asir.moodleactividades.ui.componentes.CabeceraPantalla
@@ -66,7 +68,7 @@ data class AccionesNotas(
     val refrescar: () -> Unit = {},
     val cambiarFiltro: (FiltroNotas) -> Unit = {},
     val cambiarAsignatura: (String?) -> Unit = {},
-    val abrirEnlace: (String) -> Unit = {}
+    val abrirDetalle: (Calificacion) -> Unit = {}
 )
 
 @Composable
@@ -83,12 +85,25 @@ fun NotasScreen(
             refrescar = viewModel::refrescar,
             cambiarFiltro = viewModel::cambiarFiltro,
             cambiarAsignatura = viewModel::cambiarAsignatura,
-            abrirEnlace = { enlace ->
-                runCatching { contexto.startActivity(Intent(Intent.ACTION_VIEW, enlace.toUri())) }
-            }
+            abrirDetalle = viewModel::abrirDetalle
         ),
         modifier = modifier
     )
+
+    estado.detalle?.let { calificacion ->
+        HojaDetalleNota(
+            calificacion = calificacion,
+            ajuste = estado.ajustes[calificacion.clave],
+            veredicto = estado.veredicto(calificacion),
+            alAjustar = { viewModel.ajustar(calificacion, it) },
+            alCerrar = viewModel::cerrarDetalle,
+            alAbrirEnMoodle = {
+                calificacion.url?.let { enlace ->
+                    runCatching { contexto.startActivity(Intent(Intent.ACTION_VIEW, enlace.toUri())) }
+                }
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -184,7 +199,8 @@ fun NotasContenido(
                     ) { _, curso ->
                         TarjetaCurso(
                             curso = curso,
-                            alAbrir = acciones.abrirEnlace,
+                            veredicto = estado::veredicto,
+                            alAbrir = acciones.abrirDetalle,
                             modifier = Modifier.padding(horizontal = Espacio.lateral)
                         )
                     }
@@ -202,8 +218,9 @@ private fun Resumen(estado: NotasUiState) {
         .filter { estado.asignatura == null || it.curso == estado.asignatura }
         .flatMap { it.calificaciones }
         .filter { it.calificada }
-    val aprobadas = calificaciones.count { it.esAprobada() == true }
-    val suspensas = calificaciones.count { it.esAprobada() == false }
+    val veredictos = calificaciones.map { estado.veredicto(it).aprobada }
+    val aprobadas = veredictos.count { it == true }
+    val suspensas = veredictos.count { it == false }
 
     FranjaResumen(
         listOf(
@@ -243,7 +260,12 @@ private fun Filtros(estado: NotasUiState, acciones: AccionesNotas) {
 
 /** Una asignatura: su cabecera con el total y, debajo, cada actividad evaluable en una fila. */
 @Composable
-private fun TarjetaCurso(curso: NotasDeCurso, alAbrir: (String) -> Unit, modifier: Modifier = Modifier) {
+private fun TarjetaCurso(
+    curso: NotasDeCurso,
+    veredicto: (Calificacion) -> Veredicto,
+    alAbrir: (Calificacion) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Tarjeta(modifier = modifier, relleno = PaddingValues(0.dp)) {
         Column(
             modifier = Modifier.padding(Espacio.l),
@@ -260,7 +282,7 @@ private fun TarjetaCurso(curso: NotasDeCurso, alAbrir: (String) -> Unit, modifie
                 curso.total?.takeIf { it.calificada }?.let { total ->
                     EtiquetaEstado(
                         texto = "Total " + total.nota,
-                        tono = tonoDe(total),
+                        tono = tonoDe(total, veredicto(total)),
                         conPunto = false,
                         modifier = Modifier.padding(start = Espacio.s)
                     )
@@ -290,54 +312,44 @@ private fun TarjetaCurso(curso: NotasDeCurso, alAbrir: (String) -> Unit, modifie
         }
         curso.calificaciones.forEach { calificacion ->
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            FilaCalificacion(calificacion) { calificacion.url?.let(alAbrir) }
+            FilaCalificacion(calificacion, veredicto(calificacion)) { alAbrir(calificacion) }
         }
     }
 }
 
+/** Tocarla abre su ficha: ahí se ve sobre cuánto es y se puede corregir el resultado. */
 @Composable
-private fun FilaCalificacion(calificacion: Calificacion, alPulsar: () -> Unit) {
+private fun FilaCalificacion(calificacion: Calificacion, veredicto: Veredicto, alPulsar: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = calificacion.url != null, role = Role.Button, onClick = alPulsar)
+            .clickable(role = Role.Button, onClick = alPulsar)
             .padding(horizontal = Espacio.l, vertical = Espacio.m),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = calificacion.nombre,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-                if (calificacion.url != null) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.padding(start = Espacio.xs).size(14.dp)
-                    )
-                }
-            }
             Text(
-                text = detalleDe(calificacion),
+                text = calificacion.nombre,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = detalleDe(calificacion, veredicto),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
-        CasillaNota(calificacion, modifier = Modifier.padding(start = Espacio.m))
+        CasillaNota(calificacion, veredicto, modifier = Modifier.padding(start = Espacio.m))
     }
 }
 
 @Composable
-private fun CasillaNota(calificacion: Calificacion, modifier: Modifier = Modifier) {
-    val colores = tonoDe(calificacion).colores()
+internal fun CasillaNota(calificacion: Calificacion, veredicto: Veredicto, modifier: Modifier = Modifier) {
+    val colores = tonoDe(calificacion, veredicto).colores()
     val texto = calificacion.nota.ifBlank { "—" }
     Box(
         modifier = modifier
@@ -357,29 +369,27 @@ private fun CasillaNota(calificacion: Calificacion, modifier: Modifier = Modifie
     }
 }
 
-private fun detalleDe(calificacion: Calificacion): String = buildString {
+private fun detalleDe(calificacion: Calificacion, veredicto: Veredicto): String = buildString {
     append(if (calificacion.calificada) calificacion.tipo.etiqueta else "Sin calificar")
-    if (calificacion.notaMaxima > 0) append(" · sobre ").append(formateaMaxima(calificacion.notaMaxima))
+    veredicto.notaMaxima?.let { maxima ->
+        append(" · sobre ").append(Aprobado.cifra(maxima))
+        // Que se vea cuándo el máximo es una suposición: es justo lo que hay que corregir.
+        when (veredicto.origen) {
+            OrigenVeredicto.SUPUESTO -> append(" (supuesto)")
+            OrigenVeredicto.MAXIMA_PROPIA -> append(" (tuyo)")
+            else -> Unit
+        }
+    }
+    if (veredicto.origen == OrigenVeredicto.MANUAL) append(" · marcada a mano")
     if (calificacion.porcentaje.isNotBlank()) append(" · ").append(calificacion.porcentaje)
     calificacion.fecha?.let { append(" · ").append(formatearFecha(it)) }
 }
 
-private fun tonoDe(calificacion: Calificacion): Tono = when {
+internal fun tonoDe(calificacion: Calificacion, veredicto: Veredicto): Tono = when {
     !calificacion.calificada -> Tono.NEUTRO
-    else -> when (calificacion.esAprobada()) {
+    else -> when (veredicto.aprobada) {
         true -> Tono.EXITO
         false -> Tono.PELIGRO
         null -> Tono.INFO
     }
-}
-
-private fun formateaMaxima(valor: Double): String =
-    if (valor % 1.0 == 0.0) valor.toInt().toString() else valor.toString()
-
-/** Null cuando la nota no es numérica y no se puede decidir si está aprobada. */
-internal fun Calificacion.esAprobada(): Boolean? {
-    val valor = nota.replace(',', '.').filter { it.isDigit() || it == '.' || it == '-' }
-        .toDoubleOrNull() ?: return null
-    val maxima = notaMaxima.takeIf { it > 0 } ?: 10.0
-    return valor >= maxima / 2
 }

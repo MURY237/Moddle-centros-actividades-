@@ -234,6 +234,7 @@ class ActividadesRepository(
                     calificada = estadoEntrega?.calificada ?: (nota != null),
                     url = "${cliente.urlSitio}mod/assign/view.php?id=${tarea.cmid}",
                     nota = nota ?: estadoEntrega?.nota ?: previa?.nota,
+                    notaMaxima = tarea.grade.takeIf { it > 0 },
                     descripcion = tarea.intro,
                     adjuntos = (tarea.introattachments + tarea.introfiles)
                         .filter { it.filename.isNotBlank() && it.fileurl.isNotBlank() }
@@ -345,7 +346,9 @@ class ActividadesRepository(
                             nombre = actividad.nombre,
                             nota = actividad.nota.orEmpty(),
                             porcentaje = "",
-                            notaMaxima = 0.0,
+                            // Sin el libro de calificaciones, la tarea es lo único que dice
+                            // sobre cuánto es: sin esto, un 1,80 sobre 2 se daba por suspenso.
+                            notaMaxima = actividad.notaMaxima ?: 0.0,
                             esTotalDelCurso = false,
                             tipo = actividad.tipo,
                             fecha = actividad.fechaLimite,

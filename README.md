@@ -44,7 +44,7 @@ Para generar un token manualmente en Moodle:
 
 - Clasifica las actividades en pendientes, entregadas y no entregadas.
 - Las agrupa por plazo y permite filtrar por estado, por rango de fechas y por asignatura.
-- Muestra la calificación de las tareas ya corregidas.
+- Muestra la calificación de las tareas ya corregidas, con la nota máxima de cada una.
 - Guarda la última carga correcta: al abrir la app se ven las actividades al
   instante, y si el centro no responde sale un aviso indicando de cuándo son los
   datos, en lugar de una pantalla vacía.
@@ -204,6 +204,26 @@ El diagnóstico lleva **solo nombres de cookies, nunca sus valores** —que son 
 ruta con su parte variable recortada, porque el identificador de sesión de Séneca viaja
 dentro de la propia URL.
 
+## Aprobada o suspensa
+
+En «Notas», cada actividad sale en verde o en rojo según esté aprobada o suspensa: se
+aprueba con la mitad de la nota máxima, así que un 1,80 sobre 2 es un aprobado. Para
+decidirlo se usa, por orden:
+
+| Orden | Fuente | Cuándo |
+|---|---|---|
+| 1 | Lo que marque el alumno | Ha elegido «Aprobada» o «Suspensa» en la ficha |
+| 2 | La nota máxima que ponga el alumno | Moodle no la da, o la da mal |
+| 3 | El porcentaje de Moodle | El libro de calificaciones lo publica (tiene en cuenta el mínimo) |
+| 4 | La nota máxima de Moodle | Del libro de calificaciones o, si no se puede leer, de la propia tarea |
+| 5 | Sobre 10 | No hay ningún dato; la fila lo dice: «sobre 10 (supuesto)» |
+
+Tocar una nota abre su ficha, que explica de dónde sale el resultado y permite corregirlo.
+Las notas con palabras («Apto», «No apto», «Insuficiente»…) también se entienden.
+
+Lo que se corrige se guarda solo en el móvil —Moodle no se entera— y se borra al cerrar
+sesión.
+
 ## De dónde salen las asignaturas
 
 La lista de asignaturas no se deduce de las actividades, sino de la matrícula
@@ -272,9 +292,10 @@ por el mismo motivo: lo que sigue estando por hacer no debe esconderse.
 - **Actualizaciones:** solo se bajan de las releases de este repositorio, se comprueba
   la huella SHA-256 que publica GitHub y el archivo no se da por bueno hasta que está
   completo.
-- **Cerrar sesión** borra el token, las copias de tareas y notas, los adjuntos, el
-  historial de avisos y las notificaciones de la barra. Séneca, NetAcad y los grupos
-  se desconectan desde su propia pantalla, y cada uno borra solo lo suyo.
+- **Cerrar sesión** borra el token, las copias de tareas y notas, lo corregido a mano
+  de las notas, los adjuntos, el historial de avisos y las notificaciones de la barra.
+  Séneca, NetAcad y los grupos se desconectan desde su propia pantalla, y cada uno
+  borra solo lo suyo.
 
 ## Compilar
 

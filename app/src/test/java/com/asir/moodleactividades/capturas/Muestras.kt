@@ -77,7 +77,7 @@ object Muestras {
             id = 5, nombre = "Consultas con GROUP BY y subconsultas",
             curso = "Gestión de Bases de Datos", tipo = TipoActividad.TAREA,
             fechaLimite = ahora + 12 * DIA, estado = EstadoActividad.ENTREGADA,
-            calificada = true, url = null, nota = "8,50"
+            calificada = true, url = null, nota = "8,50", notaMaxima = 10.0
         ),
         Actividad(
             id = 6, nombre = "Script de copias de seguridad en Bash",
@@ -114,6 +114,7 @@ object Muestras {
                 nota(redes, "Práctica 1: subnetting VLSM", "8,50", dias = 30),
                 nota(redes, "Práctica 2: STP y EtherChannel", "6,75", dias = 18),
                 nota(redes, "Cuestionario OSPF", "4,20", TipoActividad.CUESTIONARIO, dias = 6),
+                nota(redes, "Repaso de ACL", "1,80", TipoActividad.CUESTIONARIO, maxima = 2.0, dias = 3),
                 nota(redes, "Práctica 3: VLAN y enrutamiento entre VLAN", "", url = null)
             )
         ),
@@ -122,7 +123,8 @@ object Muestras {
             total = null,
             calificaciones = listOf(
                 nota(sistemas, "Cuestionario tema 5: RAID y LVM", "92,00", TipoActividad.CUESTIONARIO, maxima = 100.0),
-                nota(sistemas, "Script de copias de seguridad en Bash", "Apto")
+                nota(sistemas, "Script de copias de seguridad en Bash", "Apto"),
+                nota(sistemas, "Práctica de cuotas de disco", "1,50", maxima = 0.0, dias = 2)
             )
         ),
         NotasDeCurso(bases, total = null, calificaciones = emptyList())
