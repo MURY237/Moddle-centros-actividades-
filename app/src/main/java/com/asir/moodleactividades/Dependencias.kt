@@ -6,6 +6,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.asir.moodleactividades.data.ActividadesRepository
+import com.asir.moodleactividades.data.AjustesNotas
 import com.asir.moodleactividades.data.AlmacenBus
 import com.asir.moodleactividades.data.AlmacenFaltas
 import com.asir.moodleactividades.data.AlmacenHorario
@@ -70,7 +71,7 @@ class Dependencias(contexto: Context) {
 
     fun login() = LoginViewModel(repositorio)
     fun actividades() = ActividadesViewModel(repositorio, conectividad, DescargaAdjuntos(app, repositorio))
-    fun notas() = NotasViewModel(repositorio, conectividad)
+    fun notas() = NotasViewModel(repositorio, conectividad, AjustesNotas(app))
     fun asistencia() = AsistenciaViewModel(repositorio)
     fun avisos() = AvisosViewModel(historial)
     fun ajustes() = AjustesViewModel(PreferenciasAvisos(app))
@@ -97,8 +98,9 @@ class Dependencias(contexto: Context) {
 
     /**
      * El alumno cierra sesión: se borra todo lo de su cuenta de Moodle —token, copias,
-     * adjuntos— y también el historial de avisos y las notificaciones que haya en la barra,
-     * que hablan de sus notas y entregas. Antes quien entrase después las veía.
+     * adjuntos, lo que haya corregido de sus notas— y también el historial de avisos y las
+     * notificaciones que haya en la barra, que hablan de sus notas y entregas. Antes quien
+     * entrase después las veía.
      *
      * Séneca, NetAcad y los grupos son cuentas aparte y se desconectan desde su pantalla.
      */
@@ -106,6 +108,7 @@ class Dependencias(contexto: Context) {
         RecordatoriosWorker.cancelar(app)
         repositorio.cerrarSesion()
         DescargaAdjuntos(app, repositorio).borrarTodo()
+        AjustesNotas(app).borrar()
         historial.borrar()
         AvisosEnviados(app).borrarTodo()
         runCatching { NotificationManagerCompat.from(app).cancelAll() }

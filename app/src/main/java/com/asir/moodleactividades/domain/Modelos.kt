@@ -59,7 +59,9 @@ data class Actividad(
     val url: String?,
     val nota: String? = null,
     val descripcion: String = "",
-    val adjuntos: List<Adjunto> = emptyList()
+    val adjuntos: List<Adjunto> = emptyList(),
+    /** Sobre cuánto es la tarea, cuando Moodle lo dice. */
+    val notaMaxima: Double? = null
 ) {
     val tieneDetalle: Boolean get() = descripcion.isNotBlank() || adjuntos.isNotEmpty()
 }
@@ -77,6 +79,9 @@ data class Calificacion(
     val url: String? = null
 ) {
     val calificada: Boolean get() = nota.isNotBlank()
+
+    /** Las calificaciones no traen identificador, así que la clave es dónde y cómo se llaman. */
+    val clave: String get() = "$curso|$nombre"
 }
 
 @Serializable

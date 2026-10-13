@@ -470,7 +470,7 @@ fun TarjetaActividad(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     EtiquetaEstado(actividad.estado.etiqueta, tono)
-                    actividad.nota?.let { nota -> EtiquetaEstado("Nota $nota", Tono.INFO, conPunto = false) }
+                    actividad.nota?.let { nota -> EtiquetaEstado(textoNota(nota, actividad.notaMaxima), Tono.INFO, conPunto = false) }
                     if (actividad.adjuntos.isNotEmpty()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
