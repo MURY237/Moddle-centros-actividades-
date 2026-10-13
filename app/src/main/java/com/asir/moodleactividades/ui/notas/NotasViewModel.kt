@@ -3,10 +3,15 @@ package com.asir.moodleactividades.ui.notas
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.asir.moodleactividades.data.ActividadesRepository
+import com.asir.moodleactividades.data.AjustesNotas
 import com.asir.moodleactividades.data.Conectividad
 import com.asir.moodleactividades.data.net.MoodleException
+import com.asir.moodleactividades.domain.AjusteNota
+import com.asir.moodleactividades.domain.Aprobado
+import com.asir.moodleactividades.domain.Calificacion
 import com.asir.moodleactividades.domain.FiltroNotas
 import com.asir.moodleactividades.domain.NotasDeCurso
+import com.asir.moodleactividades.domain.Veredicto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,7 +27,11 @@ data class NotasUiState(
     val asignaturas: List<String> = emptyList(),
     val asignatura: String? = null,
     val filtro: FiltroNotas = FiltroNotas.TODAS,
-    val error: String? = null
+    val error: String? = null,
+    /** Lo que el alumno ha corregido a mano, por clave de calificación. */
+    val ajustes: Map<String, AjusteNota> = emptyMap(),
+    /** La calificación abierta en la hoja de detalle. */
+    val detalle: Calificacion? = null
 ) {
     /** Hay algo en pantalla, pero es de una carga anterior y la última consulta falló. */
     val mostrandoDatosAntiguos: Boolean get() = error != null && todos.isNotEmpty()
@@ -32,11 +41,15 @@ data class NotasUiState(
 
     val totalEvaluables: Int get() = visibles.sumOf { it.calificaciones.size }
     val totalCalificadas: Int get() = visibles.sumOf { it.calificadas }
+
+    fun veredicto(calificacion: Calificacion): Veredicto =
+        Aprobado.evaluar(calificacion, ajustes[calificacion.clave])
 }
 
 class NotasViewModel(
     private val repositorio: ActividadesRepository,
-    private val conectividad: Conectividad
+    private val conectividad: Conectividad,
+    private val almacenAjustes: AjustesNotas
 ) : ViewModel() {
 
     private val _estado = MutableStateFlow(NotasUiState())
@@ -45,6 +58,7 @@ class NotasViewModel(
     private var ultimaCarga = 0L
 
     init {
+        _estado.update { it.copy(ajustes = almacenAjustes.leer()) }
         // Lo guardado se pinta al instante; si la consulta falla, al menos hay notas en
         // pantalla en vez de un error a secas.
         repositorio.notasGuardadas()?.let { guardadas ->
@@ -57,6 +71,15 @@ class NotasViewModel(
 
     fun cambiarAsignatura(asignatura: String?) =
         _estado.update { aplicarFiltro(it.copy(asignatura = asignatura)) }
+
+    fun abrirDetalle(calificacion: Calificacion) = _estado.update { it.copy(detalle = calificacion) }
+
+    fun cerrarDetalle() = _estado.update { it.copy(detalle = null) }
+
+    fun ajustar(calificacion: Calificacion, ajuste: AjusteNota) {
+        val ajustes = almacenAjustes.guardar(calificacion.clave, ajuste)
+        _estado.update { it.copy(ajustes = ajustes) }
+    }
 
     private fun aplicarFiltro(estado: NotasUiState): NotasUiState {
         val asignaturas = estado.todos.map { it.curso }.distinct()

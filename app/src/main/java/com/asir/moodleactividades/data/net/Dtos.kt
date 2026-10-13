@@ -42,6 +42,8 @@ data class TareaDto(
     val duedate: Long = 0,
     val cutoffdate: Long = 0,
     val allowsubmissionsfromdate: Long = 0,
+    /** La nota máxima; negativa si se califica con una escala, cero si no se califica. */
+    val grade: Double = 0.0,
     val intro: String = "",
     val introattachments: List<ArchivoDto> = emptyList(),
     val introfiles: List<ArchivoDto> = emptyList()

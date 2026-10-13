@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.asir.moodleactividades.data.AjustesAvisos
 import com.asir.moodleactividades.data.net.Actualizacion
+import com.asir.moodleactividades.domain.Aprobado
 import com.asir.moodleactividades.domain.SondeoAsistencia
 import com.asir.moodleactividades.ui.acercade.AcercaDeScreen
 import com.asir.moodleactividades.ui.actividades.AccionesTareas
@@ -61,6 +62,7 @@ import com.asir.moodleactividades.ui.netacad.AccionesNetacad
 import com.asir.moodleactividades.ui.netacad.NetacadContenido
 import com.asir.moodleactividades.ui.netacad.NetacadUiState
 import com.asir.moodleactividades.ui.notas.AccionesNotas
+import com.asir.moodleactividades.ui.notas.DetalleNotaContenido
 import com.asir.moodleactividades.ui.notas.NotasContenido
 import com.asir.moodleactividades.ui.theme.MoodleActividadesTheme
 import com.asir.moodleactividades.ui.theme.Tono
@@ -139,6 +141,21 @@ class CapturasTest {
 
     @Test fun notasOscuro() = capturar("20-notas-oscuro", oscuro = true) {
         NotasContenido(Muestras.notas, AccionesNotas())
+    }
+
+    @Test fun notaDetalle() = capturar("21-nota-detalle") {
+        val calificacion = Muestras.cursos.flatMap { it.calificaciones }.first { it.nombre == "Repaso de ACL" }
+        Surface(color = MaterialTheme.colorScheme.surface) {
+            DetalleNotaContenido(calificacion, null, Aprobado.evaluar(calificacion), alAbrirEnMoodle = {})
+        }
+    }
+
+    @Test fun notaDetalleSupuesta() = capturar("22-nota-detalle-supuesta") {
+        // Moodle no dice sobre cuánto es: se supone sobre 10 y se ofrece corregirlo.
+        val calificacion = Muestras.cursos.flatMap { it.calificaciones }.first { it.nombre.startsWith("Práctica de cuotas") }
+        Surface(color = MaterialTheme.colorScheme.surface) {
+            DetalleNotaContenido(calificacion, null, Aprobado.evaluar(calificacion), alAbrirEnMoodle = {})
+        }
     }
 
     @Test fun avisos() = capturar("30-avisos") {
