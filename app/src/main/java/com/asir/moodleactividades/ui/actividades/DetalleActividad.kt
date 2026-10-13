@@ -51,6 +51,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
 import com.asir.moodleactividades.domain.Actividad
 import com.asir.moodleactividades.domain.Adjunto
+import com.asir.moodleactividades.domain.Aprobado
 import com.asir.moodleactividades.domain.EstadoActividad
 import com.asir.moodleactividades.ui.componentes.Espacio
 import com.asir.moodleactividades.ui.componentes.EtiquetaEstado
@@ -180,7 +181,7 @@ private fun CabeceraDetalle(actividad: Actividad) {
     ) {
         EtiquetaEstado(actividad.estado.etiqueta, actividad.estado.tono())
         EtiquetaEstado(actividad.tipo.etiqueta, Tono.NEUTRO, conPunto = false)
-        actividad.nota?.let { nota -> EtiquetaEstado("Nota $nota", Tono.INFO, conPunto = false) }
+        actividad.nota?.let { nota -> EtiquetaEstado(textoNota(nota, actividad.notaMaxima), Tono.INFO, conPunto = false) }
     }
 
     Text(
@@ -321,3 +322,7 @@ private fun tamanoLegible(bytes: Long): String = when {
     bytes < 1024 * 1024 -> String.format(Locale.getDefault(), "%.0f KB", bytes / 1024.0)
     else -> String.format(Locale.getDefault(), "%.1f MB", bytes / (1024.0 * 1024))
 }
+
+/** «Nota 1,80 / 2»: sin el máximo, un 1,80 no dice nada. */
+internal fun textoNota(nota: String, maxima: Double?): String =
+    "Nota $nota" + maxima?.let { " / " + Aprobado.cifra(it) }.orEmpty()

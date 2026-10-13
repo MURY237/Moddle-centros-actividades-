@@ -16,18 +16,14 @@ object ComparadorNotas {
         antes: List<NotasDeCurso>,
         ahora: List<NotasDeCurso>
     ): List<Calificacion> {
-        val previas = antes.flatMap { it.calificaciones }.associate { clave(it) to it.nota }
+        val previas = antes.flatMap { it.calificaciones }.associate { it.clave to it.nota }
         return ahora.flatMap { it.calificaciones }
             // El total del curso se mueve con cada nota; avisar de él sería avisar dos veces.
             .filterNot { it.esTotalDelCurso }
             .filter { it.calificada }
             .filter { actual ->
-                val anterior = previas[clave(actual)]
+                val anterior = previas[actual.clave]
                 anterior != null && anterior != actual.nota
             }
     }
-
-    /** Las calificaciones no traen identificador, así que la clave es dónde y cómo se llaman. */
-    private fun clave(calificacion: Calificacion) =
-        calificacion.curso + "|" + calificacion.nombre
 }
