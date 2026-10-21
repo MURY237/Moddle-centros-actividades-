@@ -176,4 +176,40 @@ class ClasificadorTest {
             grupos
         )
     }
+
+    @Test
+    fun `un examen pasado marcado a mano cuenta como entregado`() {
+        val examen = actividad(ahora - unDia, EstadoActividad.NO_ENTREGADA)
+        val marcadas = Clasificador.aplicarMarcas(listOf(examen), setOf(examen.clave))
+
+        assertEquals(EstadoActividad.ENTREGADA, marcadas.single().estado)
+        assertTrue(marcadas.single().marcadaEntregada)
+        assertEquals(ResumenActividades(0, 1, 0), Clasificador.resumir(marcadas))
+    }
+
+    @Test
+    fun `lo marcado como entregado no se recuerda`() {
+        val proxima = actividad(ahora + 3600, EstadoActividad.PENDIENTE)
+        val marcadas = Clasificador.aplicarMarcas(listOf(proxima), setOf(proxima.clave))
+
+        assertTrue(Clasificador.porVencer(marcadas, ahora, unDia).isEmpty())
+    }
+
+    @Test
+    fun `la marca no confunde una tarea con un evento del mismo id`() {
+        val tarea = actividad(ahora - unDia, EstadoActividad.NO_ENTREGADA)
+        val evento = tarea.copy(tipo = TipoActividad.CUESTIONARIO)
+        val marcadas = Clasificador.aplicarMarcas(listOf(tarea, evento), setOf(evento.clave))
+
+        assertEquals(EstadoActividad.NO_ENTREGADA, marcadas[0].estado)
+        assertEquals(EstadoActividad.ENTREGADA, marcadas[1].estado)
+    }
+
+    @Test
+    fun `lo entregado en Moodle no se marca como manual`() {
+        val entregada = actividad(ahora - unDia, EstadoActividad.ENTREGADA)
+        val marcadas = Clasificador.aplicarMarcas(listOf(entregada), setOf(entregada.clave))
+
+        assertFalse(marcadas.single().marcadaEntregada)
+    }
 }

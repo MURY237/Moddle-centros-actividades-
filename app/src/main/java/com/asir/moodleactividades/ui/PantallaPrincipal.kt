@@ -210,6 +210,7 @@ fun PantallaPrincipal(
                 alCambiarAntelacion = { ajustes.cambiarAntelacion(it, contexto) },
                 alCambiarFrecuencia = { ajustes.cambiarFrecuencia(it, contexto) },
                 alCambiarHora = { ajustes.cambiarHora(it, contexto) },
+                alCambiarGrupos = { ajustes.cambiarAvisoGrupos(it, contexto) },
                 asistencia = estadoAsistencia,
                 alComprobarAsistencia = asistencia::comprobar,
                 alVerFaltasSeneca = { seccion = Seccion.FALTAS },

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.asir.moodleactividades.data.ActividadesRepository
 import com.asir.moodleactividades.data.Conectividad
 import com.asir.moodleactividades.data.DescargaAdjuntos
+import com.asir.moodleactividades.data.EntregasManuales
 import com.asir.moodleactividades.data.net.MoodleException
 import com.asir.moodleactividades.domain.Actividad
 import com.asir.moodleactividades.domain.Adjunto
@@ -47,8 +48,14 @@ data class ActividadesUiState(
     val datosDeCache: Boolean = false,
     val momentoDatos: Long? = null,
     val detalle: Actividad? = null,
-    val descargas: Map<String, DescargaUi> = emptyMap()
+    val descargas: Map<String, DescargaUi> = emptyMap(),
+    /** Claves de lo que el alumno ha marcado como entregado. */
+    val marcadas: Set<String> = emptySet()
 ) {
+    /** La actividad tal como se enseña: con la marca del alumno, si la tiene. */
+    fun conMarca(actividad: Actividad): Actividad =
+        Clasificador.aplicarMarcas(listOf(actividad), marcadas).first()
+
     /** Hay algo que enseñar, pero es una copia guardada y la última consulta al centro falló. */
     val mostrandoDatosAntiguos: Boolean
         get() = datosDeCache && error != null && todas.isNotEmpty()
@@ -57,10 +64,11 @@ data class ActividadesUiState(
 class ActividadesViewModel(
     private val repositorio: ActividadesRepository,
     private val conectividad: Conectividad,
-    private val descargas: DescargaAdjuntos
+    private val descargas: DescargaAdjuntos,
+    private val entregasManuales: EntregasManuales
 ) : ViewModel() {
 
-    private val _estado = MutableStateFlow(ActividadesUiState())
+    private val _estado = MutableStateFlow(ActividadesUiState(marcadas = entregasManuales.leer()))
     val estado: StateFlow<ActividadesUiState> = _estado.asStateFlow()
 
     init {
@@ -107,10 +115,18 @@ class ActividadesViewModel(
                 archivo = guardado
             )
         }
-        _estado.update { it.copy(detalle = actividad, descargas = enCurso + estados) }
+        // Se guarda la original, sin la marca: quitarla tiene que poder devolver su estado real.
+        val original = _estado.value.todas.firstOrNull { it.clave == actividad.clave } ?: actividad
+        _estado.update { it.copy(detalle = original, descargas = enCurso + estados) }
     }
 
     fun cerrarDetalle() = _estado.update { it.copy(detalle = null) }
+
+    /** Dar por entregada una actividad sin nada que subir, o quitarle esa marca. */
+    fun marcarEntregada(actividad: Actividad, entregada: Boolean) {
+        val marcadas = entregasManuales.cambiar(actividad.clave, entregada)
+        _estado.update { recalcular(it.copy(marcadas = marcadas)) }
+    }
 
     fun descargar(adjunto: Adjunto) {
         if (_estado.value.descargas[adjunto.url]?.estado == EstadoDescarga.DESCARGANDO) return
@@ -204,7 +220,8 @@ class ActividadesViewModel(
             .sorted()
         val asignatura = estado.asignatura?.takeIf { it in asignaturas }
 
-        val deLaAsignatura = estado.todas.filter { asignatura == null || it.curso == asignatura }
+        val deLaAsignatura = Clasificador.aplicarMarcas(estado.todas, estado.marcadas)
+            .filter { asignatura == null || it.curso == asignatura }
         val visibles = deLaAsignatura
             .filter { estado.filtroEstado.estado == null || it.estado == estado.filtroEstado.estado }
             .filter { Clasificador.dentroDelRango(it, estado.rango, ahora) }

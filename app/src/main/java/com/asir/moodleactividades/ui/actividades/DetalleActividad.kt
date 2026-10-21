@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableChart
+import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,7 +38,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -74,7 +77,8 @@ fun HojaDetalleActividad(
     alDescargar: (Adjunto) -> Unit,
     alAbrirArchivo: (Adjunto, File) -> Unit,
     alCompartirArchivo: (Adjunto, File) -> Unit,
-    alAbrirEnMoodle: () -> Unit
+    alAbrirEnMoodle: () -> Unit,
+    alMarcarEntregada: (Boolean) -> Unit
 ) {
     val estadoHoja = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -89,7 +93,8 @@ fun HojaDetalleActividad(
             alDescargar = alDescargar,
             alAbrirArchivo = alAbrirArchivo,
             alCompartirArchivo = alCompartirArchivo,
-            alAbrirEnMoodle = alAbrirEnMoodle
+            alAbrirEnMoodle = alAbrirEnMoodle,
+            alMarcarEntregada = alMarcarEntregada
         )
     }
 }
@@ -102,7 +107,8 @@ fun DetalleActividadContenido(
     alDescargar: (Adjunto) -> Unit = {},
     alAbrirArchivo: (Adjunto, File) -> Unit = { _, _ -> },
     alCompartirArchivo: (Adjunto, File) -> Unit = { _, _ -> },
-    alAbrirEnMoodle: () -> Unit = {}
+    alAbrirEnMoodle: () -> Unit = {},
+    alMarcarEntregada: (Boolean) -> Unit = {}
 ) {
     run {
         // La hoja no desplaza su contenido por sí sola: un enunciado largo con adjuntos se
@@ -142,6 +148,8 @@ fun DetalleActividadContenido(
                 }
             }
 
+            MarcaEntrega(actividad, alMarcarEntregada)
+
             if (actividad.url != null) {
                 Spacer(Modifier.height(Espacio.xl))
                 Button(
@@ -179,7 +187,10 @@ private fun CabeceraDetalle(actividad: Actividad) {
         horizontalArrangement = Arrangement.spacedBy(Espacio.s),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        EtiquetaEstado(actividad.estado.etiqueta, actividad.estado.tono())
+        EtiquetaEstado(
+            if (actividad.marcadaEntregada) "Entregada a mano" else actividad.estado.etiqueta,
+            actividad.estado.tono()
+        )
         EtiquetaEstado(actividad.tipo.etiqueta, Tono.NEUTRO, conPunto = false)
         actividad.nota?.let { nota -> EtiquetaEstado(textoNota(nota, actividad.notaMaxima), Tono.INFO, conPunto = false) }
     }
@@ -194,6 +205,46 @@ private fun CabeceraDetalle(actividad: Actividad) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 10.dp)
     )
+}
+
+/**
+ * Un examen o una actividad sin nada que subir se queda en «No entregada» para siempre: aquí
+ * se puede dar por entregada. Lo que ya consta como entregado en Moodle no se toca.
+ */
+@Composable
+private fun MarcaEntrega(actividad: Actividad, alMarcar: (Boolean) -> Unit) {
+    when {
+        actividad.marcadaEntregada -> Row(
+            modifier = Modifier.fillMaxWidth().padding(top = Espacio.l),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "La has marcado tú como entregada. En Moodle no cambia nada.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = { alMarcar(false) }) { Text("Quitar marca") }
+        }
+
+        actividad.estado != EstadoActividad.ENTREGADA -> Column(modifier = Modifier.padding(top = Espacio.l)) {
+            OutlinedButton(onClick = { alMarcar(true) }, modifier = Modifier.fillMaxWidth()) {
+                Icon(
+                    imageVector = Icons.Default.TaskAlt,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.size(8.dp))
+                Text("Marcar como entregada")
+            }
+            Text(
+                text = "Para exámenes o actividades sin nada que subir. Solo cambia en este móvil.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = Espacio.xs)
+            )
+        }
+    }
 }
 
 @Composable
