@@ -79,12 +79,19 @@ jobs:
           SUPABASE_CLAVE: ${{ secrets.SUPABASE_CLAVE }}
           FIREBASE_JSON: ${{ secrets.FIREBASE_JSON }}
         run: |
-          if [ -n "$FIREBASE_JSON" ]; then
+          if [ -z "$FIREBASE_JSON" ]; then
+            echo "FIREBASE_JSON: no está"
+          elif echo "$FIREBASE_JSON" | jq -e '.type == "service_account" or has("private_key")' >/dev/null 2>&1; then
+            echo "FIREBASE_JSON: MAL. Tiene la clave privada de la cuenta de servicio; ahí va google-services.json"
+          elif echo "$FIREBASE_JSON" | jq -e 'has("project_info") and has("client")' >/dev/null 2>&1; then
             echo "FIREBASE_JSON: sí, proyecto $(echo "$FIREBASE_JSON" | jq -r '.project_info.project_id'), apps: $(echo "$FIREBASE_JSON" | jq -r '[.client[].client_info.android_client_info.package_name] | join(", ")')"
           else
-            echo "FIREBASE_JSON: no está"
+            echo "FIREBASE_JSON: está, pero no es un google-services.json"
           fi
-          if [ -z "$SUPABASE_URL" ]; then echo "Sin SUPABASE_URL: no se puede mirar el servidor"; exit 0; fi
+          # La dirección y la clave pública también pueden ir en gradle.properties.
+          [ -n "$SUPABASE_URL" ] || SUPABASE_URL=$(sed -n 's/^supabase\.url=//p' gradle.properties)
+          [ -n "$SUPABASE_CLAVE" ] || SUPABASE_CLAVE=$(sed -n 's/^supabase\.clave=//p' gradle.properties)
+          if [ -z "$SUPABASE_URL" ]; then echo "Sin dirección de Supabase: no se puede mirar el servidor"; exit 0; fi
           U="${SUPABASE_URL%/}"
           echo "Función avisar (404 = no desplegada; 401 = desplegada, pide sesión):"
           curl -s -m 20 -X POST "$U/functions/v1/avisar" -H "apikey: $SUPABASE_CLAVE" \
