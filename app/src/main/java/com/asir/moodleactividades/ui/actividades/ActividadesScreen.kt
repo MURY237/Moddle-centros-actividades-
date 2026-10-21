@@ -121,7 +121,7 @@ fun ActividadesScreen(
 
     estado.detalle?.let { actividad ->
         HojaDetalleActividad(
-            actividad = actividad,
+            actividad = estado.conMarca(actividad),
             descargas = estado.descargas,
             alCerrar = viewModel::cerrarDetalle,
             alDescargar = viewModel::descargar,
@@ -129,7 +129,8 @@ fun ActividadesScreen(
             alCompartirArchivo = { adjunto, archivo -> abrirIntent(viewModel.intentCompartir(adjunto, archivo)) },
             alAbrirEnMoodle = {
                 actividad.url?.let { enlace -> abrirIntent(Intent(Intent.ACTION_VIEW, enlace.toUri())) }
-            }
+            },
+            alMarcarEntregada = { viewModel.marcarEntregada(actividad, it) }
         )
     }
 

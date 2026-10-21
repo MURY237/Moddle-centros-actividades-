@@ -1,6 +1,7 @@
 package com.asir.moodleactividades.domain
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 enum class EstadoActividad(val etiqueta: String) {
     PENDIENTE("Pendiente"),
@@ -61,8 +62,16 @@ data class Actividad(
     val descripcion: String = "",
     val adjuntos: List<Adjunto> = emptyList(),
     /** Sobre cuánto es la tarea, cuando Moodle lo dice. */
-    val notaMaxima: Double? = null
+    val notaMaxima: Double? = null,
+    /**
+     * El alumno la ha dado por entregada aunque Moodle no lo sepa: un examen que solo tiene
+     * nota no tiene nada que subir. No se guarda en la copia: se aplica al leerla.
+     */
+    @Transient val marcadaEntregada: Boolean = false
 ) {
+    /** El id de una tarea puede coincidir con el de un evento: la clave lleva el tipo. */
+    val clave: String get() = "${tipo.name}-$id"
+
     val tieneDetalle: Boolean get() = descripcion.isNotBlank() || adjuntos.isNotEmpty()
 }
 
