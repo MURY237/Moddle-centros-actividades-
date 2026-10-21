@@ -64,13 +64,13 @@ class GruposWorker(
         val mensajes = repositorio.mensajes(grupo.id, ultimoMensaje)
         vistos.marcarMensaje(grupo.id, NovedadesGrupo.ultimo(ultimoMensaje, mensajes.map { it.id }))
         val nuevos = NovedadesGrupo.mensajes(mensajes, ultimoMensaje, yo)
-        if (nuevos.isNotEmpty()) {
+        if (nuevos.isNotEmpty() && VistosGrupos.enPantalla != grupo.id) {
             val miembros = runCatching { repositorio.miembros(grupo.id) }.getOrDefault(emptyList())
-            Recordatorios.avisarDeMensajes(
-                contexto,
-                grupo,
-                nuevos.map { Chat.apodoDe(it.autor, miembros) to it.texto }
+            val pendientes = vistos.acumular(
+                grupo.id,
+                nuevos.map { Chat.apodoDe(it.autor, miembros) + ": " + it.texto }
             )
+            Recordatorios.avisarDeMensajes(contexto, grupo, pendientes)
         }
 
         val ultimoExamen = vistos.ultimoExamen(grupo.id)

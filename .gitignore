@@ -11,3 +11,5 @@ captures/
 *.aab
 *.keystore
 !/debug.keystore
+# Configuración de Firebase: va como secreto FIREBASE_JSON, no en el repositorio.
+app/google-services.json

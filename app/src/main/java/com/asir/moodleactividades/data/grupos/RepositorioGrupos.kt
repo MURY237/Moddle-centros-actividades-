@@ -139,6 +139,26 @@ class RepositorioGrupos(private val cliente: ClienteSupabase) {
     suspend fun renovarCodigo(grupo: String): String =
         json.decodeFromString<String>(cliente.rpc("renovar_codigo", buildJsonObject { put("p_grupo", grupo) }))
 
+    /** Apunta este móvil para recibir avisos de los grupos (Firebase). */
+    suspend fun registrarDispositivo(token: String) {
+        cliente.rpc("registrar_dispositivo", buildJsonObject { put("p_token", token) })
+    }
+
+    /**
+     * Pide al servidor que avise a los demás miembros de un mensaje o examen recién
+     * puesto. El servidor comprueba que es de quien llama y que no se ha avisado ya.
+     */
+    suspend fun avisarAlGrupo(tipo: String, id: Long) {
+        cliente.post(
+            cliente.url("functions/v1/avisar").build(),
+            buildJsonObject {
+                put("tipo", tipo)
+                put("id", id)
+            },
+            representacion = false
+        )
+    }
+
     suspend fun salir(grupo: String) {
         cliente.rpc("salir", buildJsonObject { put("p_grupo", grupo) })
     }

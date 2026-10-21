@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.asir.moodleactividades.Dependencias
 import com.asir.moodleactividades.fabrica
+import com.asir.moodleactividades.notificaciones.Empuje
 import com.asir.moodleactividades.notificaciones.Recordatorios
 import com.asir.moodleactividades.notificaciones.RecordatoriosWorker
 import com.asir.moodleactividades.ui.acercade.AcercaDeScreen
@@ -119,6 +120,8 @@ fun PantallaPrincipal(
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             pedirPermiso.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+        // Los avisos al instante de los grupos, si la app lleva Firebase.
+        runCatching { Empuje.registrar(contexto, dependencias) }
     }
 
     // Volver a la app es el momento en que se quiere ver lo último, así que ahí se refresca
