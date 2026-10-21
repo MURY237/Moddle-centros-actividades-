@@ -90,9 +90,39 @@ los otros. Todos llegan con la app cerrada:
 | Notas publicadas | Una actividad ya conocida pasa a tener nota, o esa nota cambia | Igual |
 | Grupos: chat y exámenes | Alguien escribe en el chat o apunta un examen en uno de tus grupos | Cada 15 minutos |
 
-Los grupos se miran cada 15 minutos porque es lo más frecuente que Android permite a una
-app sin servidor de notificaciones propio. Lo que ya se ha leído con el chat abierto no se
-vuelve a avisar, y los mensajes propios tampoco.
+Si el servidor de grupos tiene montados los avisos de Firebase (abajo), los mensajes y
+exámenes llegan **al momento**. Si no, se miran cada 15 minutos, que es lo más frecuente que
+Android permite sin un servidor de notificaciones. Lo que ya se ha leído con el chat abierto
+no se vuelve a avisar, los mensajes propios tampoco, y con el chat de ese grupo en pantalla
+sus avisos se callan.
+
+### Avisos al instante con Firebase (una vez)
+
+Cuando alguien envía un mensaje o apunta un examen, la app pide a la función `avisar` de
+Supabase que avise a los demás. La función comprueba que el mensaje es de quien llama, que
+es reciente y que no se ha avisado ya, y lo manda por Firebase Cloud Messaging solo a los
+móviles de los miembros del grupo.
+
+1. En [console.firebase.google.com](https://console.firebase.google.com) crea un proyecto
+   (Analytics no hace falta).
+2. Añade una app **Android** con el paquete `com.asir.moodleactividades` y descarga
+   `google-services.json`. Lo que lleva es público por diseño, como la clave pública de
+   Supabase.
+3. En GitHub: *Settings → Secrets and variables → Actions → New repository secret*, con
+   nombre `FIREBASE_JSON` y como valor el contenido entero de ese fichero.
+4. En Firebase: *Configuración del proyecto → Cuentas de servicio → Generar nueva clave
+   privada*. Ese JSON **sí es secreto**: no va en la app ni en el repositorio.
+5. En Supabase: *Edge Functions → Secrets*, añade `FIREBASE_CUENTA` con el contenido de ese
+   JSON.
+6. En Supabase: *SQL Editor*, ejecuta otra vez `supabase/esquema.sql` (añade las tablas
+   `dispositivos` y `avisados`).
+7. En Supabase: *Edge Functions → Deploy a new function → Via Editor*, nombre `avisar`,
+   pega `supabase/functions/avisar/index.ts` y despliega. Con la CLI es
+   `supabase functions deploy avisar`.
+8. La siguiente versión que compile GitHub ya lleva Firebase. Al abrirla, cada móvil se
+   apunta solo.
+
+Sin estos pasos todo sigue funcionando con la comprobación de cada 15 minutos.
 
 Muchos móviles (Xiaomi, Samsung, Huawei…) retrasan o cortan el trabajo en segundo plano
 para ahorrar batería, y entonces los avisos solo llegan al abrir la app. En
@@ -303,6 +333,10 @@ por el mismo motivo: lo que sigue estando por hacer no debe esconderse.
 - **Token de Moodle:** cifrado igual que las contraseñas, y solo se añade a archivos
   del propio centro por HTTPS; nunca a un enlace de otro dominio.
 - **Red:** sin tráfico en claro en toda la app (`seguridad_red.xml`).
+- **Avisos de los grupos (Firebase):** el texto del mensaje viaja en el aviso por los
+  servidores de Google hasta los móviles de los miembros del grupo, y a nadie más. La
+  cuenta de servicio que los firma solo está en los secretos de Supabase; los móviles
+  apuntados no se pueden leer desde la app.
 - **Navegadores de Séneca y NetAcad:** sin acceso a ficheros del móvil, y se destruyen
   al salir de su pantalla.
 - **Archivos compartidos:** el `FileProvider` solo expone las carpetas de adjuntos y

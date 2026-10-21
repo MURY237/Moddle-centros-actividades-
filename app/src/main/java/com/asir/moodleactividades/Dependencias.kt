@@ -28,6 +28,7 @@ import com.asir.moodleactividades.data.grupos.GuardaSesionPrefs
 import com.asir.moodleactividades.data.grupos.RepositorioGrupos
 import com.asir.moodleactividades.data.grupos.VistosGrupos
 import com.asir.moodleactividades.notificaciones.AvisosEnviados
+import com.asir.moodleactividades.notificaciones.Empuje
 import com.asir.moodleactividades.notificaciones.RecordatoriosWorker
 import com.asir.moodleactividades.ui.actividades.ActividadesViewModel
 import com.asir.moodleactividades.ui.ajustes.AjustesViewModel
@@ -44,6 +45,11 @@ import com.asir.moodleactividades.ui.notas.NotasViewModel
 /** La aplicación solo existe para guardar las dependencias durante toda su vida. */
 class AppActividades : Application() {
     val dependencias: Dependencias by lazy { Dependencias(this) }
+
+    override fun onCreate() {
+        super.onCreate()
+        Empuje.iniciar(this)
+    }
 }
 
 /**
@@ -97,7 +103,9 @@ class Dependencias(contexto: Context) {
         historial,
         CredencialesCifradas(app, CredencialesCifradas.NETACAD)
     )
-    fun grupos() = GruposViewModel(repositorioGrupos, VistosGrupos(app))
+    fun grupos() = GruposViewModel(repositorioGrupos, VistosGrupos(app)) {
+        Empuje.registrar(app, this)
+    }
     fun horario() = HorarioViewModel(AlmacenHorario(app))
 
     /** El papel de la parada va en otro almacén: es un documento distinto del horario de clase. */
