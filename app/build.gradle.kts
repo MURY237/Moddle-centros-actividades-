@@ -52,8 +52,23 @@ val firebase: Map<String, String> = run {
         ?: file("google-services.json").takeIf { it.exists() }?.readText()
         ?: return@run emptyMap()
     val raiz = groovy.json.JsonSlurper().parseText(texto) as Map<String, Any?>
-    val proyecto = raiz["project_info"] as Map<String, Any?>
-    val cliente = (raiz["client"] as List<Map<String, Any?>>).firstOrNull { c ->
+    // La clave privada de la cuenta de servicio dentro de un APK dejaría a cualquiera mandar
+    // avisos en nombre del proyecto: con ella no se compila.
+    if (raiz["type"] == "service_account" || raiz.containsKey("private_key")) {
+        throw GradleException(
+            "FIREBASE_JSON tiene la CLAVE PRIVADA de la cuenta de servicio. Esa va solo en Supabase " +
+                "(secreto FIREBASE_CUENTA). En FIREBASE_JSON va google-services.json."
+        )
+    }
+    val proyecto = raiz["project_info"] as? Map<String, Any?>
+    val clientes = raiz["client"] as? List<Map<String, Any?>>
+    if (proyecto == null || clientes == null) {
+        throw GradleException(
+            "FIREBASE_JSON no es un google-services.json (le faltan project_info y client). " +
+                "Descárgalo en Firebase: Configuración del proyecto > Tus apps > Android."
+        )
+    }
+    val cliente = clientes.firstOrNull { c ->
         ((c["client_info"] as Map<String, Any?>)["android_client_info"] as Map<String, Any?>)["package_name"] ==
             "com.asir.moodleactividades"
     } ?: throw GradleException(
@@ -66,6 +81,10 @@ val firebase: Map<String, String> = run {
         "SENDER_ID" to proyecto["project_number"].toString()
     )
 }
+println(
+    if (firebase.isEmpty()) "Firebase: sin configurar (los grupos avisan cada 15 minutos)"
+    else "Firebase: proyecto ${firebase["PROJECT_ID"]}"
+)
 // Van a código Java generado: solo con la forma esperada.
 firebase.forEach { (clave, valor) ->
     if (!Regex("^[A-Za-z0-9:._-]+$").matches(valor)) {
@@ -81,8 +100,8 @@ android {
         applicationId = "com.asir.moodleactividades"
         minSdk = 26
         targetSdk = 35
-        versionCode = 57
-        versionName = "2.4"
+        versionCode = 58
+        versionName = "2.4.1"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_CLAVE", "\"$supabaseClave\"")
