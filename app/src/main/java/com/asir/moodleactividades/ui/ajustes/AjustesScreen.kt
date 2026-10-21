@@ -39,6 +39,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.asir.moodleactividades.data.AjustesAvisos
+import com.asir.moodleactividades.notificaciones.Empuje
 import com.asir.moodleactividades.ui.componentes.Aviso
 import com.asir.moodleactividades.ui.componentes.DivisorFila
 import com.asir.moodleactividades.ui.componentes.EntreFiltros
@@ -125,7 +126,11 @@ fun AjustesAvisosSeccion(
             DivisorFila()
             FilaInterruptor(
                 titulo = "Mensajes de los grupos",
-                detalle = "Mensajes del chat y exámenes nuevos, con la app cerrada. Se mira cada 15 minutos.",
+                detalle = if (Empuje.disponible(LocalContext.current)) {
+                    "Mensajes del chat y exámenes nuevos, al momento y con la app cerrada."
+                } else {
+                    "Mensajes del chat y exámenes nuevos, con la app cerrada. Se mira cada 15 minutos."
+                },
                 icono = Icons.Default.Forum,
                 tono = Tono.INFO,
                 activo = ajustes.avisarGrupos,

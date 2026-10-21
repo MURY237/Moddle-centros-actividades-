@@ -53,6 +53,10 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/pglite" --no-save --no-audit --no-fund @electric-sql/pglite@0.5.8
           NODE_PATH="$RUNNER_TEMP/pglite/node_modules" node supabase/pruebas/reglas.test.js supabase/esquema.sql
 
+      # La función que manda los avisos al móvil, contra un servidor de mentira.
+      - name: Probar la función de avisos
+        run: node --experimental-strip-types supabase/pruebas/avisar.test.mjs supabase/functions/avisar/index.ts
+
       # Firma propia, solo si están los secretos. Sin ellos se firma como siempre.
       - name: Preparar la firma propia
         env:
@@ -72,6 +76,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_CLAVE: ${{ secrets.SUPABASE_CLAVE }}
+          FIREBASE_JSON: ${{ secrets.FIREBASE_JSON }}
           FIRMA_CLAVE_ALMACEN: ${{ secrets.FIRMA_CLAVE_ALMACEN }}
           FIRMA_ALIAS: ${{ secrets.FIRMA_ALIAS }}
           FIRMA_CLAVE: ${{ secrets.FIRMA_CLAVE }}

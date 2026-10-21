@@ -299,6 +299,64 @@ create policy examenes_cambiar on public.examenes for update to authenticated
 create policy examenes_borrar on public.examenes for delete to authenticated
   using (autor = (select auth.uid()) or public.es_creador(grupo));
 
+-- ---------------------------------------------------------------- avisos al móvil
+
+-- Los móviles a los que mandar un aviso (Firebase Cloud Messaging). Nadie los puede leer
+-- desde la app: solo la función «avisar» del servidor, con su propia clave. Un móvil se
+-- apunta con «registrar_dispositivo» y queda a nombre de quien lo registra.
+create table if not exists public.dispositivos (
+  token        text primary key check (char_length(token) between 20 and 4096),
+  usuario      uuid not null references auth.users(id) on delete cascade,
+  actualizado  timestamptz not null default now()
+);
+create index if not exists dispositivos_usuario on public.dispositivos (usuario);
+
+-- Lo ya avisado: la función no manda dos veces lo mismo aunque la llamen dos veces.
+create table if not exists public.avisados (
+  tipo     text not null check (tipo in ('mensaje', 'examen')),
+  id       bigint not null,
+  momento  timestamptz not null default now(),
+  primary key (tipo, id)
+);
+
+revoke all on public.dispositivos, public.avisados from anon, authenticated;
+alter table public.dispositivos enable row level security;
+alter table public.avisados enable row level security;
+
+create or replace function public.registrar_dispositivo(p_token text)
+returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  yo uuid := auth.uid();
+begin
+  if yo is null then raise exception 'sin_sesion'; end if;
+  p_token := btrim(coalesce(p_token, ''));
+  if char_length(p_token) not between 20 and 4096 then raise exception 'token_no_valido'; end if;
+
+  -- Un móvil que cambia de identidad deja de avisar a la anterior.
+  insert into public.dispositivos (token, usuario) values (p_token, yo)
+  on conflict (token) do update set usuario = excluded.usuario, actualizado = now();
+
+  -- Tope por cuenta: se quedan los cinco más recientes.
+  delete from public.dispositivos d
+  where d.usuario = yo and d.token not in (
+    select x.token from public.dispositivos x
+    where x.usuario = yo order by x.actualizado desc limit 5
+  );
+end;
+$$;
+
+create or replace function public.olvidar_dispositivo(p_token text)
+returns void
+language sql security definer set search_path = '' as $$
+  delete from public.dispositivos where token = p_token and usuario = auth.uid();
+$$;
+
+revoke all on function public.registrar_dispositivo(text), public.olvidar_dispositivo(text)
+  from public, anon, authenticated;
+grant execute on function public.registrar_dispositivo(text), public.olvidar_dispositivo(text)
+  to authenticated;
+
 -- ---------------------------------------------------------------- latido
 
 -- La llama cada tres días una tarea de GitHub Actions (.github/workflows/latido.yml)

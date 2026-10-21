@@ -42,6 +42,37 @@ if (claveSupabaseSecreta) {
     )
 }
 
+// Avisos al instante (Firebase Cloud Messaging). Se saca de google-services.json: del secreto
+// FIREBASE_JSON en CI o del fichero app/google-services.json, que no se sube al repositorio.
+// Sin él la app compila igual y los grupos avisan con la comprobación de cada 15 minutos.
+// No se usa el plugin de Google: solo hacen falta cuatro datos, y así no es obligatorio.
+@Suppress("UNCHECKED_CAST")
+val firebase: Map<String, String> = run {
+    val texto = System.getenv("FIREBASE_JSON")?.takeIf { it.isNotBlank() }
+        ?: file("google-services.json").takeIf { it.exists() }?.readText()
+        ?: return@run emptyMap()
+    val raiz = groovy.json.JsonSlurper().parseText(texto) as Map<String, Any?>
+    val proyecto = raiz["project_info"] as Map<String, Any?>
+    val cliente = (raiz["client"] as List<Map<String, Any?>>).firstOrNull { c ->
+        ((c["client_info"] as Map<String, Any?>)["android_client_info"] as Map<String, Any?>)["package_name"] ==
+            "com.asir.moodleactividades"
+    } ?: throw GradleException(
+        "google-services.json no tiene ninguna app Android con el paquete com.asir.moodleactividades"
+    )
+    mapOf(
+        "APP_ID" to (cliente["client_info"] as Map<String, Any?>)["mobilesdk_app_id"].toString(),
+        "API_KEY" to ((cliente["api_key"] as List<Map<String, Any?>>).first()["current_key"]).toString(),
+        "PROJECT_ID" to proyecto["project_id"].toString(),
+        "SENDER_ID" to proyecto["project_number"].toString()
+    )
+}
+// Van a código Java generado: solo con la forma esperada.
+firebase.forEach { (clave, valor) ->
+    if (!Regex("^[A-Za-z0-9:._-]+$").matches(valor)) {
+        throw GradleException("google-services.json: $clave tiene una forma inesperada")
+    }
+}
+
 android {
     namespace = "com.asir.moodleactividades"
     compileSdk = 35
@@ -50,11 +81,14 @@ android {
         applicationId = "com.asir.moodleactividades"
         minSdk = 26
         targetSdk = 35
-        versionCode = 56
-        versionName = "2.3"
+        versionCode = 57
+        versionName = "2.4"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_CLAVE", "\"$supabaseClave\"")
+        listOf("APP_ID", "API_KEY", "PROJECT_ID", "SENDER_ID").forEach { clave ->
+            buildConfigField("String", "FIREBASE_$clave", "\"${firebase[clave].orEmpty()}\"")
+        }
     }
 
     // Firma fija: sin ella cada compilación firmaría distinto y Android rechazaría instalar
@@ -153,6 +187,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.work)
+    implementation(libs.firebase.messaging)
     implementation(libs.androidx.security.crypto)
 
     debugImplementation(libs.androidx.ui.tooling)

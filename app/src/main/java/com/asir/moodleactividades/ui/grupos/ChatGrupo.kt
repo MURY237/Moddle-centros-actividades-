@@ -27,6 +27,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +37,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.asir.moodleactividades.data.grupos.VistosGrupos
 import com.asir.moodleactividades.domain.Chat
 import com.asir.moodleactividades.domain.LimitesGrupo
 import com.asir.moodleactividades.domain.Mensaje
@@ -80,6 +85,7 @@ internal fun PanelChat(
 ) {
     var texto by rememberSaveable { mutableStateOf("") }
     val zona = remember { ZoneId.systemDefault() }
+    AvisosCallados(estado.abierto?.id)
     // Al revés: la lista va pegada abajo, a lo último, y se queda ahí cuando llega algo nuevo.
     val filas = remember(estado.mensajes) { filasDe(estado.mensajes, zona).asReversed() }
 
@@ -146,6 +152,27 @@ internal fun PanelChat(
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar")
                 }
             }
+        }
+    }
+}
+
+/**
+ * Con este chat en pantalla y la app delante, sus mensajes ya se ven: los avisos de este
+ * grupo se callan. Al salir del chat o de la app vuelven.
+ */
+@Composable
+private fun AvisosCallados(grupo: String?) {
+    val ciclo = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(grupo, ciclo) {
+        fun aplicar() {
+            VistosGrupos.enPantalla = grupo.takeIf { ciclo.currentState.isAtLeast(Lifecycle.State.RESUMED) }
+        }
+        val observador = LifecycleEventObserver { _, _ -> aplicar() }
+        ciclo.addObserver(observador)
+        aplicar()
+        onDispose {
+            ciclo.removeObserver(observador)
+            if (VistosGrupos.enPantalla == grupo) VistosGrupos.enPantalla = null
         }
     }
 }

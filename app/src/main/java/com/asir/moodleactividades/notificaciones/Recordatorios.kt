@@ -121,20 +121,24 @@ object Recordatorios {
         )
     }
 
-    /** Una notificación por grupo, con los últimos mensajes; la siguiente la sustituye. */
-    fun avisarDeMensajes(contexto: Context, grupo: Grupo, mensajes: List<Pair<String, String>>) {
-        if (mensajes.isEmpty() || !puedeNotificar(contexto)) return
-        val lineas = mensajes.takeLast(MAX_LINEAS_CHAT).map { (apodo, texto) -> "$apodo: $texto" }
-        val texto = if (mensajes.size == 1) lineas.first() else "${mensajes.size} mensajes nuevos"
+    /**
+     * Una notificación por grupo con lo que ha llegado desde que se abrió por última vez
+     * («Apodo: texto»); cada aviso nuevo la sustituye con todo junto.
+     */
+    fun avisarDeMensajes(contexto: Context, grupo: Grupo, pendientes: List<String>) {
+        if (pendientes.isEmpty() || !puedeNotificar(contexto)) return
+        val lineas = pendientes.takeLast(MAX_LINEAS_CHAT)
+        val texto = if (pendientes.size == 1) lineas.first() else "${pendientes.size} mensajes nuevos"
         val estilo = NotificationCompat.InboxStyle().setBigContentTitle(grupo.nombre)
         lineas.forEach { estilo.addLine(it) }
+        if (pendientes.size > lineas.size) estilo.setSummaryText("y ${pendientes.size - lineas.size} más")
         mostrar(
             contexto,
             NotificationCompat.Builder(contexto, CANAL_GRUPOS)
                 .setContentTitle(grupo.nombre)
                 .setContentText(texto)
                 .setStyle(estilo)
-                .setNumber(mensajes.size)
+                .setNumber(pendientes.size)
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(abrir(contexto, "GRUPOS", CODIGO_GRUPOS)),
