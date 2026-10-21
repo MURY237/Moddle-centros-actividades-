@@ -23,6 +23,9 @@ class AjustesViewModel(private val preferencias: PreferenciasAvisos) : ViewModel
     fun cambiarAvisoNotas(activo: Boolean, contexto: Context) =
         aplicar(_estado.value.copy(avisarNotas = activo), contexto)
 
+    fun cambiarAvisoGrupos(activo: Boolean, contexto: Context) =
+        aplicar(_estado.value.copy(avisarGrupos = activo), contexto)
+
     fun cambiarAntelacion(horas: Int, contexto: Context) =
         aplicar(_estado.value.copy(antelacionHoras = horas), contexto)
 
@@ -37,6 +40,6 @@ class AjustesViewModel(private val preferencias: PreferenciasAvisos) : ViewModel
         _estado.value = nuevos
         // El trabajo en segundo plano lleva dentro el periodo y la hora, así que cada cambio
         // obliga a reprogramarlo.
-        RecordatoriosWorker.programar(contexto, nuevos)
+        RecordatoriosWorker.programar(contexto, nuevos, reprogramar = true)
     }
 }
