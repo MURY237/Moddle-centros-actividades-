@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.asir.moodleactividades.data.grupos.ErrorGrupos
 import com.asir.moodleactividades.data.grupos.RepositorioGrupos
+import com.asir.moodleactividades.data.grupos.VistosGrupos
 import com.asir.moodleactividades.domain.Chat
 import com.asir.moodleactividades.domain.Examen
 import com.asir.moodleactividades.domain.Grupo
@@ -60,7 +61,11 @@ data class GruposUiState(
  * [repositorio] es null cuando la app se compiló sin servidor de grupos: en vez de fallar
  * en cada llamada, la pantalla explica qué falta configurar.
  */
-class GruposViewModel(private val repositorio: RepositorioGrupos?) : ViewModel() {
+class GruposViewModel(
+    private val repositorio: RepositorioGrupos?,
+    /** Lo leído con el chat abierto no se vuelve a avisar en segundo plano. */
+    private val vistos: VistosGrupos? = null
+) : ViewModel() {
 
     private val _estado = MutableStateFlow(GruposUiState(configurado = repositorio != null))
     val estado: StateFlow<GruposUiState> = _estado.asStateFlow()
@@ -119,6 +124,7 @@ class GruposViewModel(private val repositorio: RepositorioGrupos?) : ViewModel()
                 examenesCargados = false
             )
         }
+        vistos?.abierto(grupo.id)
         viewModelScope.launch {
             traerMiembros()
             traerMensajes()
@@ -147,6 +153,7 @@ class GruposViewModel(private val repositorio: RepositorioGrupos?) : ViewModel()
             _estado.update {
                 it.copy(mensajes = Chat.fusionar(it.mensajes, nuevos), mensajesCargados = true)
             }
+            Chat.ultimoId(_estado.value.mensajes)?.let { vistos?.marcarMensaje(grupo.id, it) }
             val conocidos = _estado.value.miembros.map { it.usuario }.toSet()
             if (nuevos.any { it.autor !in conocidos }) traerMiembros()
         } catch (e: CancellationException) {
@@ -167,6 +174,7 @@ class GruposViewModel(private val repositorio: RepositorioGrupos?) : ViewModel()
             val examenes = repo.examenes(grupo.id)
             if (_estado.value.abierto?.id != grupo.id) return
             _estado.update { it.copy(examenes = examenes, examenesCargados = true) }
+            examenes.maxOfOrNull { it.id }?.let { vistos?.marcarExamen(grupo.id, it) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

@@ -16,6 +16,7 @@ import com.asir.moodleactividades.data.CacheCalificaciones
 import com.asir.moodleactividades.data.Conectividad
 import com.asir.moodleactividades.data.CredencialesCifradas
 import com.asir.moodleactividades.data.DescargaAdjuntos
+import com.asir.moodleactividades.data.EntregasManuales
 import com.asir.moodleactividades.data.HistorialAvisos
 import com.asir.moodleactividades.data.PreferenciasAvisos
 import com.asir.moodleactividades.data.SesionNetacad
@@ -25,6 +26,7 @@ import com.asir.moodleactividades.data.grupos.ClienteSupabase
 import com.asir.moodleactividades.data.grupos.ConfigSupabase
 import com.asir.moodleactividades.data.grupos.GuardaSesionPrefs
 import com.asir.moodleactividades.data.grupos.RepositorioGrupos
+import com.asir.moodleactividades.data.grupos.VistosGrupos
 import com.asir.moodleactividades.notificaciones.AvisosEnviados
 import com.asir.moodleactividades.notificaciones.RecordatoriosWorker
 import com.asir.moodleactividades.ui.actividades.ActividadesViewModel
@@ -62,15 +64,23 @@ class Dependencias(contexto: Context) {
     val sesionNetacad by lazy { SesionNetacad(app) }
 
     /** Null si la app se compiló sin servidor de grupos: la pantalla lo explica. */
-    private val repositorioGrupos: RepositorioGrupos? by lazy {
+    val repositorioGrupos: RepositorioGrupos? by lazy {
         val config = ConfigSupabase(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_CLAVE)
         if (config.configurado) RepositorioGrupos(ClienteSupabase(config, GuardaSesionPrefs(app))) else null
     }
 
+    /** Este móvil ya tiene identidad en los grupos: si no, no está en ninguno. */
+    fun hayIdentidadGrupos(): Boolean = GuardaSesionPrefs(app).leer() != null
+
     // ------------------------------------------------------------------ ViewModels
 
     fun login() = LoginViewModel(repositorio)
-    fun actividades() = ActividadesViewModel(repositorio, conectividad, DescargaAdjuntos(app, repositorio))
+    fun actividades() = ActividadesViewModel(
+        repositorio,
+        conectividad,
+        DescargaAdjuntos(app, repositorio),
+        EntregasManuales(app)
+    )
     fun notas() = NotasViewModel(repositorio, conectividad, AjustesNotas(app))
     fun asistencia() = AsistenciaViewModel(repositorio)
     fun avisos() = AvisosViewModel(historial)
@@ -87,7 +97,7 @@ class Dependencias(contexto: Context) {
         historial,
         CredencialesCifradas(app, CredencialesCifradas.NETACAD)
     )
-    fun grupos() = GruposViewModel(repositorioGrupos)
+    fun grupos() = GruposViewModel(repositorioGrupos, VistosGrupos(app))
     fun horario() = HorarioViewModel(AlmacenHorario(app))
 
     /** El papel de la parada va en otro almacén: es un documento distinto del horario de clase. */
@@ -98,9 +108,9 @@ class Dependencias(contexto: Context) {
 
     /**
      * El alumno cierra sesión: se borra todo lo de su cuenta de Moodle —token, copias,
-     * adjuntos, lo que haya corregido de sus notas— y también el historial de avisos y las
-     * notificaciones que haya en la barra, que hablan de sus notas y entregas. Antes quien
-     * entrase después las veía.
+     * adjuntos, lo que haya corregido de sus notas o marcado como entregado— y también el
+     * historial de avisos y las notificaciones que haya en la barra, que hablan de sus notas
+     * y entregas. Antes quien entrase después las veía.
      *
      * Séneca, NetAcad y los grupos son cuentas aparte y se desconectan desde su pantalla.
      */
@@ -109,6 +119,7 @@ class Dependencias(contexto: Context) {
         repositorio.cerrarSesion()
         DescargaAdjuntos(app, repositorio).borrarTodo()
         AjustesNotas(app).borrar()
+        EntregasManuales(app).borrar()
         historial.borrar()
         AvisosEnviados(app).borrarTodo()
         runCatching { NotificationManagerCompat.from(app).cancelAll() }

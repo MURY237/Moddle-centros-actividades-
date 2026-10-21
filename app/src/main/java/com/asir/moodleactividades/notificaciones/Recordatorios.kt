@@ -18,6 +18,9 @@ import com.asir.moodleactividades.data.HistorialAvisos
 import com.asir.moodleactividades.data.TipoAviso
 import com.asir.moodleactividades.domain.Actividad
 import com.asir.moodleactividades.domain.Calificacion
+import com.asir.moodleactividades.domain.Examen
+import com.asir.moodleactividades.domain.Grupo
+import com.asir.moodleactividades.domain.NovedadesGrupo
 import com.asir.moodleactividades.ui.textoRelativo
 
 object Recordatorios {
@@ -25,6 +28,7 @@ object Recordatorios {
     const val CANAL_ENTREGAS = "entregas"
     const val CANAL_NOVEDADES = "novedades"
     const val CANAL_NOTAS = "notas"
+    const val CANAL_GRUPOS = "grupos"
 
     fun crearCanales(contexto: Context) {
         val gestor = NotificationManagerCompat.from(contexto)
@@ -48,6 +52,14 @@ object Recordatorios {
                 "Notas publicadas",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply { description = "Avisos cuando un profesor califica una tarea o un examen" }
+        )
+        // Un mensaje se quiere ver al momento: este canal suena y asoma por arriba.
+        gestor.createNotificationChannel(
+            NotificationChannel(
+                CANAL_GRUPOS,
+                "Grupos: chat y exámenes",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply { description = "Mensajes y exámenes nuevos de tus grupos" }
         )
     }
 
@@ -109,6 +121,62 @@ object Recordatorios {
         )
     }
 
+    /** Una notificación por grupo, con los últimos mensajes; la siguiente la sustituye. */
+    fun avisarDeMensajes(contexto: Context, grupo: Grupo, mensajes: List<Pair<String, String>>) {
+        if (mensajes.isEmpty() || !puedeNotificar(contexto)) return
+        val lineas = mensajes.takeLast(MAX_LINEAS_CHAT).map { (apodo, texto) -> "$apodo: $texto" }
+        val texto = if (mensajes.size == 1) lineas.first() else "${mensajes.size} mensajes nuevos"
+        val estilo = NotificationCompat.InboxStyle().setBigContentTitle(grupo.nombre)
+        lineas.forEach { estilo.addLine(it) }
+        mostrar(
+            contexto,
+            NotificationCompat.Builder(contexto, CANAL_GRUPOS)
+                .setContentTitle(grupo.nombre)
+                .setContentText(texto)
+                .setStyle(estilo)
+                .setNumber(mensajes.size)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setContentIntent(abrir(contexto, "GRUPOS", CODIGO_GRUPOS)),
+            CANAL_GRUPOS,
+            grupo.id.hashCode()
+        )
+    }
+
+    fun avisarDeExamen(contexto: Context, grupo: Grupo, examen: Examen) {
+        if (!puedeNotificar(contexto)) return
+        val texto = NovedadesGrupo.cuando(examen) + " · " + grupo.nombre
+        mostrar(
+            contexto,
+            NotificationCompat.Builder(contexto, CANAL_GRUPOS)
+                .setContentTitle("Examen: ${examen.asignatura}")
+                .setContentText(texto)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(texto))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setContentIntent(abrir(contexto, "GRUPOS", CODIGO_GRUPOS)),
+            CANAL_GRUPOS,
+            ("examen-" + examen.id).hashCode()
+        )
+    }
+
+    private fun mostrar(contexto: Context, aviso: NotificationCompat.Builder, canal: String, id: Int) {
+        aviso.setSmallIcon(R.drawable.ic_aviso)
+            .setColor(COLOR_MARCA)
+            .setAutoCancel(true)
+        runCatching { NotificationManagerCompat.from(contexto).notify(canal, id, aviso.build()) }
+    }
+
+    /** Tocar el aviso lleva a la pestaña de lo que cuenta. */
+    private fun abrir(contexto: Context, seccion: String, codigo: Int): PendingIntent =
+        PendingIntent.getActivity(
+            contexto,
+            codigo,
+            Intent(contexto, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .putExtra(MainActivity.EXTRA_SECCION, seccion),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
     private fun notificar(
         contexto: Context,
         canal: String,
@@ -134,31 +202,24 @@ object Recordatorios {
 
         // Tocar el aviso lleva a donde está lo que cuenta: una nota a Notas, una entrega a
         // Tareas. Un PendingIntent por tipo basta, porque solo cambia la sección.
-        val abrirApp = PendingIntent.getActivity(
-            contexto,
-            tipo.ordinal,
-            Intent(contexto, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                .putExtra(MainActivity.EXTRA_SECCION, if (tipo == TipoAviso.NOTA) "NOTAS" else "ACTIVIDADES"),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        val abrirApp = abrir(contexto, if (tipo == TipoAviso.NOTA) "NOTAS" else "ACTIVIDADES", tipo.ordinal)
 
         val aviso = NotificationCompat.Builder(contexto, canal)
-            .setSmallIcon(R.drawable.ic_aviso)
-            .setColor(COLOR_MARCA)
             .setContentTitle(titulo)
             .setContentText(texto)
             .setStyle(NotificationCompat.BigTextStyle().bigText(texto))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setAutoCancel(true)
             .setContentIntent(abrirApp)
-            .build()
 
         // La etiqueta es el canal: así el número de una tarea no puede pisar el de una nota.
-        runCatching { NotificationManagerCompat.from(contexto).notify(canal, id, aviso) }
+        mostrar(contexto, aviso, canal, id)
     }
 
     private const val MAX_NOTAS_POR_VEZ = 5
+    private const val MAX_LINEAS_CHAT = 5
+
+    /** Lejos de los ordinales de [TipoAviso], que también son códigos de PendingIntent. */
+    private const val CODIGO_GRUPOS = 100
 
     /** El azul de la app, para el icono pequeño de la barra de estado. */
     private val COLOR_MARCA = 0xFF1F5FD1.toInt()

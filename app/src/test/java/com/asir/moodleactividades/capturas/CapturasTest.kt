@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import com.asir.moodleactividades.data.AjustesAvisos
 import com.asir.moodleactividades.data.net.Actualizacion
 import com.asir.moodleactividades.domain.Aprobado
+import com.asir.moodleactividades.domain.EstadoActividad
 import com.asir.moodleactividades.domain.SondeoAsistencia
 import com.asir.moodleactividades.ui.acercade.AcercaDeScreen
 import com.asir.moodleactividades.ui.actividades.AccionesTareas
@@ -134,6 +135,24 @@ class CapturasTest {
                     "https://moodle.ejemplo.es/a.pdf" to DescargaUi(EstadoDescarga.LISTA, File("enunciado.pdf"))
                 )
             )
+        }
+    }
+
+    @Test fun detalleMarcada() = capturar("14-detalle-marcada") {
+        // Un examen pasado sin nada que subir, dado por entregado a mano.
+        val examen = Muestras.actividades.first { it.estado == EstadoActividad.NO_ENTREGADA }
+        Surface(color = MaterialTheme.colorScheme.surface) {
+            DetalleActividadContenido(
+                actividad = examen.copy(estado = EstadoActividad.ENTREGADA, marcadaEntregada = true),
+                descargas = emptyMap()
+            )
+        }
+    }
+
+    @Test fun detallePorMarcar() = capturar("14-detalle-por-marcar") {
+        val examen = Muestras.actividades.first { it.estado == EstadoActividad.NO_ENTREGADA }
+        Surface(color = MaterialTheme.colorScheme.surface) {
+            DetalleActividadContenido(actividad = examen, descargas = emptyMap())
         }
     }
 
