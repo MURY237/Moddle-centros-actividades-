@@ -70,6 +70,23 @@ object Clasificador {
                 limite - ahora <= ventanaSegundos
         }
 
+    /**
+     * Las que el alumno ha marcado como entregadas cuentan como tales en todo: listas,
+     * resumen, filtros y recordatorios.
+     */
+    fun aplicarMarcas(actividades: List<Actividad>, marcadas: Set<String>): List<Actividad> =
+        if (marcadas.isEmpty()) {
+            actividades
+        } else {
+            actividades.map { actividad ->
+                if (actividad.clave in marcadas && actividad.estado != EstadoActividad.ENTREGADA) {
+                    actividad.copy(estado = EstadoActividad.ENTREGADA, marcadaEntregada = true)
+                } else {
+                    actividad
+                }
+            }
+        }
+
     fun resumir(actividades: List<Actividad>): ResumenActividades = ResumenActividades(
         pendientes = actividades.count { it.estado == EstadoActividad.PENDIENTE },
         entregadas = actividades.count { it.estado == EstadoActividad.ENTREGADA },

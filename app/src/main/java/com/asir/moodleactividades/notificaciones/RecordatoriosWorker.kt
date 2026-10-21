@@ -12,12 +12,14 @@ import com.asir.moodleactividades.data.ActividadesRepository
 import com.asir.moodleactividades.data.AjustesAvisos
 import com.asir.moodleactividades.data.CacheActividades
 import com.asir.moodleactividades.data.CacheCalificaciones
+import com.asir.moodleactividades.data.EntregasManuales
 import com.asir.moodleactividades.data.PreferenciasAvisos
 import com.asir.moodleactividades.data.SesionStore
 import com.asir.moodleactividades.domain.Actividad
 import com.asir.moodleactividades.domain.Clasificador
 import com.asir.moodleactividades.domain.ComparadorNotas
-import java.util.Calendar
+import com.asir.moodleactividades.domain.Programacion
+import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 
 class RecordatoriosWorker(
@@ -50,7 +52,9 @@ class RecordatoriosWorker(
         }
 
         if (ajustes.avisarEntregas) {
-            avisarDeEntregasProximas(contexto, actuales, ajustes)
+            // Lo que el alumno ha dado por entregado no se le recuerda.
+            val marcadas = EntregasManuales(contexto).leer()
+            avisarDeEntregasProximas(contexto, Clasificador.aplicarMarcas(actuales, marcadas), ajustes)
         }
 
         if (ajustes.avisarNotas) {
@@ -99,7 +103,17 @@ class RecordatoriosWorker(
     companion object {
         private const val TRABAJO = "recordatorios-entregas"
 
-        fun programar(contexto: Context, ajustes: AjustesAvisos = PreferenciasAvisos(contexto).leer()) {
+        /**
+         * Programa las comprobaciones de Moodle y las de los grupos. [reprogramar] solo al
+         * cambiar los ajustes: al abrir la app se respeta lo programado, porque rehacerlo cada
+         * vez volvía a retrasar la primera comprobación y los avisos no llegaban nunca.
+         */
+        fun programar(
+            contexto: Context,
+            ajustes: AjustesAvisos = PreferenciasAvisos(contexto).leer(),
+            reprogramar: Boolean = false
+        ) {
+            GruposWorker.programar(contexto, ajustes, reprogramar)
             if (!ajustes.avisarEntregas && !ajustes.avisarNuevas && !ajustes.avisarNotas) {
                 cancelar(contexto)
                 return
@@ -109,7 +123,14 @@ class RecordatoriosWorker(
                 ajustes.horasEntreComprobaciones,
                 TimeUnit.HOURS
             )
-                .setInitialDelay(minutosHastaLaHora(ajustes.horaPreferida), TimeUnit.MINUTES)
+                .setInitialDelay(
+                    Programacion.minutosHastaLaProxima(
+                        LocalDateTime.now(),
+                        ajustes.horaPreferida,
+                        ajustes.horasEntreComprobaciones
+                    ),
+                    TimeUnit.MINUTES
+                )
                 .setConstraints(
                     Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -120,26 +141,13 @@ class RecordatoriosWorker(
             WorkManager.getInstance(contexto).enqueueUniquePeriodicWork(
                 TRABAJO,
                 // Al cambiar los ajustes hay que rehacer el trabajo, no conservar el anterior.
-                ExistingPeriodicWorkPolicy.UPDATE,
+                if (reprogramar) ExistingPeriodicWorkPolicy.UPDATE else ExistingPeriodicWorkPolicy.KEEP,
                 peticion
             )
         }
 
         fun cancelar(contexto: Context) {
             WorkManager.getInstance(contexto).cancelUniqueWork(TRABAJO)
-        }
-
-        /** Alinea la primera comprobación con la hora elegida; las siguientes van por periodo. */
-        private fun minutosHastaLaHora(hora: Int): Long {
-            val ahora = Calendar.getInstance()
-            val objetivo = (ahora.clone() as Calendar).apply {
-                set(Calendar.HOUR_OF_DAY, hora.coerceIn(0, 23))
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-                if (before(ahora)) add(Calendar.DAY_OF_YEAR, 1)
-            }
-            return (objetivo.timeInMillis - ahora.timeInMillis) / 60_000
         }
     }
 }

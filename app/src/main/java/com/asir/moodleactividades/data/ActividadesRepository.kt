@@ -153,7 +153,7 @@ class ActividadesRepository(
 
         // El id de una tarea puede coincidir con el de un evento del calendario, así que la
         // clave lleva el tipo: sin él, un evento pisaba la tarea y le borraba estado y nota.
-        val previas = cache.leer()?.actividades?.associateBy { claveDe(it.tipo, it.id) }.orEmpty()
+        val previas = cache.leer()?.actividades?.associateBy { it.clave }.orEmpty()
         val idUsuario = idUsuario(cliente, sesion)
         val actividades = cargarTareas(cliente, ahora, previas, idUsuario) +
             cargarEventosNoTarea(cliente, ahora)

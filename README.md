@@ -80,14 +80,24 @@ guardada de las actividades queda la URL limpia, sin credencial alguna.
 
 ## Avisos
 
-Hay tres canales de notificación independientes, para poder silenciar uno sin perder
-los otros:
+Hay cuatro canales de notificación independientes, para poder silenciar uno sin perder
+los otros. Todos llegan con la app cerrada:
 
-| Canal | Cuándo avisa |
-|---|---|
-| Entregas próximas | La tarea sigue sin entregar y su plazo entra en la antelación elegida |
-| Actividades nuevas | Aparece una actividad que no estaba en la comprobación anterior |
-| Notas publicadas | Una actividad ya conocida pasa a tener nota, o esa nota cambia |
+| Canal | Cuándo avisa | Cada cuánto se mira |
+|---|---|---|
+| Entregas próximas | La tarea sigue sin entregar y su plazo entra en la antelación elegida | De 1 vez al día a cada hora |
+| Actividades nuevas | Aparece una actividad que no estaba en la comprobación anterior | Igual |
+| Notas publicadas | Una actividad ya conocida pasa a tener nota, o esa nota cambia | Igual |
+| Grupos: chat y exámenes | Alguien escribe en el chat o apunta un examen en uno de tus grupos | Cada 15 minutos |
+
+Los grupos se miran cada 15 minutos porque es lo más frecuente que Android permite a una
+app sin servidor de notificaciones propio. Lo que ya se ha leído con el chat abierto no se
+vuelve a avisar, y los mensajes propios tampoco.
+
+Muchos móviles (Xiaomi, Samsung, Huawei…) retrasan o cortan el trabajo en segundo plano
+para ahorrar batería, y entonces los avisos solo llegan al abrir la app. En
+*Avisos → Ajustes* hay una fila que dice si la app tiene esa restricción y, al tocarla,
+pide quitarla.
 
 La nota nueva se detecta comparando la consulta de calificaciones con la copia de la
 anterior. Lo que aparece por primera vez no genera aviso de nota: eso es una actividad
@@ -224,6 +234,14 @@ Las notas con palabras («Apto», «No apto», «Insuficiente»…) también se 
 Lo que se corrige se guarda solo en el móvil —Moodle no se entera— y se borra al cerrar
 sesión.
 
+## Marcar como entregada
+
+Un examen o una actividad sin nada que subir se queda en «No entregada» para siempre,
+porque Moodle no ve ninguna entrega. En la ficha de cualquier actividad que no conste como
+entregada hay un botón **Marcar como entregada**: a partir de ahí cuenta como entregada en
+las listas, el resumen y los filtros, y no se recuerda su plazo. La marca se quita desde la
+misma ficha, se guarda solo en el móvil y se borra al cerrar sesión.
+
 ## De dónde salen las asignaturas
 
 La lista de asignaturas no se deduce de las actividades, sino de la matrícula
@@ -293,7 +311,7 @@ por el mismo motivo: lo que sigue estando por hacer no debe esconderse.
   la huella SHA-256 que publica GitHub y el archivo no se da por bueno hasta que está
   completo.
 - **Cerrar sesión** borra el token, las copias de tareas y notas, lo corregido a mano
-  de las notas, los adjuntos, el historial de avisos y las notificaciones de la barra.
+  de las notas y lo marcado como entregado, los adjuntos, el historial de avisos y las notificaciones de la barra.
   Séneca, NetAcad y los grupos se desconectan desde su propia pantalla, y cada uno
   borra solo lo suyo.
 

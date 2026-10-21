@@ -62,7 +62,8 @@ fun AcercaDeScreen(
     alComprobarAsistencia: () -> Unit,
     alVerFaltasSeneca: () -> Unit,
     modifier: Modifier = Modifier,
-    alVolver: (() -> Unit)? = null
+    alVolver: (() -> Unit)? = null,
+    alCambiarGrupos: (Boolean) -> Unit = {}
 ) {
     val contexto = LocalContext.current
 
@@ -84,7 +85,8 @@ fun AcercaDeScreen(
                 alCambiarNotas = alCambiarNotas,
                 alCambiarAntelacion = alCambiarAntelacion,
                 alCambiarFrecuencia = alCambiarFrecuencia,
-                alCambiarHora = alCambiarHora
+                alCambiarHora = alCambiarHora,
+                alCambiarGrupos = alCambiarGrupos
             )
 
             SeccionAsistencia(

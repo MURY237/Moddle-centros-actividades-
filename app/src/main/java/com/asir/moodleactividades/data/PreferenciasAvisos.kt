@@ -8,7 +8,9 @@ data class AjustesAvisos(
     val comprobacionesDiarias: Int = 4,
     val horaPreferida: Int = 8,
     val avisarNuevas: Boolean = true,
-    val avisarNotas: Boolean = true
+    val avisarNotas: Boolean = true,
+    /** Mensajes y exámenes nuevos de los grupos, con la app cerrada. */
+    val avisarGrupos: Boolean = true
 ) {
     val horasEntreComprobaciones: Long
         get() = (24L / comprobacionesDiarias.coerceIn(1, 24)).coerceAtLeast(1L)
@@ -17,7 +19,7 @@ data class AjustesAvisos(
 
     companion object {
         val ANTELACIONES = listOf(6, 12, 24, 48, 72, 168)
-        val FRECUENCIAS = listOf(1, 2, 4, 6)
+        val FRECUENCIAS = listOf(1, 2, 4, 6, 12, 24)
 
         fun etiquetaAntelacion(horas: Int): String = when {
             horas < 24 -> "$horas horas antes"
@@ -26,8 +28,12 @@ data class AjustesAvisos(
             else -> "${horas / 24} días antes"
         }
 
-        fun etiquetaFrecuencia(veces: Int): String =
-            if (veces == 1) "1 vez al día" else "$veces veces al día"
+        fun etiquetaFrecuencia(veces: Int): String = when {
+            veces == 1 -> "1 vez al día"
+            veces >= 24 -> "Cada hora"
+            veces >= 12 -> "Cada ${24 / veces} horas"
+            else -> "$veces veces al día"
+        }
 
         fun etiquetaHora(hora: Int): String = "%02d:00".format(hora)
     }
@@ -46,7 +52,8 @@ class PreferenciasAvisos(contexto: Context) {
             comprobacionesDiarias = prefs.getInt(FRECUENCIA, porDefecto.comprobacionesDiarias),
             horaPreferida = prefs.getInt(HORA, porDefecto.horaPreferida),
             avisarNuevas = prefs.getBoolean(NUEVAS, porDefecto.avisarNuevas),
-            avisarNotas = prefs.getBoolean(NOTAS, porDefecto.avisarNotas)
+            avisarNotas = prefs.getBoolean(NOTAS, porDefecto.avisarNotas),
+            avisarGrupos = prefs.getBoolean(GRUPOS, porDefecto.avisarGrupos)
         )
     }
 
@@ -58,6 +65,7 @@ class PreferenciasAvisos(contexto: Context) {
             .putInt(HORA, ajustes.horaPreferida)
             .putBoolean(NUEVAS, ajustes.avisarNuevas)
             .putBoolean(NOTAS, ajustes.avisarNotas)
+            .putBoolean(GRUPOS, ajustes.avisarGrupos)
             .apply()
     }
 
@@ -68,5 +76,6 @@ class PreferenciasAvisos(contexto: Context) {
         const val HORA = "hora_preferida"
         const val NUEVAS = "avisar_nuevas"
         const val NOTAS = "avisar_notas"
+        const val GRUPOS = "avisar_grupos"
     }
 }
