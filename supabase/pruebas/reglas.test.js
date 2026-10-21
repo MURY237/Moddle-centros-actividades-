@@ -171,6 +171,31 @@ function comprobar(nombre, condicion, detalle) {
   comprobar('anon no lee tablas', /permission denied/.test(await falla(null, `select * from public.grupos`)));
   comprobar('anon no llama a unirse', /permission denied/.test(await falla(null, `select * from public.unirse('x', 'y')`)));
 
+  console.log('Móviles para avisos');
+  const TOKEN = 'token-de-prueba-de-firebase-123456';
+  await como(ANA, `select public.registrar_dispositivo($1)`, [TOKEN]);
+  comprobar('nadie lee los móviles desde la app, ni el suyo',
+    /permission denied/.test(await falla(ANA, `select * from public.dispositivos`)));
+  comprobar('ni los escribe a mano',
+    /permission denied/.test(await falla(CARLA, `insert into public.dispositivos (token, usuario) values ('x'||repeat('y', 30), $1)`, [ANA])));
+  comprobar('ni ve lo avisado',
+    /permission denied/.test(await falla(ANA, `select * from public.avisados`)));
+  comprobar('el móvil queda a su nombre',
+    (await db.query(`select usuario from public.dispositivos where token = $1`, [TOKEN])).rows[0].usuario === ANA);
+  await como(BRUNO, `select public.registrar_dispositivo($1)`, [TOKEN]);
+  comprobar('si el móvil cambia de identidad, deja de avisar a la anterior',
+    (await db.query(`select usuario from public.dispositivos where token = $1`, [TOKEN])).rows[0].usuario === BRUNO);
+  await como(ANA, `select public.olvidar_dispositivo($1)`, [TOKEN]);
+  comprobar('nadie da de baja el móvil de otro',
+    (await db.query(`select count(*)::int n from public.dispositivos`)).rows[0].n === 1);
+  for (let i = 0; i < 7; i++) await como(CARLA, `select public.registrar_dispositivo($1)`, [`token-carla-numero-${i}-xxxxxxxx`]);
+  comprobar('se quedan como mucho cinco por cuenta',
+    (await db.query(`select count(*)::int n from public.dispositivos where usuario = $1`, [CARLA])).rows[0].n === 5);
+  comprobar('un token raro se rechaza',
+    /token_no_valido/.test(await falla(CARLA, `select public.registrar_dispositivo('corto')`)));
+  comprobar('sin sesión no se registra nada',
+    /permission denied|sin_sesion/.test(await falla(null, `select public.registrar_dispositivo($1)`, [TOKEN])));
+
   console.log('Latido');
   const pulso = (await como(null, `select public.latido() as hora`)).rows[0];
   comprobar('el latido responde sin sesión', pulso && pulso.hora instanceof Date, pulso);

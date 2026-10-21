@@ -64,7 +64,9 @@ data class GruposUiState(
 class GruposViewModel(
     private val repositorio: RepositorioGrupos?,
     /** Lo leído con el chat abierto no se vuelve a avisar en segundo plano. */
-    private val vistos: VistosGrupos? = null
+    private val vistos: VistosGrupos? = null,
+    /** Con la identidad lista, el móvil se apunta para recibir avisos al instante. */
+    private val alTenerIdentidad: suspend () -> Unit = {}
 ) : ViewModel() {
 
     private val _estado = MutableStateFlow(GruposUiState(configurado = repositorio != null))
@@ -90,6 +92,7 @@ class GruposViewModel(
                         identidadRenovada = repo.identidadRenovada
                     )
                 }
+                launch { runCatching { alTenerIdentidad() } }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -221,6 +224,7 @@ class GruposViewModel(
                 val enviado = repo.enviar(grupo.id, texto)
                 _estado.update { it.copy(mensajes = Chat.fusionar(it.mensajes, listOf(enviado))) }
                 alEnviar()
+                avisarAlGrupo(repo, "mensaje", enviado.id)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -241,6 +245,23 @@ class GruposViewModel(
         val grupo = _estado.value.abierto ?: return@operar
         val nuevo = repo.anadirExamen(grupo.id, asignatura, fecha, hora, notas)
         _estado.update { it.copy(examenes = it.examenes + nuevo) }
+        avisarAlGrupo(repo, "examen", nuevo.id)
+    }
+
+    /**
+     * Aparte y sin esperar: si el servidor no tiene montados los avisos, el mensaje ya está
+     * enviado igual, y los demás se enteran por la comprobación de cada 15 minutos.
+     */
+    private fun avisarAlGrupo(repo: RepositorioGrupos, tipo: String, id: Long) {
+        viewModelScope.launch {
+            try {
+                repo.avisarAlGrupo(tipo, id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Sin función «avisar» o sin Firebase: no es un error que deba ver nadie.
+            }
+        }
     }
 
     fun borrarExamen(examen: Examen) = operar { repo ->
