@@ -70,6 +70,29 @@ jobs:
             echo "Sin secretos de firma: se usa la clave de depuración del repositorio."
           fi
 
+      # Diagnóstico de los avisos al instante: solo informa, nunca corta la compilación.
+      # No enseña ningún secreto, solo si están y qué responde el servidor.
+      - name: Comprobar los avisos al instante
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_CLAVE: ${{ secrets.SUPABASE_CLAVE }}
+          FIREBASE_JSON: ${{ secrets.FIREBASE_JSON }}
+        run: |
+          if [ -n "$FIREBASE_JSON" ]; then
+            echo "FIREBASE_JSON: sí, proyecto $(echo "$FIREBASE_JSON" | jq -r '.project_info.project_id'), apps: $(echo "$FIREBASE_JSON" | jq -r '[.client[].client_info.android_client_info.package_name] | join(", ")')"
+          else
+            echo "FIREBASE_JSON: no está"
+          fi
+          if [ -z "$SUPABASE_URL" ]; then echo "Sin SUPABASE_URL: no se puede mirar el servidor"; exit 0; fi
+          U="${SUPABASE_URL%/}"
+          echo "Función avisar (404 = no desplegada; 401 = desplegada, pide sesión):"
+          curl -s -m 20 -X POST "$U/functions/v1/avisar" -H "apikey: $SUPABASE_CLAVE" \
+            -H "Content-Type: application/json" -d '{}' -w '  -> HTTP %{http_code}\n' || true
+          echo "Tablas de avisos (42501 = esquema aplicado; PGRST202 = falta ejecutar esquema.sql):"
+          curl -s -m 20 -X POST "$U/rest/v1/rpc/registrar_dispositivo" -H "apikey: $SUPABASE_CLAVE" \
+            -H "Content-Type: application/json" -d '{"p_token":"diagnostico"}' -w '  -> HTTP %{http_code}\n' || true
+
       # La URL y la clave pública del servidor de grupos, si están como secretos del
       # repositorio. Sin ellos se compila igual y la pestaña explica qué falta.
       - name: Compilar APK

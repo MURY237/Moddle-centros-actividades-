@@ -66,6 +66,10 @@ val firebase: Map<String, String> = run {
         "SENDER_ID" to proyecto["project_number"].toString()
     )
 }
+println(
+    if (firebase.isEmpty()) "Firebase: sin configurar (los grupos avisan cada 15 minutos)"
+    else "Firebase: proyecto ${firebase["PROJECT_ID"]}"
+)
 // Van a código Java generado: solo con la forma esperada.
 firebase.forEach { (clave, valor) ->
     if (!Regex("^[A-Za-z0-9:._-]+$").matches(valor)) {
@@ -81,8 +85,8 @@ android {
         applicationId = "com.asir.moodleactividades"
         minSdk = 26
         targetSdk = 35
-        versionCode = 57
-        versionName = "2.4"
+        versionCode = 58
+        versionName = "2.4.1"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_CLAVE", "\"$supabaseClave\"")
