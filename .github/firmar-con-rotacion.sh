@@ -54,14 +54,14 @@ huella_nueva=$(huella "$nuevo" "$FIRMA_CLAVE_ALMACEN")
 
 ve() {
   "$apksigner" verify --min-sdk-version "$1" --max-sdk-version "$1" --print-certs "$salida" \
-    | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1
+    | sed -n 's/.*certificate SHA-256 digest: //p' | head -1
 }
 for sdk in 28 30 33 35; do
   [ "$(ve $sdk)" = "$huella_nueva" ] \
-    || { echo "Android API $sdk no ve la clave nueva."; exit 1; }
+    || { echo "Android API $sdk no ve la clave nueva (ve: $(ve $sdk); nueva: $huella_nueva; antigua: $huella_vieja)."; exit 1; }
   echo "Android API $sdk: clave nueva"
 done
 [ "$(ve 26)" = "$huella_vieja" ] \
-  || { echo "Android API 26 no ve la clave antigua."; exit 1; }
+  || { echo "Android API 26 no ve la clave antigua (ve: $(ve 26); antigua: $huella_vieja)."; exit 1; }
 echo "Android API 26 (Android 8): clave antigua"
 echo "Firmado con rotación: $salida"
