@@ -70,6 +70,28 @@ jobs:
             echo "Sin secretos de firma: se usa la clave de depuración del repositorio."
           fi
 
+      # Si la clave propia no se puede abrir, dice por qué sin enseñar ningún secreto: solo
+      # tamaños, si coinciden y la huella pública del certificado.
+      - name: Diagnóstico de la firma propia
+        if: ${{ env.FIRMA_ALMACEN != '' }}
+        continue-on-error: true
+        env:
+          FIRMA_CLAVE_ALMACEN: ${{ secrets.FIRMA_CLAVE_ALMACEN }}
+          FIRMA_ALIAS: ${{ secrets.FIRMA_ALIAS }}
+          FIRMA_CLAVE: ${{ secrets.FIRMA_CLAVE }}
+          FIRMA_BASE64: ${{ secrets.FIRMA_BASE64 }}
+        run: |
+          echo "FIRMA_BASE64: ${#FIRMA_BASE64} caracteres"
+          echo "almacén decodificado: $(stat -c%s "$FIRMA_ALMACEN") bytes, sha256 $(sha256sum "$FIRMA_ALMACEN" | cut -c1-16)"
+          echo "contraseña del almacén: ${#FIRMA_CLAVE_ALMACEN} caracteres; de la clave: ${#FIRMA_CLAVE}; alias: ${#FIRMA_ALIAS}"
+          if [ "$FIRMA_CLAVE_ALMACEN" = "$FIRMA_CLAVE" ]; then echo "las dos contraseñas coinciden"; else echo "las dos contraseñas NO coinciden"; fi
+          case "$FIRMA_CLAVE_ALMACEN$FIRMA_CLAVE$FIRMA_ALIAS" in
+            *[[:space:]]*) echo "HAY espacios o saltos de línea en algún secreto";;
+            *) echo "ningún secreto tiene espacios";;
+          esac
+          keytool -list -keystore "$FIRMA_ALMACEN" -storepass "$FIRMA_CLAVE_ALMACEN" 2>&1 \
+            | grep -E "SHA-256|incorrect|Invalid|error|PrivateKeyEntry" || true
+
       # Diagnóstico de los avisos al instante: solo informa, nunca corta la compilación.
       # No enseña ningún secreto, solo si están y qué responde el servidor.
       - name: Comprobar los avisos al instante
