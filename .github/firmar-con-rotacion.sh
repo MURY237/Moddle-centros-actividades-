@@ -29,7 +29,7 @@ trap 'rm -f "$cadena"' EXIT
   --old-signer --ks "$viejo" --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android \
   --new-signer --ks "$nuevo" --ks-pass env:FIRMA_CLAVE_ALMACEN --ks-key-alias "$FIRMA_ALIAS" --key-pass env:FIRMA_CLAVE
 
-"$apksigner" sign --lineage "$cadena" --out "$salida" \
+"$apksigner" sign --lineage "$cadena" --rotation-min-sdk-version 28 --out "$salida" \
   --ks "$viejo" --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android \
   --next-signer \
   --ks "$nuevo" --ks-pass env:FIRMA_CLAVE_ALMACEN --ks-key-alias "$FIRMA_ALIAS" --key-pass env:FIRMA_CLAVE \
@@ -41,4 +41,27 @@ echo "$informe" | grep -q "Verified using v3 scheme (APK Signature Scheme v3): t
   || { echo "El APK no verifica con la firma v3 (la de la rotación)."; exit 1; }
 echo "$informe" | grep -q "Verified using v2 scheme (APK Signature Scheme v2): true" \
   || { echo "El APK no verifica con la firma v2."; exit 1; }
+# Lo que importa: qué clave ve cada versión de Android. Si Android 9 o superior viera la
+# antigua, la protección no serviría; si Android 8 viera la nueva, no podría actualizar.
+huella() {
+  keytool -list -keystore "$1" -storepass "$2" 2>/dev/null \
+    | grep -oE '([0-9A-F]{2}:){31}[0-9A-F]{2}' | head -1 | tr -d ':' | tr 'A-F' 'a-f'
+}
+huella_vieja=$(huella "$viejo" android)
+huella_nueva=$(huella "$nuevo" "$FIRMA_CLAVE_ALMACEN")
+[ -n "$huella_vieja" ] && [ -n "$huella_nueva" ] && [ "$huella_vieja" != "$huella_nueva" ] \
+  || { echo "No se pudieron leer las huellas de las dos claves."; exit 1; }
+
+ve() {
+  "$apksigner" verify --min-sdk-version "$1" --max-sdk-version "$1" --print-certs "$salida" \
+    | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1
+}
+for sdk in 28 30 33 35; do
+  [ "$(ve $sdk)" = "$huella_nueva" ] \
+    || { echo "Android API $sdk no ve la clave nueva."; exit 1; }
+  echo "Android API $sdk: clave nueva"
+done
+[ "$(ve 26)" = "$huella_vieja" ] \
+  || { echo "Android API 26 no ve la clave antigua."; exit 1; }
+echo "Android API 26 (Android 8): clave antigua"
 echo "Firmado con rotación: $salida"
