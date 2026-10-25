@@ -100,8 +100,8 @@ android {
         applicationId = "com.asir.moodleactividades"
         minSdk = 26
         targetSdk = 35
-        versionCode = 58
-        versionName = "2.4.1"
+        versionCode = 59
+        versionName = "2.5"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_CLAVE", "\"$supabaseClave\"")

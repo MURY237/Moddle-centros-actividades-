@@ -112,6 +112,32 @@ jobs:
           FIRMA_CLAVE: ${{ secrets.FIRMA_CLAVE }}
         run: ./gradlew assembleDebug --stacktrace
 
+      # Con clave propia, el APK se vuelve a firmar con la cadena «clave antigua → nueva»
+      # para que Android actualice la app sin borrar los datos (ver el guion).
+      - name: Firmar con la clave propia y la cadena de rotación
+        if: ${{ env.FIRMA_ALMACEN != '' }}
+        env:
+          FIRMA_CLAVE_ALMACEN: ${{ secrets.FIRMA_CLAVE_ALMACEN }}
+          FIRMA_ALIAS: ${{ secrets.FIRMA_ALIAS }}
+          FIRMA_CLAVE: ${{ secrets.FIRMA_CLAVE }}
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          .github/firmar-con-rotacion.sh "$APK" "$RUNNER_TEMP/firmado.apk" "$FIRMA_ALMACEN"
+          mv "$RUNNER_TEMP/firmado.apk" "$APK"
+
+      # Prueba del mecanismo con una clave desechable: así se sabe que funciona antes de
+      # que lo use la clave de verdad, y que sigue funcionando en cada cambio.
+      - name: Probar la firma con rotación (clave desechable)
+        env:
+          FIRMA_ALIAS: prueba
+        run: |
+          export FIRMA_CLAVE_ALMACEN=desechable-123456 FIRMA_CLAVE=desechable-123456
+          keytool -genkeypair -keystore "$RUNNER_TEMP/prueba.jks" -storetype PKCS12 -alias prueba \
+            -keyalg RSA -keysize 2048 -validity 30 -dname "CN=prueba" \
+            -storepass "$FIRMA_CLAVE_ALMACEN" -keypass "$FIRMA_CLAVE" 2>/dev/null
+          .github/firmar-con-rotacion.sh app/build/outputs/apk/debug/app-debug.apk \
+            "$RUNNER_TEMP/rotado.apk" "$RUNNER_TEMP/prueba.jks"
+
       - name: Leer la versión del proyecto
         id: version
         run: |

@@ -370,16 +370,16 @@ Cada push a `main` compila el APK y lo publica como
 [release](../../releases/latest). La propia app comprueba al abrirse si hay una
 versión más reciente y ofrece descargarla e instalarla sin salir de ella.
 
-El APK se firma con la `debug.keystore` incluida en el repositorio. No protege
-nada —su contraseña es pública—, pero mantiene la firma estable entre
-compilaciones: sin ella Android rechazaría instalar una actualización sobre la
-versión anterior.
+Sin secretos de firma, el APK se firma con la `debug.keystore` incluida en el
+repositorio. No protege nada —su contraseña es pública—, pero mantiene la firma
+estable entre compilaciones: sin ella Android rechazaría instalar una
+actualización sobre la versión anterior.
 
-#### Firmar con una clave propia (opcional)
+#### Firmar con una clave propia
 
 Con la clave pública cualquiera podría firmar un APK que Android aceptase como
-actualización. El workflow ya sabe firmar con una clave propia si encuentra estos
-secretos en *Settings → Secrets and variables → Actions*:
+actualización. El workflow firma con una clave propia si encuentra estos secretos
+en *Settings → Secrets and variables → Actions*:
 
 | Secreto | Contenido |
 |---|---|
@@ -394,9 +394,20 @@ keytool -genkeypair -v -keystore firma.jks -alias actividades \
 base64 -w0 firma.jks > firma.b64   # su contenido va en FIRMA_BASE64
 ```
 
-Cambiar de clave obliga a desinstalar la versión firmada con la anterior **una
-vez**: Android no deja actualizar una app firmada por otra clave. Guarda el `.jks`
-fuera del repositorio; si se pierde, habrá que volver a desinstalar.
+**Cambiar de clave no obliga a desinstalar.** Con los secretos puestos, el workflow
+firma con `.github/firmar-con-rotacion.sh`: el APK lleva la clave de depuración y la
+nueva, y una *cadena de rotación* (APK Signature Scheme v3) que dice «la antigua
+autoriza a la nueva». Android 9 o superior actualiza conservando los datos, y la clave
+antigua —pública— no puede volver a colar un APK sobre una instalación ya actualizada
+porque la cadena no le deja «volver atrás». Android 8 no entiende la cadena y sigue
+viendo la clave antigua: allí la app se actualiza igual, pero sin la protección.
+
+Cada ejecución del workflow prueba el mecanismo con una clave desechable, y la
+versión publicada con la clave de verdad se comprueba con `apksigner verify`.
+
+Guarda el `.jks` y su contraseña fuera del repositorio, en un gestor de contraseñas:
+si se pierden no se podrán publicar actualizaciones que Android acepte sobre las ya
+instaladas.
 
 ## Requisitos
 
