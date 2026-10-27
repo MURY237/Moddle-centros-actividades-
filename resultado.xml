@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.asir.moodleactividades.capturas.CapturasTest" tests="33" skipped="0" failures="0" errors="0" timestamp="2026-10-27T19:04:29" hostname="runnervmtai0g" time="28.469">
+  <properties/>
+  <testcase name="busOscuro" classname="com.asir.moodleactividades.capturas.CapturasTest" time="18.383"/>
+  <testcase name="notaDetalleSupuesta" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.503"/>
+  <testcase name="avisos" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.381"/>
+  <testcase name="faltas" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.408"/>
+  <testcase name="avisosOscuro" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.307"/>
+  <testcase name="grupos" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.272"/>
+  <testcase name="grupoChatOscuro" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.356"/>
+  <testcase name="tareasConAvisos" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.345"/>
+  <testcase name="notasOscuro" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.32"/>
+  <testcase name="ajustes" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.489"/>
+  <testcase name="tareas" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.316"/>
+  <testcase name="netacadVacio" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.245"/>
+  <testcase name="ajustesOscuro" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.496"/>
+  <testcase name="tareasOscuro" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.291"/>
+  <testcase name="grupoChat" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.246"/>
+  <testcase name="tareasError" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.281"/>
+  <testcase name="bus" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.318"/>
+  <testcase name="catalogo" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.224"/>
+  <testcase name="login" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.288"/>
+  <testcase name="notas" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.279"/>
+  <testcase name="detalleOscuro" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.564"/>
+  <testcase name="grupoExamenes" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.432"/>
+  <testcase name="detallePorMarcar" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.218"/>
+  <testcase name="notaDetalle" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.271"/>
+  <testcase name="catalogoOscuro" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.245"/>
+  <testcase name="loginOscuro" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.309"/>
+  <testcase name="faltasVacio" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.225"/>
+  <testcase name="detalle" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.248"/>
+  <testcase name="horarioVacio" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.215"/>
+  <testcase name="faltasOscuro" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.27"/>
+  <testcase name="detalleMarcada" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.214"/>
+  <testcase name="netacad" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.262"/>
+  <testcase name="netacadOscuro" classname="com.asir.moodleactividades.capturas.CapturasTest" time="0.246"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
