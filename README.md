@@ -332,22 +332,48 @@ por el mismo motivo: lo que sigue estando por hacer no debe esconderse.
   cifrado no se guardan.
 - **Token de Moodle:** cifrado igual que las contraseñas, y solo se añade a archivos
   del propio centro por HTTPS; nunca a un enlace de otro dominio.
+- **Sesiones de Séneca y NetAcad:** sus cookies equivalen a estar dentro, así que van
+  cifradas igual que el token (hasta la 2.5 se guardaban en claro) y se reponen solo
+  para HTTPS. No salen del móvil ni en copias de seguridad ni al cambiar de teléfono.
+- **APK publicado:** no es depurable. Hasta la 2.5 lo era, y con el móvil conectado por
+  USB se podía entrar en los datos de la app; la CI ya no publica uno que lo sea, ni uno
+  firmado con la clave pública del repositorio.
+- **Pantallas de acceso:** donde se escriben contraseñas o tokens no se pueden hacer
+  capturas ni grabar la pantalla, y otra app no puede colarse en la tarea de esta para
+  poner delante un acceso falso (`taskAffinity` vacío).
 - **Red:** sin tráfico en claro en toda la app (`seguridad_red.xml`).
 - **Avisos de los grupos (Firebase):** el texto del mensaje viaja en el aviso por los
   servidores de Google hasta los móviles de los miembros del grupo, y a nadie más. La
   cuenta de servicio que los firma solo está en los secretos de Supabase; los móviles
   apuntados no se pueden leer desde la app.
 - **Navegadores de Séneca y NetAcad:** sin acceso a ficheros del móvil, y se destruyen
-  al salir de su pantalla.
+  al salir de su pantalla. El de Séneca no sigue enlaces ni redirecciones a webs que no
+  sean de la Junta, y solo recuerda páginas de `seneca.juntadeandalucia.es`.
+- **Enlaces que manda el servidor** (actividades, notas, avisos): solo se abren si son
+  páginas web. Un adjunto que diga ser una aplicación no abre el instalador.
+- **Grupos:** como mucho 20 mensajes por minuto y 30 exámenes por hora por persona, para
+  que nadie con el código pueda inundar el chat ni los avisos de los demás.
 - **Archivos compartidos:** el `FileProvider` solo expone las carpetas de adjuntos y
   de actualización, no la caché entera.
 - **Actualizaciones:** solo se bajan de las releases de este repositorio, se comprueba
-  la huella SHA-256 que publica GitHub y el archivo no se da por bueno hasta que está
-  completo.
+  la huella SHA-256 que publica GitHub, el archivo no se da por bueno hasta que está
+  completo y solo se instala si es esta misma app.
 - **Cerrar sesión** borra el token, las copias de tareas y notas, lo corregido a mano
-  de las notas y lo marcado como entregado, los adjuntos, el historial de avisos y las notificaciones de la barra.
+  de las notas y lo marcado como entregado, los adjuntos, el historial de avisos y las
+  notificaciones de la barra.
   Séneca, NetAcad y los grupos se desconectan desde su propia pantalla, y cada uno
   borra solo lo suyo.
+
+### Lo que no se puede arreglar desde la app
+
+- **Acceso con iDEA:** Moodle devuelve el token a la app por un enlace `moodlemobile://`,
+  que es el de la app oficial. Si en el móvil hubiera otra app que también lo atienda,
+  Android pregunta con cuál abrirlo: hay que elegir esta. La respuesta lleva una firma
+  que impide que nadie le cuele a la app un token ajeno, pero no evita que otra app,
+  si se la elige, reciba el propio.
+- **Un móvil con root o con malware con permisos de accesibilidad** puede leer lo que
+  hay en pantalla o en los datos de cualquier app. El cifrado protege lo guardado
+  frente a copias del almacenamiento, no frente a quien controla el sistema.
 
 ## Compilar
 
@@ -361,7 +387,8 @@ por el mismo motivo: lo que sigue estando por hacer no debe esconderse.
 
 ```bash
 ./gradlew test          # tests unitarios
-./gradlew assembleDebug # genera app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleDebug   # para probar: app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleRelease # la que se publica (no depurable): app/build/outputs/apk/release/
 ```
 
 ### Sin instalar nada

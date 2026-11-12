@@ -180,4 +180,28 @@ class AutoAccesoDominioTest {
         assertTrue(guion.contains("/(^|\\.)juntadeandalucia\\.es$/i"))
         assertTrue(guion.contains("if (actuar && !deLaJunta(docs[d])) break;"))
     }
+
+    @Test
+    fun `el navegador de Seneca no sale de la Junta`() {
+        assertFalse(AutoAcceso.saleDeLaJunta("https://seneca.juntadeandalucia.es/seneca/jsp/portal/"))
+        assertFalse(AutoAcceso.saleDeLaJunta("https://www.juntadeandalucia.es/educacion/"))
+        assertFalse(AutoAcceso.saleDeLaJunta("https://juntadeandalucia.es/"))
+
+        assertTrue(AutoAcceso.saleDeLaJunta("https://seneca.juntadeandalucia.es.ejemplo.com/acceso"))
+        assertTrue(AutoAcceso.saleDeLaJunta("https://juntadeandalucia.es.ejemplo.com/"))
+        assertTrue(AutoAcceso.saleDeLaJunta("https://falsajuntadeandalucia.es/"))
+        assertTrue(AutoAcceso.saleDeLaJunta("http://ejemplo.com/"))
+        // Un usuario delante de la arroba no cambia a qué servidor se va.
+        assertTrue(AutoAcceso.saleDeLaJunta("https://seneca.juntadeandalucia.es@ejemplo.com/"))
+        // Los navegadores tratan la barra invertida como barra: el servidor es ejemplo.com.
+        assertTrue(AutoAcceso.saleDeLaJunta("https://ejemplo.com\\@seneca.juntadeandalucia.es/"))
+    }
+
+    @Test
+    fun `lo que no es una web pertenece a la propia pagina`() {
+        assertFalse(AutoAcceso.saleDeLaJunta("about:blank"))
+        assertFalse(AutoAcceso.saleDeLaJunta("javascript:void(0)"))
+        assertFalse(AutoAcceso.saleDeLaJunta("blob:https://seneca.juntadeandalucia.es/123"))
+        assertFalse(AutoAcceso.saleDeLaJunta(null))
+    }
 }

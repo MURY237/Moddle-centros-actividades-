@@ -171,6 +171,34 @@ function comprobar(nombre, condicion, detalle) {
   comprobar('anon no lee tablas', /permission denied/.test(await falla(null, `select * from public.grupos`)));
   comprobar('anon no llama a unirse', /permission denied/.test(await falla(null, `select * from public.unirse('x', 'y')`)));
 
+  console.log('Límites de uso');
+  const inundado = (await como(ANA, `select * from public.crear_grupo($1, $2)`, ['Inundación', 'Ana'])).rows[0];
+  await como(BRUNO, `select * from public.unirse($1, $2)`, [inundado.codigo, 'Bruno']);
+  let aceptados = 0, motivo = null;
+  for (let i = 0; i < 25; i++) {
+    const fallo = await falla(BRUNO, `insert into public.mensajes (grupo, texto) values ($1, $2)`, [inundado.id, 'spam ' + i]);
+    if (fallo) { motivo = fallo; break; }
+    aceptados++;
+  }
+  comprobar('una persona no puede mandar más de 20 mensajes por minuto',
+    aceptados === 20 && /demasiado_rapido/.test(motivo), { aceptados, motivo });
+  comprobar('el tope es por persona: los demás siguen escribiendo',
+    (await falla(ANA, `insert into public.mensajes (grupo, texto) values ($1, 'yo sí puedo')`, [inundado.id])) === null);
+  await db.exec(`update public.mensajes set enviado = now() - interval '2 minutes' where autor = '${BRUNO}'`);
+  comprobar('pasado el minuto vuelve a poder',
+    (await falla(BRUNO, `insert into public.mensajes (grupo, texto) values ($1, 'ya')`, [inundado.id])) === null);
+  aceptados = 0; motivo = null;
+  for (let i = 0; i < 35; i++) {
+    const fallo = await falla(BRUNO, `insert into public.examenes (grupo, asignatura, fecha) values ($1, $2, '2026-01-01')`, [inundado.id, 'Examen ' + i]);
+    if (fallo) { motivo = fallo; break; }
+    aceptados++;
+  }
+  comprobar('ni apuntar más de 30 exámenes por hora',
+    aceptados === 30 && /demasiado_rapido/.test(motivo), { aceptados, motivo });
+  comprobar('los límites no se pueden llamar desde la app',
+    /permission denied|trigger/.test(await falla(BRUNO, `select public.limitar_mensajes()`)));
+  await como(ANA, `delete from public.grupos where id = $1`, [inundado.id]);
+
   console.log('Móviles para avisos');
   const TOKEN = 'token-de-prueba-de-firebase-123456';
   await como(ANA, `select public.registrar_dispositivo($1)`, [TOKEN]);

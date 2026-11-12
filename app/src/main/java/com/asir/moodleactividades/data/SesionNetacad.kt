@@ -14,13 +14,18 @@ import com.asir.moodleactividades.data.netacad.LectorNetacad
  * daría a esta app más de lo que necesita. Si Cisco las marca como persistentes, ya las
  * conserva el propio WebView; si no, se vuelve a entrar y ya está.
  *
- * Lo guardado equivale a una sesión abierta, no a la contraseña: vive en las preferencias
- * privadas de la app, con la copia de seguridad del sistema desactivada.
+ * Lo guardado equivale a una sesión abierta, así que va cifrado con el almacén de claves,
+ * como el token de Moodle (hasta la 2.5 iba en claro; se pasa solo al leerlo).
  */
 class SesionNetacad(contexto: Context) {
 
     private val prefs = contexto.applicationContext
         .getSharedPreferences("sesion_netacad", Context.MODE_PRIVATE)
+
+    private val cifradas by lazy { PreferenciasCifradas.abrir(contexto, "sesion_netacad_cifrada") }
+
+    private fun cookiesGuardadas(): String? =
+        PreferenciasCifradas.leerMigrando(cifradas, prefs, COOKIES)
 
     fun guardar() {
         val gestor = runCatching { CookieManager.getInstance() }.getOrNull() ?: return
@@ -34,26 +39,25 @@ class SesionNetacad(contexto: Context) {
 
         if (recogidas.isEmpty()) return
 
-        prefs.edit()
-            .putString(COOKIES, recogidas.joinToString("; "))
-            .putLong(MOMENTO, System.currentTimeMillis() / 1000)
-            .apply()
+        PreferenciasCifradas.escribir(cifradas, prefs, COOKIES, recogidas.joinToString("; "))
+        prefs.edit().putLong(MOMENTO, System.currentTimeMillis() / 1000).apply()
     }
 
     fun restaurar() {
-        val guardadas = prefs.getString(COOKIES, null) ?: return
+        val guardadas = cookiesGuardadas() ?: return
         runCatching {
             val gestor = CookieManager.getInstance()
             gestor.setAcceptCookie(true)
+            // Con «Secure»: solo viajan por HTTPS aunque el original no lo dijera.
             guardadas.split(';')
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
-                .forEach { cookie -> RUTAS.forEach { ruta -> gestor.setCookie(ruta, cookie) } }
+                .forEach { cookie -> RUTAS.forEach { ruta -> gestor.setCookie(ruta, "$cookie; Secure") } }
             gestor.flush()
         }
     }
 
-    fun hay(): Boolean = !prefs.getString(COOKIES, null).isNullOrBlank()
+    fun hay(): Boolean = !cookiesGuardadas().isNullOrBlank()
 
     /**
      * Las páginas donde aparecieron trabajos, una por curso, para volver directamente a
@@ -72,11 +76,11 @@ class SesionNetacad(contexto: Context) {
     // El panel se llegó a aprender como página de curso: se descarta también al leer.
     fun urls(): List<String> =
         prefs.getString(URLS, null).orEmpty().split('\n')
-            .filter { it.isNotBlank() && !LectorNetacad.esUrlDeInicio(it) }
+            .filter { it.isNotBlank() && ORIGEN.containsMatchIn(it) && !LectorNetacad.esUrlDeInicio(it) }
 
     /** Solo los nombres: los valores son la sesión y no deben salir de aquí. */
     fun nombres(): List<String> =
-        prefs.getString(COOKIES, null).orEmpty()
+        cookiesGuardadas().orEmpty()
             .split(';')
             .map { it.trim().substringBefore('=') }
             .filter { it.isNotEmpty() }
@@ -104,6 +108,7 @@ class SesionNetacad(contexto: Context) {
             }
             gestor.flush()
         }
+        PreferenciasCifradas.borrar(cifradas, prefs, COOKIES)
         prefs.edit().clear().apply()
     }
 

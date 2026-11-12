@@ -299,6 +299,47 @@ create policy examenes_cambiar on public.examenes for update to authenticated
 create policy examenes_borrar on public.examenes for delete to authenticated
   using (autor = (select auth.uid()) or public.es_creador(grupo));
 
+-- ---------------------------------------------------------------- límites de uso
+
+-- Una cuenta anónima se crea gratis, así que quien tenga el código de un grupo podría
+-- inundarlo, y cada mensaje es además un aviso en el móvil de todos los demás. Se pone un
+-- tope por persona: quien escribe con normalidad no llega nunca.
+create index if not exists mensajes_autor_enviado on public.mensajes (autor, enviado);
+create index if not exists examenes_autor_creado on public.examenes (autor, creado);
+
+create or replace function public.limitar_mensajes() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if (select count(*) from public.mensajes m
+      where m.autor = new.autor and m.enviado > now() - interval '1 minute') >= 20 then
+    raise exception 'demasiado_rapido';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.limitar_examenes() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if (select count(*) from public.examenes e
+      where e.autor = new.autor and e.creado > now() - interval '1 hour') >= 30 then
+    raise exception 'demasiado_rapido';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists mensajes_limite on public.mensajes;
+create trigger mensajes_limite before insert on public.mensajes
+  for each row execute function public.limitar_mensajes();
+
+drop trigger if exists examenes_limite on public.examenes;
+create trigger examenes_limite before insert on public.examenes
+  for each row execute function public.limitar_examenes();
+
+revoke all on function public.limitar_mensajes(), public.limitar_examenes()
+  from public, anon, authenticated;
+
 -- ---------------------------------------------------------------- avisos al móvil
 
 -- Los móviles a los que mandar un aviso (Firebase Cloud Messaging). Nadie los puede leer

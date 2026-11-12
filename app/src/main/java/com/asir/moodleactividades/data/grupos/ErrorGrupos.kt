@@ -29,6 +29,7 @@ object TraductorErrores {
             "nombre_no_valido" in clave -> "El nombre del grupo tiene que tener entre 1 y 60 caracteres."
             "grupo_lleno" in clave -> "El grupo ya tiene 100 miembros."
             "demasiados_grupos" in clave -> "Ya has creado 20 grupos, que es el máximo."
+            "demasiado_rapido" in clave -> "Vas demasiado rápido. Espera un momento y vuelve a intentarlo."
             "solo_creador" in clave -> "Eso solo lo puede hacer quien lleva el grupo."
             "no_a_ti_mismo" in clave -> "No puedes expulsarte a ti: usa «Salir del grupo»."
             "sin_sesion" in clave -> "No se pudo iniciar la sesión de grupos."

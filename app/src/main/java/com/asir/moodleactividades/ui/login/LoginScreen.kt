@@ -60,6 +60,7 @@ import com.asir.moodleactividades.ui.componentes.Aviso
 import com.asir.moodleactividades.ui.componentes.CampoSecreto
 import com.asir.moodleactividades.ui.componentes.DivisorFila
 import com.asir.moodleactividades.ui.componentes.Espacio
+import com.asir.moodleactividades.ui.componentes.SinCapturas
 import com.asir.moodleactividades.ui.componentes.Tarjeta
 import com.asir.moodleactividades.ui.theme.Tono
 
@@ -81,6 +82,9 @@ fun LoginScreen(
 ) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
     val contexto = LocalContext.current
+
+    // Aquí se escriben la contraseña o el token.
+    SinCapturas()
 
     LaunchedEffect(estado.urlParaAbrir) {
         estado.urlParaAbrir?.let { destino ->

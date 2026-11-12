@@ -28,6 +28,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.SecureFlagPolicy
 import com.asir.moodleactividades.ui.theme.Tono
 
 /** Un campo para contraseñas y tokens: oculto por defecto, con el ojo para comprobarlo. */
@@ -88,6 +90,8 @@ fun DialogoCuentaGuardada(
 
     AlertDialog(
         onDismissRequest = alCerrar,
+        // Aquí se escribe una contraseña: la ventana no se puede capturar ni grabar.
+        properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn),
         icon = { Icon(Icons.Default.Key, contentDescription = null) },
         title = { Text(titulo) },
         text = {

@@ -1,9 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Lo que da acceso a las cuentas no sale del móvil, ni a la copia en la nube ni al pasar
+    los datos a otro teléfono: las preferencias (sesiones y copias de notas) y, desde la 2.6,
+    también los datos del navegador incrustado, donde viven las cookies de Séneca y NetAcad.
+    Los ficheros del horario sí se traspasan: no son un secreto y perderlos solo molesta.
+-->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="root" path="app_webview" />
+        <exclude domain="external" path="." />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="root" path="app_webview" />
+        <exclude domain="external" path="." />
     </device-transfer>
 </data-extraction-rules>

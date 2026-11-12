@@ -38,14 +38,34 @@ object Instalador {
         }
     }
 
-    fun instalar(contexto: Context, apk: File): Boolean = runCatching {
-        val uri = FileProvider.getUriForFile(contexto, "${contexto.packageName}.fileprovider", apk)
-        contexto.startActivity(
-            Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        )
-        true
-    }.getOrDefault(false)
+    /**
+     * El actualizador solo instala esta misma app. Si lo descargado dice ser otro paquete,
+     * no se le pasa al instalador: que la firma sea la de siempre ya lo comprueba Android,
+     * pero solo cuando el paquete coincide con uno instalado.
+     */
+    fun esEstaApp(contexto: Context, apk: File): Boolean {
+        val paquete = runCatching {
+            @Suppress("DEPRECATION")
+            contexto.packageManager.getPackageArchiveInfo(apk.path, 0)?.packageName
+        }.getOrNull()
+        // Si el móvil no sabe leerlo, decide el instalador del sistema, que lo valida entero.
+        return paquete == null || paquete == contexto.packageName
+    }
+
+    fun instalar(contexto: Context, apk: File): Boolean {
+        if (!esEstaApp(contexto, apk)) {
+            apk.delete()
+            return false
+        }
+        return runCatching {
+            val uri = FileProvider.getUriForFile(contexto, "${contexto.packageName}.fileprovider", apk)
+            contexto.startActivity(
+                Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/vnd.android.package-archive")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
+            true
+        }.getOrDefault(false)
+    }
 }

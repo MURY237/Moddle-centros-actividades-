@@ -1,6 +1,7 @@
 package com.asir.moodleactividades.data
 
 import android.content.Context
+import com.asir.moodleactividades.data.net.SsoLogin
 
 data class Sesion(
     val urlSitio: String,
@@ -49,21 +50,31 @@ class SesionStore(contexto: Context) {
 
     fun ultimaUrl(): String = prefs.getString(CLAVE_URL, "").orEmpty()
 
-    fun guardarSsoPendiente(urlSitio: String, passport: String) {
+    fun guardarSsoPendiente(urlSitio: String, passport: String, ahora: Long = System.currentTimeMillis() / 1000) {
         prefs.edit()
             .putString(CLAVE_URL, urlSitio)
             .putString(CLAVE_PASSPORT, passport)
+            .putLong(CLAVE_PASSPORT_MOMENTO, ahora)
             .apply()
     }
 
-    fun ssoPendiente(): Pair<String, String>? {
+    /**
+     * El acceso con iDEA que está a medias. Vale media hora: un acceso que se dejó sin
+     * terminar no debe seguir aceptando respuestas días después.
+     */
+    fun ssoPendiente(ahora: Long = System.currentTimeMillis() / 1000): Pair<String, String>? {
         val url = prefs.getString(CLAVE_URL, null) ?: return null
         val passport = prefs.getString(CLAVE_PASSPORT, null) ?: return null
+        val momento = prefs.getLong(CLAVE_PASSPORT_MOMENTO, 0)
+        if (!SsoLogin.pendienteVigente(momento, ahora)) {
+            limpiarSsoPendiente()
+            return null
+        }
         return url to passport
     }
 
     fun limpiarSsoPendiente() {
-        prefs.edit().remove(CLAVE_PASSPORT).apply()
+        prefs.edit().remove(CLAVE_PASSPORT).remove(CLAVE_PASSPORT_MOMENTO).apply()
     }
 
     /** Cierra la sesión. Se queda solo la URL del centro, para no tener que volver a escribirla. */
@@ -75,6 +86,7 @@ class SesionStore(contexto: Context) {
             .remove(CLAVE_SITIO)
             .remove(CLAVE_ID_USUARIO)
             .remove(CLAVE_PASSPORT)
+            .remove(CLAVE_PASSPORT_MOMENTO)
             .apply()
     }
 
@@ -85,6 +97,7 @@ class SesionStore(contexto: Context) {
         const val CLAVE_NOMBRE = "nombre"
         const val CLAVE_SITIO = "sitio"
         const val CLAVE_PASSPORT = "passport"
+        const val CLAVE_PASSPORT_MOMENTO = "passport_momento"
         const val CLAVE_ID_USUARIO = "id_usuario"
     }
 }

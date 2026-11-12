@@ -100,8 +100,8 @@ android {
         applicationId = "com.asir.moodleactividades"
         minSdk = 26
         targetSdk = 35
-        versionCode = 59
-        versionName = "2.5"
+        versionCode = 60
+        versionName = "2.6"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_CLAVE", "\"$supabaseClave\"")
@@ -141,8 +141,14 @@ android {
         debug {
             signingConfig = signingConfigs.getByName("debug")
         }
+        // Lo que se publica. Hasta la 2.5 se publicaba la compilación de depuración, que es
+        // «debuggable»: con el móvil conectado por USB cualquiera podía entrar en los datos
+        // de la app (run-as) o engancharle un depurador y leer el token y las contraseñas ya
+        // descifradas. Esta no lo es. Misma firma, así que se instala encima sin perder nada.
         release {
+            isDebuggable = false
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

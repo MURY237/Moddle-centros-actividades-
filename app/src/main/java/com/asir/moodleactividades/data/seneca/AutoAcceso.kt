@@ -1,5 +1,7 @@
 package com.asir.moodleactividades.data.seneca
 
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+
 /**
  * Séneca caduca la sesión por su cuenta —lo dice él mismo: «se ha agotado el tiempo de
  * sesión»—, así que ninguna cookie guardada evita volver a entrar. Este guion hace lo que
@@ -20,6 +22,17 @@ object AutoAcceso {
         if (!destino.scheme.equals("https", ignoreCase = true)) return false
         val host = destino.host?.lowercase() ?: return false
         return host == "juntadeandalucia.es" || host.endsWith(".juntadeandalucia.es")
+    }
+
+    /**
+     * Una dirección web que no es de la Junta. El navegador de Séneca no las sigue: ahí el
+     * alumno escribe su contraseña, y un enlace o una redirección no debe poder llevarlo a
+     * una página de otro que imite el acceso. Lo que no es una web (about:, javascript:,
+     * blob:…) pertenece a la propia página y no cuenta.
+     */
+    fun saleDeLaJunta(url: String?): Boolean {
+        val host = url?.trim()?.toHttpUrlOrNull()?.host ?: return false
+        return !(host == "juntadeandalucia.es" || host.endsWith(".juntadeandalucia.es"))
     }
 
     fun guion(usuario: String, clave: String): String =
