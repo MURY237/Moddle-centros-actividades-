@@ -59,6 +59,7 @@ import com.asir.moodleactividades.ui.componentes.FranjaResumen
 import com.asir.moodleactividades.ui.componentes.Metrica
 import com.asir.moodleactividades.ui.componentes.SelectorAsignatura
 import com.asir.moodleactividades.ui.componentes.Tarjeta
+import com.asir.moodleactividades.ui.esEnlaceWeb
 import com.asir.moodleactividades.ui.formatearFecha
 import com.asir.moodleactividades.ui.theme.Tono
 import com.asir.moodleactividades.ui.theme.colores
@@ -98,7 +99,7 @@ fun NotasScreen(
             alAjustar = { viewModel.ajustar(calificacion, it) },
             alCerrar = viewModel::cerrarDetalle,
             alAbrirEnMoodle = {
-                calificacion.url?.let { enlace ->
+                calificacion.url?.takeIf { esEnlaceWeb(it) }?.let { enlace ->
                     runCatching { contexto.startActivity(Intent(Intent.ACTION_VIEW, enlace.toUri())) }
                 }
             }

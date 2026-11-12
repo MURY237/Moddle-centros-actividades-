@@ -232,7 +232,10 @@ export async function atender(peticion: Request, entorno: Entorno, pedir: Pedir 
     }));
     return json(200, { avisados });
   } catch (e) {
-    return json(500, { error: String((e as Error)?.message ?? e) });
+    // El detalle se queda en el registro del servidor: a quien llama no se le cuenta qué
+    // tabla o qué servicio falló.
+    console.error("avisar:", (e as Error)?.message ?? e);
+    return json(500, { error: "interno" });
   }
 }
 

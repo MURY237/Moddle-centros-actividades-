@@ -70,27 +70,22 @@ jobs:
             echo "Sin secretos de firma: se usa la clave de depuración del repositorio."
           fi
 
-      # Si la clave propia no se puede abrir, dice por qué sin enseñar ningún secreto: solo
-      # tamaños, si coinciden y la huella pública del certificado.
-      - name: Diagnóstico de la firma propia
+      # Si la clave propia no se puede abrir, lo dice sin enseñar nada de los secretos (el
+      # registro de un repositorio público lo lee cualquiera): solo si abre y la huella
+      # pública del certificado, que ya va dentro de cada APK.
+      - name: Comprobar la clave de firma propia
         if: ${{ env.FIRMA_ALMACEN != '' }}
         continue-on-error: true
         env:
           FIRMA_CLAVE_ALMACEN: ${{ secrets.FIRMA_CLAVE_ALMACEN }}
-          FIRMA_ALIAS: ${{ secrets.FIRMA_ALIAS }}
-          FIRMA_CLAVE: ${{ secrets.FIRMA_CLAVE }}
-          FIRMA_BASE64: ${{ secrets.FIRMA_BASE64 }}
         run: |
-          echo "FIRMA_BASE64: ${#FIRMA_BASE64} caracteres"
-          echo "almacén decodificado: $(stat -c%s "$FIRMA_ALMACEN") bytes, sha256 $(sha256sum "$FIRMA_ALMACEN" | cut -c1-16)"
-          echo "contraseña del almacén: ${#FIRMA_CLAVE_ALMACEN} caracteres; de la clave: ${#FIRMA_CLAVE}; alias: ${#FIRMA_ALIAS}"
-          if [ "$FIRMA_CLAVE_ALMACEN" = "$FIRMA_CLAVE" ]; then echo "las dos contraseñas coinciden"; else echo "las dos contraseñas NO coinciden"; fi
-          case "$FIRMA_CLAVE_ALMACEN$FIRMA_CLAVE$FIRMA_ALIAS" in
-            *[[:space:]]*) echo "HAY espacios o saltos de línea en algún secreto";;
-            *) echo "ningún secreto tiene espacios";;
-          esac
-          keytool -list -keystore "$FIRMA_ALMACEN" -storepass "$FIRMA_CLAVE_ALMACEN" 2>&1 \
-            | grep -E "SHA-256|incorrect|Invalid|error|PrivateKeyEntry" || true
+          if keytool -list -keystore "$FIRMA_ALMACEN" -storepass "$FIRMA_CLAVE_ALMACEN" > "$RUNNER_TEMP/clave.txt" 2>&1; then
+            grep -E "SHA-256" "$RUNNER_TEMP/clave.txt" || true
+            echo "La clave de firma se abre."
+          else
+            echo "La clave de firma NO se abre: revisa FIRMA_BASE64 y FIRMA_CLAVE_ALMACEN (sin espacios ni saltos de línea)."
+          fi
+          rm -f "$RUNNER_TEMP/clave.txt"
 
       # Diagnóstico de los avisos al instante: solo informa, nunca corta la compilación.
       # No enseña ningún secreto, solo si están y qué responde el servidor.
@@ -132,7 +127,7 @@ jobs:
           FIRMA_CLAVE_ALMACEN: ${{ secrets.FIRMA_CLAVE_ALMACEN }}
           FIRMA_ALIAS: ${{ secrets.FIRMA_ALIAS }}
           FIRMA_CLAVE: ${{ secrets.FIRMA_CLAVE }}
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleRelease --stacktrace
 
       # Con clave propia, el APK se vuelve a firmar con la cadena «clave antigua → nueva»
       # para que Android actualice la app sin borrar los datos (ver el guion).
@@ -143,9 +138,22 @@ jobs:
           FIRMA_ALIAS: ${{ secrets.FIRMA_ALIAS }}
           FIRMA_CLAVE: ${{ secrets.FIRMA_CLAVE }}
         run: |
-          APK=app/build/outputs/apk/debug/app-debug.apk
+          APK=app/build/outputs/apk/release/app-release.apk
           .github/firmar-con-rotacion.sh "$APK" "$RUNNER_TEMP/firmado.apk" "$FIRMA_ALMACEN"
           mv "$RUNNER_TEMP/firmado.apk" "$APK"
+
+      # Lo que se va a publicar no puede ser depurable: con un APK así, quien conecte el
+      # móvil por USB entra en los datos de la app. Si alguna vez vuelve a serlo, no se publica.
+      - name: Comprobar que el APK no es depurable
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          AAPT2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
+          if "$AAPT2" dump badging "$APK" | grep -q "application-debuggable"; then
+            echo "El APK es depurable: no se publica."
+            exit 1
+          fi
+          "$AAPT2" dump badging "$APK" | grep -E "^package:" | cut -c1-120
+          echo "El APK no es depurable."
 
       # Prueba del mecanismo con una clave desechable: así se sabe que funciona antes de
       # que lo use la clave de verdad, y que sigue funcionando en cada cambio.
@@ -157,7 +165,7 @@ jobs:
           keytool -genkeypair -keystore "$RUNNER_TEMP/prueba.jks" -storetype PKCS12 -alias prueba \
             -keyalg RSA -keysize 2048 -validity 30 -dname "CN=prueba" \
             -storepass "$FIRMA_CLAVE_ALMACEN" -keypass "$FIRMA_CLAVE" 2>/dev/null
-          .github/firmar-con-rotacion.sh app/build/outputs/apk/debug/app-debug.apk \
+          .github/firmar-con-rotacion.sh app/build/outputs/apk/release/app-release.apk \
             "$RUNNER_TEMP/rotado.apk" "$RUNNER_TEMP/prueba.jks"
 
       - name: Leer la versión del proyecto
@@ -169,8 +177,8 @@ jobs:
       - name: Publicar APK como artefacto
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: app-apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
       # La app se actualiza sola leyendo la última release, así que cada versión
@@ -181,7 +189,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.numero }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk "actividades-moodle-$VERSION.apk"
+          # Sin la clave propia el APK saldría firmado con la del repositorio, que es
+          # pública: cualquiera podría hacerse pasar por una actualización. Eso no se publica.
+          if [ -z "$FIRMA_ALMACEN" ]; then
+            echo "Faltan los secretos FIRMA_*: no se publica un APK firmado con la clave pública."
+            exit 1
+          fi
+          cp app/build/outputs/apk/release/app-release.apk "actividades-moodle-$VERSION.apk"
           if gh release view "v$VERSION" >/dev/null 2>&1; then
             gh release upload "v$VERSION" "actividades-moodle-$VERSION.apk" --clobber
           else

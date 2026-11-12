@@ -42,6 +42,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.asir.moodleactividades.data.Aviso
 import com.asir.moodleactividades.data.TipoAviso
+import com.asir.moodleactividades.ui.esEnlaceWeb
 import com.asir.moodleactividades.ui.componentes.CabeceraPantalla
 import com.asir.moodleactividades.ui.componentes.Espacio
 import com.asir.moodleactividades.ui.componentes.EstadoVacio
@@ -73,7 +74,9 @@ fun AvisosScreen(
             vaciar = viewModel::vaciar,
             abrirAjustes = alAbrirAjustes,
             abrirEnlace = { enlace ->
-                runCatching { contexto.startActivity(Intent(Intent.ACTION_VIEW, enlace.toUri())) }
+                if (esEnlaceWeb(enlace)) {
+                    runCatching { contexto.startActivity(Intent(Intent.ACTION_VIEW, enlace.toUri())) }
+                }
             }
         ),
         modifier = modifier

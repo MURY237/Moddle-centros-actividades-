@@ -2,6 +2,7 @@ package com.asir.moodleactividades.ui.faltas
 
 import android.annotation.SuppressLint
 import android.webkit.CookieManager
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -119,6 +120,18 @@ internal fun NavegadorSeneca(
                         CookieManager.getInstance().setAcceptCookie(true)
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                         webViewClient = object : WebViewClient() {
+                            // Este navegador es solo para Séneca: no sigue enlaces ni
+                            // redirecciones a webs que no sean de la Junta.
+                            override fun shouldOverrideUrlLoading(
+                                vistaWeb: WebView?,
+                                peticion: WebResourceRequest?
+                            ): Boolean {
+                                if (peticion == null || !peticion.isForMainFrame) return false
+                                if (!AutoAcceso.saleDeLaJunta(peticion.url?.toString())) return false
+                                alAnotarAcceso("enlace a " + (peticion.url?.host ?: "otra web") + " bloqueado: no es de la Junta")
+                                return true
+                            }
+
                             override fun onPageFinished(vistaWeb: WebView?, url: String?) {
                                 // Cada página nueva estrena presupuesto de intentos: así la
                                 // portada tras identificarse vuelve a probar desde cero.

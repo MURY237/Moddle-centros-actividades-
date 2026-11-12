@@ -30,6 +30,13 @@ object SsoLogin {
     fun generarPassport(): String =
         (SecureRandom().nextLong() and Long.MAX_VALUE).toString()
 
+    /** Cuánto se espera la respuesta del navegador antes de dar el acceso por abandonado. */
+    const val VIGENCIA_SEGUNDOS = 30 * 60L
+
+    /** [momento] es cuándo se abrió el navegador; cero es un acceso guardado sin fecha. */
+    fun pendienteVigente(momento: Long, ahora: Long): Boolean =
+        momento > 0 && ahora >= momento && ahora - momento <= VIGENCIA_SEGUNDOS
+
     fun urlDeLanzamiento(sitio: String, passport: String): String =
         sitio.trimEnd('/') +
             "/admin/tool/mobile/launch.php" +

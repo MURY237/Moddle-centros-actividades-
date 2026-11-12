@@ -75,6 +75,7 @@ import com.asir.moodleactividades.ui.componentes.SelectorAsignatura
 import com.asir.moodleactividades.ui.componentes.Tarjeta
 import com.asir.moodleactividades.ui.componentes.TituloSeccion
 import com.asir.moodleactividades.ui.componentes.tono
+import com.asir.moodleactividades.ui.esEnlaceWeb
 import com.asir.moodleactividades.ui.formatearFecha
 import com.asir.moodleactividades.ui.haceCuanto
 import com.asir.moodleactividades.ui.textoRelativo
@@ -128,7 +129,8 @@ fun ActividadesScreen(
             alAbrirArchivo = { adjunto, archivo -> abrirIntent(viewModel.intentAbrir(adjunto, archivo)) },
             alCompartirArchivo = { adjunto, archivo -> abrirIntent(viewModel.intentCompartir(adjunto, archivo)) },
             alAbrirEnMoodle = {
-                actividad.url?.let { enlace -> abrirIntent(Intent(Intent.ACTION_VIEW, enlace.toUri())) }
+                actividad.url?.takeIf { esEnlaceWeb(it) }
+                    ?.let { enlace -> abrirIntent(Intent(Intent.ACTION_VIEW, enlace.toUri())) }
             },
             alMarcarEntregada = { viewModel.marcarEntregada(actividad, it) }
         )

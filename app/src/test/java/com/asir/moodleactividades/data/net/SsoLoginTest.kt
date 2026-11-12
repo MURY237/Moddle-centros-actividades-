@@ -108,4 +108,19 @@ class SsoLoginTest {
         assertFalse(SsoLogin.servicioMovilApagado("<html>Redirigiendo…</html>"))
         assertFalse(SsoLogin.servicioMovilApagado(null))
     }
+
+    @Test
+    fun `un acceso a medias caduca a la media hora`() {
+        val abierto = 1_800_000_000L
+
+        assertTrue(SsoLogin.pendienteVigente(abierto, abierto + 60))
+        assertTrue(SsoLogin.pendienteVigente(abierto, abierto + SsoLogin.VIGENCIA_SEGUNDOS))
+        assertFalse(SsoLogin.pendienteVigente(abierto, abierto + SsoLogin.VIGENCIA_SEGUNDOS + 1))
+    }
+
+    @Test
+    fun `un acceso guardado sin fecha o con fecha futura no vale`() {
+        assertFalse(SsoLogin.pendienteVigente(0, 1_800_000_000L))
+        assertFalse(SsoLogin.pendienteVigente(1_800_000_100L, 1_800_000_000L))
+    }
 }

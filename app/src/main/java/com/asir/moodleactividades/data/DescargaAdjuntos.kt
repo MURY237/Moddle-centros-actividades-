@@ -68,8 +68,18 @@ class DescargaAdjuntos(
     private fun uriDe(archivo: File) =
         FileProvider.getUriForFile(app, "${app.packageName}.fileprovider", archivo)
 
-    /** Sin tipo MIME muchos visores descartan el archivo; el comodín deja elegir al usuario. */
-    private fun tipoUtil(tipo: String) = tipo.ifBlank { "*/*" }
+    /**
+     * Sin tipo MIME muchos visores descartan el archivo; el comodín deja elegir al usuario.
+     *
+     * Un adjunto que dice ser una aplicación se trata como un fichero cualquiera: esta app
+     * tiene permiso para instalar (se actualiza sola), y un «enunciado» que fuera un APK no
+     * debe poder abrir el instalador desde aquí.
+     */
+    private fun tipoUtil(tipo: String) = when {
+        tipo.isBlank() -> "*/*"
+        tipo.trim().equals(TIPO_APK, ignoreCase = true) -> "application/octet-stream"
+        else -> tipo
+    }
 
     /**
      * Solo letras, números, punto, guion y guion bajo, y como mucho 60 caracteres. Se recorta
@@ -84,4 +94,8 @@ class DescargaAdjuntos(
     }
 
     private fun huella(url: String): String = Integer.toHexString(url.hashCode())
+
+    private companion object {
+        const val TIPO_APK = "application/vnd.android.package-archive"
+    }
 }

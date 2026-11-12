@@ -2,20 +2,27 @@ package com.asir.moodleactividades.data
 
 import android.content.Context
 import android.webkit.CookieManager
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
  * Séneca mantiene la sesión con cookies que el navegador incrustado tira al cerrarse la app,
  * porque no llevan fecha de caducidad. Guardarlas aquí evita tener que identificarse en cada
  * arranque: se restauran antes de cargar la página y la sesión continúa donde estaba.
  *
- * Lo guardado equivale a una sesión abierta, no a la contraseña: vive en las preferencias
- * privadas de la app, con la copia de seguridad del sistema desactivada, y desaparece al
- * desconectar o cuando Séneca la caduca por su cuenta.
+ * Lo guardado equivale a una sesión abierta: quien copie esas cookies entra en Séneca como
+ * el alumno mientras dure. Por eso van cifradas con el almacén de claves, igual que el token
+ * de Moodle (hasta la 2.5 iban en claro; se pasan solas al leerlas). Desaparecen al
+ * desconectar o cuando Séneca caduca la sesión por su cuenta.
  */
 class SesionSeneca(contexto: Context) {
 
     private val prefs = contexto.applicationContext
         .getSharedPreferences("sesion_seneca", Context.MODE_PRIVATE)
+
+    private val cifradas by lazy { PreferenciasCifradas.abrir(contexto, "sesion_seneca_cifrada") }
+
+    private fun cookiesGuardadas(): String? =
+        PreferenciasCifradas.leerMigrando(cifradas, prefs, COOKIES)
 
     fun guardar() {
         val gestor = runCatching { CookieManager.getInstance() }.getOrNull() ?: return
@@ -33,28 +40,27 @@ class SesionSeneca(contexto: Context) {
 
         if (recogidas.isEmpty()) return
 
-        prefs.edit()
-            .putString(COOKIES, recogidas.joinToString("; "))
-            .putLong(MOMENTO, System.currentTimeMillis() / 1000)
-            .apply()
+        PreferenciasCifradas.escribir(cifradas, prefs, COOKIES, recogidas.joinToString("; "))
+        prefs.edit().putLong(MOMENTO, System.currentTimeMillis() / 1000).apply()
     }
 
     fun restaurar() {
-        val guardadas = prefs.getString(COOKIES, null) ?: return
+        val guardadas = cookiesGuardadas() ?: return
         runCatching {
             val gestor = CookieManager.getInstance()
             gestor.setAcceptCookie(true)
             // getCookie devuelve «nombre=valor; nombre=valor», sin atributos: se reponen una
-            // a una y en todas las rutas, porque no se sabe de cuál venía cada una.
+            // a una y en todas las rutas, porque no se sabe de cuál venía cada una. Con
+            // «Secure», para que solo viajen por HTTPS aunque el original no lo dijera.
             guardadas.split(';')
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
-                .forEach { cookie -> RUTAS.forEach { ruta -> gestor.setCookie(ruta, cookie) } }
+                .forEach { cookie -> RUTAS.forEach { ruta -> gestor.setCookie(ruta, "$cookie; Secure") } }
             gestor.flush()
         }
     }
 
-    fun hay(): Boolean = !prefs.getString(COOKIES, null).isNullOrBlank()
+    fun hay(): Boolean = !cookiesGuardadas().isNullOrBlank()
 
     /**
      * Seneca no lleva la sesion solo en las cookies: tambien en la ruta `/seneca/nav/<algo>`
@@ -62,15 +68,16 @@ class SesionSeneca(contexto: Context) {
      * pagina donde se encontro la tabla y se vuelve directamente a ella.
      */
     fun guardarUrl(url: String?) {
-        if (url.isNullOrBlank() || !url.startsWith("https://seneca.")) return
+        if (url.isNullOrBlank() || !esDeSeneca(url)) return
         prefs.edit().putString(URL, url).apply()
     }
 
-    fun urlGuardada(): String? = prefs.getString(URL, null)
+    /** Se comprueba también al leer: lo guardado por versiones anteriores no pasó este filtro. */
+    fun urlGuardada(): String? = prefs.getString(URL, null)?.takeIf { esDeSeneca(it) }
 
     /** Solo los nombres de las cookies: sus valores son la sesion y no deben salir de aqui. */
     fun nombres(): List<String> =
-        prefs.getString(COOKIES, null).orEmpty()
+        cookiesGuardadas().orEmpty()
             .split(';')
             .map { it.trim().substringBefore('=') }
             .filter { it.isNotEmpty() }
@@ -114,21 +121,34 @@ class SesionSeneca(contexto: Context) {
             }
             gestor.flush()
         }
+        PreferenciasCifradas.borrar(cifradas, prefs, COOKIES)
         prefs.edit().clear().apply()
     }
 
-    private companion object {
-        val RUTAS = listOf(
+    companion object {
+        /**
+         * Solo el Séneca de verdad y por HTTPS. Antes bastaba con que la dirección empezara
+         * por «https://seneca.», y eso lo cumple también «https://seneca.loquesea.com»: una
+         * página así se habría guardado y cargado sola en la siguiente apertura.
+         */
+        fun esDeSeneca(url: String): Boolean {
+            val destino = url.trim().toHttpUrlOrNull() ?: return false
+            return destino.isHttps && destino.host == HOST
+        }
+
+        private const val HOST = "seneca.juntadeandalucia.es"
+
+        private val RUTAS = listOf(
             "https://seneca.juntadeandalucia.es/",
             "https://seneca.juntadeandalucia.es/seneca/",
             "https://seneca.juntadeandalucia.es/seneca/jsp/"
         )
 
         /** Las rutas con que pueden venir: las del servidor y las que pone restaurar(). */
-        val CAMINOS = listOf("/", "/seneca", "/seneca/", "/seneca/jsp", "/seneca/jsp/")
-        val DOMINIOS = listOf(".seneca.juntadeandalucia.es", ".juntadeandalucia.es")
-        const val COOKIES = "cookies"
-        const val MOMENTO = "momento"
-        const val URL = "url"
+        private val CAMINOS = listOf("/", "/seneca", "/seneca/", "/seneca/jsp", "/seneca/jsp/")
+        private val DOMINIOS = listOf(".seneca.juntadeandalucia.es", ".juntadeandalucia.es")
+        private const val COOKIES = "cookies"
+        private const val MOMENTO = "momento"
+        private const val URL = "url"
     }
 }
