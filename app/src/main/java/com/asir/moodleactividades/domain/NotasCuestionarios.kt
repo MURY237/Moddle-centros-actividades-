@@ -24,7 +24,7 @@ object NotasCuestionarios {
     /**
      * Añade a lo leído del libro los cuestionarios con nota que falten en él, y rellena los
      * que sí están pero sin nota. Un cuestionario se reconoce por su enlace o, si el libro no
-     * lo trae, por asignatura y nombre.
+     * lo trae, por asignatura y nombre. Aplicarlo dos veces no duplica nada.
      */
     fun completar(cursos: List<NotasDeCurso>, actividades: List<Actividad>): List<NotasDeCurso> {
         val porCurso = actividades
@@ -32,7 +32,13 @@ object NotasCuestionarios {
             .groupBy { it.curso }
         if (porCurso.isEmpty()) return cursos
 
-        return cursos.map { curso ->
+        val presentes = cursos.mapTo(mutableSetOf()) { it.curso }
+        // Una asignatura cuyas únicas notas son de cuestionarios no sale del libro.
+        val nuevas = porCurso
+            .filterKeys { it.isNotBlank() && it !in presentes }
+            .map { (curso, _) -> NotasDeCurso(curso = curso, total = null, calificaciones = emptyList()) }
+
+        return (cursos + nuevas).map { curso ->
             val cuestionarios = porCurso[curso.curso].orEmpty()
             if (cuestionarios.isEmpty()) return@map curso
 
