@@ -17,6 +17,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Grade
@@ -35,7 +39,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,7 +75,8 @@ data class AccionesNotas(
     val refrescar: () -> Unit = {},
     val cambiarFiltro: (FiltroNotas) -> Unit = {},
     val cambiarAsignatura: (String?) -> Unit = {},
-    val abrirDetalle: (Calificacion) -> Unit = {}
+    val abrirDetalle: (Calificacion) -> Unit = {},
+    val diagnosticar: () -> Unit = {}
 )
 
 @Composable
@@ -86,10 +93,15 @@ fun NotasScreen(
             refrescar = viewModel::refrescar,
             cambiarFiltro = viewModel::cambiarFiltro,
             cambiarAsignatura = viewModel::cambiarAsignatura,
-            abrirDetalle = viewModel::abrirDetalle
+            abrirDetalle = viewModel::abrirDetalle,
+            diagnosticar = viewModel::diagnosticarExamenes
         ),
         modifier = modifier
     )
+
+    estado.diagnostico?.let { texto ->
+        DialogoDiagnostico(texto = texto, alCerrar = viewModel::cerrarDiagnostico)
+    }
 
     estado.detalle?.let { calificacion ->
         HojaDetalleNota(
@@ -105,6 +117,29 @@ fun NotasScreen(
             }
         )
     }
+}
+
+/** El diagnóstico de exámenes tipo test, seleccionable y copiable para mandarlo. */
+@Composable
+private fun DialogoDiagnostico(texto: String, alCerrar: () -> Unit) {
+    val portapapeles = LocalClipboardManager.current
+    AlertDialog(
+        onDismissRequest = alCerrar,
+        title = { Text("Exámenes tipo test") },
+        text = {
+            SelectionContainer {
+                Text(
+                    text = texto,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { portapapeles.setText(AnnotatedString(texto)) }) { Text("Copiar") }
+        },
+        dismissButton = { TextButton(onClick = alCerrar) { Text("Cerrar") } }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -203,6 +238,21 @@ fun NotasContenido(
                             veredicto = estado::veredicto,
                             alAbrir = acciones.abrirDetalle,
                             modifier = Modifier.padding(horizontal = Espacio.lateral)
+                        )
+                    }
+                }
+
+                item(key = "diagnostico") {
+                    TextButton(
+                        onClick = acciones.diagnosticar,
+                        enabled = !estado.diagnosticando,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Espacio.lateral)
+                    ) {
+                        Text(
+                            if (estado.diagnosticando) "Comprobando exámenes…" else "¿Falta algún examen tipo test? Comprobar",
+                            textAlign = TextAlign.Center
                         )
                     }
                 }

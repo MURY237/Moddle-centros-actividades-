@@ -76,4 +76,22 @@ class NotasCuestionariosTest {
         assertSame(cursos, NotasCuestionarios.completar(cursos, listOf(examen.copy(nota = null))))
         assertSame(cursos[0], NotasCuestionarios.completar(cursos, listOf(examen.copy(curso = "Otra")))[0])
     }
+
+    @Test
+    fun `una asignatura sin nada en el libro aparece con su examen`() {
+        val otra = NotasDeCurso(curso = "Redes", total = null, calificaciones = listOf(calificacion("Práctica 1", "8")))
+
+        val resultado = NotasCuestionarios.completar(listOf(otra), listOf(examen))
+
+        assertEquals(listOf("Redes", "Administración de sistemas"), resultado.map { it.curso })
+        assertEquals(listOf("6,51"), resultado[1].calificaciones.map { it.nota })
+    }
+
+    @Test
+    fun `completar dos veces no duplica el examen`() {
+        val una = NotasCuestionarios.completar(listOf(curso(calificacion("Práctica 1", "8"))), listOf(examen))
+        val dos = NotasCuestionarios.completar(una, listOf(examen))
+
+        assertEquals(una, dos)
+    }
 }

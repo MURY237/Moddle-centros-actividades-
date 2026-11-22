@@ -1,6 +1,7 @@
 package com.asir.moodleactividades.data
 
 import com.asir.moodleactividades.data.net.AssignmentsDto
+import com.asir.moodleactividades.data.net.CuestionarioDto
 import com.asir.moodleactividades.data.net.CuestionariosDto
 import com.asir.moodleactividades.data.net.CursoMatriculadoDto
 import com.asir.moodleactividades.data.net.IntentosCuestionarioDto
@@ -24,6 +25,7 @@ import com.asir.moodleactividades.domain.Actividad
 import com.asir.moodleactividades.domain.Adjunto
 import com.asir.moodleactividades.domain.Calificacion
 import com.asir.moodleactividades.domain.Clasificador
+import com.asir.moodleactividades.domain.DiagnosticoCuestionarios
 import com.asir.moodleactividades.domain.EstadoActividad
 import com.asir.moodleactividades.domain.NotasCuestionarios
 import com.asir.moodleactividades.domain.NotasDeCurso
@@ -34,6 +36,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -419,9 +423,9 @@ class ActividadesRepository(
                 .filter { it.isNotBlank() && it !in conNotas }
                 .map { NotasDeCurso(curso = it, total = null, calificaciones = emptyList()) }
 
-            // Los exámenes tipo test que el libro no enseña, con la nota que da su propia API.
-            val completos = NotasCuestionarios.completar(obtenidos, cache.leer()?.actividades.orEmpty())
-            return@coroutineScope (completos + vacias).sortedByDescending { it.fechaMasReciente }
+            // Los exámenes tipo test que el libro no enseña, con la nota que da su propia API;
+            // también en las asignaturas sin nada en el libro.
+            return@coroutineScope completarConCuestionarios(obtenidos + vacias)
         }
 
         // Si el centro no deja leer su libro de calificaciones, al menos se enseña lo que ya
@@ -435,6 +439,113 @@ class ActividadesRepository(
             throw MoodleException(null, "Moodle no ha devuelto ninguna asignatura para tu usuario.")
         }
         emptyList()
+    }
+
+    /**
+     * Cada vez que se guarda una carga de actividades, en Tareas o en segundo plano. Notas
+     * lo usa para enseñar los exámenes recién leídos sin volver a preguntar a Moodle.
+     */
+    val actividadesGuardadas: Flow<Int> get() = CacheActividades.guardadas.drop(1)
+
+    /** Las notas que ya se tienen, con los exámenes tipo test de la última carga de Tareas. */
+    fun completarConCuestionarios(cursos: List<NotasDeCurso>): List<NotasDeCurso> =
+        NotasCuestionarios.completar(cursos, cache.leer()?.actividades.orEmpty())
+            .sortedByDescending { it.fechaMasReciente }
+
+    /**
+     * Para cuando un examen tipo test no aparece: qué contesta Moodle, cuestionario a
+     * cuestionario. Se revisan los más cercanos a hoy, que son los que se echan en falta.
+     */
+    suspend fun diagnosticarCuestionarios(
+        version: String,
+        ahora: Long = System.currentTimeMillis() / 1000
+    ): DiagnosticoCuestionarios = coroutineScope {
+        val sesion = sesionStore.leer() ?: throw MoodleException(null, "No hay ninguna sesión iniciada.")
+        val cliente = MoodleClient(sesion.urlSitio, sesion.token)
+        val guardada = cache.leer()
+
+        val funciones = runCatching {
+            val info: SiteInfoDto = cliente.decodificar(cliente.invocar("core_webservice_get_site_info"))
+            val disponibles = info.functions.mapTo(mutableSetOf()) { it.name }
+            if (disponibles.isEmpty()) null else DiagnosticoCuestionarios.FUNCIONES.associateWith { it in disponibles }
+        }.getOrNull()
+        val nombresDeCurso = runCatching { misCursos(cliente, sesion) }.getOrDefault(emptyList())
+            .associate { it.id to it.fullname.ifBlank { it.shortname } }
+        val lista = runCatching {
+            cliente.decodificar<CuestionariosDto>(cliente.invocar("mod_quiz_get_quizzes_by_courses"))
+        }
+        val cuestionarios = lista.getOrNull()?.quizzes.orEmpty()
+
+        val limitador = Semaphore(MAX_PETICIONES_SIMULTANEAS)
+        val revisados = cuestionarios
+            .sortedBy { distanciaAlPlazo(it.timeclose, ahora) }
+            .take(MAX_DIAGNOSTICO_CUESTIONARIOS)
+            .map { cuestionario ->
+                async {
+                    limitador.withPermit { filaDeDiagnostico(cliente, cuestionario, nombresDeCurso) }
+                }
+            }.awaitAll()
+
+        DiagnosticoCuestionarios(
+            version = version,
+            funciones = funciones,
+            ultimaCarga = guardada?.momento,
+            cargaConApi = guardada?.cuestionarios == true,
+            enLaLista = guardada?.actividades.orEmpty().count { it.tipo == TipoActividad.CUESTIONARIO },
+            errorLista = lista.exceptionOrNull()?.let(::describirFallo),
+            total = cuestionarios.size,
+            revisados = revisados,
+            ahora = ahora
+        )
+    }
+
+    private suspend fun filaDeDiagnostico(
+        cliente: MoodleClient,
+        cuestionario: CuestionarioDto,
+        nombresDeCurso: Map<Long, String>
+    ): DiagnosticoCuestionarios.Fila {
+        val intentos = runCatching {
+            cliente.decodificar<IntentosCuestionarioDto>(
+                cliente.invocar(
+                    "mod_quiz_get_user_attempts",
+                    mapOf("quizid" to cuestionario.id.toString(), "status" to "all")
+                )
+            ).attempts.map { it.state }
+        }
+        val terminado = intentos.getOrNull().orEmpty().any { it.equals("finished", ignoreCase = true) }
+        val mejor = if (terminado) {
+            runCatching {
+                cliente.decodificar<MejorNotaCuestionarioDto>(
+                    cliente.invocar(
+                        "mod_quiz_get_user_best_grade",
+                        mapOf("quizid" to cuestionario.id.toString())
+                    )
+                )
+            }
+        } else {
+            null
+        }
+        val nota = mejor?.getOrNull()?.takeIf { it.hasgrade }?.grade?.let { formatearNota(it.toString()) }
+
+        return DiagnosticoCuestionarios.Fila(
+            nombre = cuestionario.name,
+            curso = nombresDeCurso[cuestionario.course] ?: "curso ${cuestionario.course}",
+            cierre = cuestionario.timeclose.takeIf { it > 0 },
+            intentos = intentos.getOrNull(),
+            nota = nota,
+            notaMaxima = cuestionario.grade.takeIf { it > 0 },
+            notaOculta = mejor?.isSuccess == true && nota == null,
+            error = (intentos.exceptionOrNull() ?: mejor?.exceptionOrNull())?.let(::describirFallo)
+        )
+    }
+
+    /** El código de Moodle y su mensaje, o el tipo de fallo si ni siquiera hubo respuesta. */
+    private fun describirFallo(fallo: Throwable): String {
+        val texto = when (fallo) {
+            is MoodleException -> listOfNotNull(fallo.codigo, fallo.message).joinToString(": ")
+            else -> listOfNotNull(fallo::class.simpleName, fallo.message).joinToString(": ")
+        }
+        return texto.take(240)
     }
 
     private fun notasDesdeActividades(): List<NotasDeCurso> =
@@ -663,6 +774,7 @@ class ActividadesRepository(
         const val TAMANO_LOTE_NOTAS = 25
         const val MAX_CONSULTAS_ESTADO = 180
         const val MAX_CONSULTAS_CUESTIONARIO = 120
+        const val MAX_DIAGNOSTICO_CUESTIONARIOS = 25
 
         /** Un cuestionario cerrado hace menos de esto aún puede cambiar de nota (revisiones). */
         const val MARGEN_RECALIFICACION = 60L * 60 * 24 * 21

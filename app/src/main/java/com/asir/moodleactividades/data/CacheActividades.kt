@@ -2,6 +2,10 @@ package com.asir.moodleactividades.data
 
 import android.content.Context
 import com.asir.moodleactividades.domain.Actividad
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -39,6 +43,7 @@ class CacheActividades(contexto: Context) {
             json.encodeToString(Instantanea(actividades, momento, asignaturas, cuestionarios))
         }.getOrNull() ?: return
         prefs.edit().putString(CLAVE, serializado).apply()
+        _guardadas.update { it + 1 }
     }
 
     fun leer(): Instantanea? {
@@ -48,8 +53,16 @@ class CacheActividades(contexto: Context) {
 
     fun borrar() = prefs.edit().remove(CLAVE).apply()
 
-    private companion object {
-        const val CLAVE = "instantanea"
-        val json = Json { ignoreUnknownKeys = true }
+    companion object {
+        private const val CLAVE = "instantanea"
+        private val json = Json { ignoreUnknownKeys = true }
+
+        private val _guardadas = MutableStateFlow(0)
+
+        /**
+         * Cuántas cargas se han guardado en este proceso. Notas se construye a la vez que
+         * Tareas y leía los exámenes de la carga anterior: con esto se entera de la nueva.
+         */
+        val guardadas: StateFlow<Int> = _guardadas.asStateFlow()
     }
 }

@@ -89,6 +89,15 @@ calificaciones no la enseña. Los cerrados hace más de tres semanas no se vuelv
 consultar: se usa lo que se leyó la última vez. Si el centro no deja usar esta API, la app
 vuelve a sacarlos del calendario.
 
+Notas se monta a la vez que Tareas, así que su primera carga ve los exámenes de la carga
+anterior; en cuanto Tareas guarda la suya, Notas los añade sin volver a preguntar a Moodle
+(desde la 2.7.1).
+
+Si aun así falta alguno, al final de **Notas** está **¿Falta algún examen tipo test?
+Comprobar**: dice si el centro permite las tres funciones, cuántos cuestionarios devuelve
+Moodle y, para los 25 más cercanos a hoy, sus intentos y su nota o el error exacto. Se puede
+copiar; no lleva el token ni nada de la sesión.
+
 ## Enunciados y adjuntos
 
 `mod_assign_get_assignments` devuelve, junto a cada tarea, su enunciado en HTML y la

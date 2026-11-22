@@ -2,6 +2,7 @@ package com.asir.moodleactividades.ui.notas
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.asir.moodleactividades.BuildConfig
 import com.asir.moodleactividades.data.ActividadesRepository
 import com.asir.moodleactividades.data.AjustesNotas
 import com.asir.moodleactividades.data.Conectividad
@@ -31,7 +32,10 @@ data class NotasUiState(
     /** Lo que el alumno ha corregido a mano, por clave de calificación. */
     val ajustes: Map<String, AjusteNota> = emptyMap(),
     /** La calificación abierta en la hoja de detalle. */
-    val detalle: Calificacion? = null
+    val detalle: Calificacion? = null,
+    /** Lo que contesta Moodle sobre los exámenes tipo test, cuando el alumno lo pide. */
+    val diagnostico: String? = null,
+    val diagnosticando: Boolean = false
 ) {
     /** Hay algo en pantalla, pero es de una carga anterior y la última consulta falló. */
     val mostrandoDatosAntiguos: Boolean get() = error != null && todos.isNotEmpty()
@@ -65,7 +69,28 @@ class NotasViewModel(
             _estado.update { aplicarFiltro(it.copy(todos = guardadas.cursos)) }
         }
         refrescar()
+
+        // Esta pantalla se monta a la vez que Tareas: su primera carga leía los exámenes de
+        // la carga anterior. Cuando Tareas guarda la suya, se añaden sin preguntar a Moodle.
+        viewModelScope.launch {
+            repositorio.actividadesGuardadas.collect {
+                _estado.update { aplicarFiltro(it.copy(todos = repositorio.completarConCuestionarios(it.todos))) }
+            }
+        }
     }
+
+    fun diagnosticarExamenes() {
+        if (_estado.value.diagnosticando) return
+        _estado.update { it.copy(diagnosticando = true) }
+        viewModelScope.launch {
+            val texto = runCatching {
+                repositorio.diagnosticarCuestionarios(BuildConfig.VERSION_NAME).comoTexto()
+            }.getOrElse { "No se pudo comprobar: " + mensajeDeError(it) }
+            _estado.update { it.copy(diagnosticando = false, diagnostico = texto) }
+        }
+    }
+
+    fun cerrarDiagnostico() = _estado.update { it.copy(diagnostico = null) }
 
     fun cambiarFiltro(filtro: FiltroNotas) = _estado.update { aplicarFiltro(it.copy(filtro = filtro)) }
 
