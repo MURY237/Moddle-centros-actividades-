@@ -158,3 +158,42 @@ data class CursoEventoDto(
     val id: Long = 0,
     val fullname: String = ""
 )
+
+/** mod_quiz_get_quizzes_by_courses: los cuestionarios de todas las asignaturas del alumno. */
+@Serializable
+data class CuestionariosDto(
+    val quizzes: List<CuestionarioDto> = emptyList()
+)
+
+@Serializable
+data class CuestionarioDto(
+    val id: Long = 0,
+    val course: Long = 0,
+    val coursemodule: Long = 0,
+    val name: String = "",
+    val intro: String = "",
+    val timeopen: Long = 0,
+    /** Cuándo se cierra; cero si no tiene cierre. */
+    val timeclose: Long = 0,
+    /** La nota máxima del cuestionario (sobre 10, sobre 2…). */
+    val grade: Double = 0.0
+)
+
+/** mod_quiz_get_user_attempts: solo interesa en qué estado está cada intento. */
+@Serializable
+data class IntentosCuestionarioDto(
+    val attempts: List<IntentoCuestionarioDto> = emptyList()
+)
+
+@Serializable
+data class IntentoCuestionarioDto(
+    /** «inprogress», «overdue», «finished» o «abandoned». */
+    val state: String = ""
+)
+
+/** mod_quiz_get_user_best_grade: la nota que cuenta, según como califique el cuestionario. */
+@Serializable
+data class MejorNotaCuestionarioDto(
+    val hasgrade: Boolean = false,
+    val grade: Double? = null
+)

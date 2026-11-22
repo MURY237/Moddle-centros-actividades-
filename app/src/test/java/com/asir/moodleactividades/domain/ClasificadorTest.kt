@@ -212,4 +212,28 @@ class ClasificadorTest {
 
         assertFalse(marcadas.single().marcadaEntregada)
     }
+
+    @Test
+    fun `un cuestionario con un intento terminado esta hecho aunque ya haya cerrado`() {
+        val estado = Clasificador.estadoCuestionario(listOf("abandoned", "finished"), ahora - unDia, ahora)
+
+        assertEquals(EstadoActividad.ENTREGADA, estado)
+    }
+
+    @Test
+    fun `un cuestionario empezado y sin enviar no cuenta como hecho`() {
+        assertEquals(
+            EstadoActividad.PENDIENTE,
+            Clasificador.estadoCuestionario(listOf("inprogress"), ahora + unDia, ahora)
+        )
+        assertEquals(
+            EstadoActividad.NO_ENTREGADA,
+            Clasificador.estadoCuestionario(listOf("inprogress"), ahora - unDia, ahora)
+        )
+    }
+
+    @Test
+    fun `un cuestionario sin intentos ni cierre sigue pendiente`() {
+        assertEquals(EstadoActividad.PENDIENTE, Clasificador.estadoCuestionario(emptyList(), null, ahora))
+    }
 }

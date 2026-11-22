@@ -29,6 +29,17 @@ object Clasificador {
         }
     }
 
+    /**
+     * Un cuestionario está hecho en cuanto tiene un intento terminado. Uno empezado y sin
+     * enviar cuenta como no hecho: si el cuestionario ya cerró, Moodle no lo va a calificar.
+     */
+    fun estadoCuestionario(estadosIntentos: List<String>, cierre: Long?, ahora: Long): EstadoActividad =
+        if (estadosIntentos.any { it.equals("finished", ignoreCase = true) }) {
+            EstadoActividad.ENTREGADA
+        } else {
+            estado(null, cierre, ahora)
+        }
+
     fun tipoDesdeModulo(modulo: String?): TipoActividad = when (modulo?.lowercase()) {
         "assign" -> TipoActividad.TAREA
         "quiz" -> TipoActividad.CUESTIONARIO

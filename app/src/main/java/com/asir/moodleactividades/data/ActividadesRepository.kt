@@ -1,7 +1,10 @@
 package com.asir.moodleactividades.data
 
 import com.asir.moodleactividades.data.net.AssignmentsDto
+import com.asir.moodleactividades.data.net.CuestionariosDto
 import com.asir.moodleactividades.data.net.CursoMatriculadoDto
+import com.asir.moodleactividades.data.net.IntentosCuestionarioDto
+import com.asir.moodleactividades.data.net.MejorNotaCuestionarioDto
 import com.asir.moodleactividades.data.net.EstadoEntregaDto
 import com.asir.moodleactividades.data.net.EventosCalendarioDto
 import com.asir.moodleactividades.data.net.FeedbackDto
@@ -22,6 +25,7 @@ import com.asir.moodleactividades.domain.Adjunto
 import com.asir.moodleactividades.domain.Calificacion
 import com.asir.moodleactividades.domain.Clasificador
 import com.asir.moodleactividades.domain.EstadoActividad
+import com.asir.moodleactividades.domain.NotasCuestionarios
 import com.asir.moodleactividades.domain.NotasDeCurso
 import com.asir.moodleactividades.domain.SondeoAsistencia
 import com.asir.moodleactividades.domain.TipoActividad
@@ -153,19 +157,126 @@ class ActividadesRepository(
 
         // El id de una tarea puede coincidir con el de un evento del calendario, así que la
         // clave lleva el tipo: sin él, un evento pisaba la tarea y le borraba estado y nota.
-        val previas = cache.leer()?.actividades?.associateBy { it.clave }.orEmpty()
+        val anterior = cache.leer()
+        val previas = anterior?.actividades?.associateBy { it.clave }.orEmpty()
         val idUsuario = idUsuario(cliente, sesion)
-        val actividades = cargarTareas(cliente, ahora, previas, idUsuario) +
-            cargarEventosNoTarea(cliente, ahora)
+
+        // Que falle la matrícula no debe tumbar la carga entera de actividades.
+        val matricula = runCatching { misCursos(cliente, sesion) }.getOrDefault(emptyList())
+        val nombresDeCurso = matricula.associate { it.id to it.fullname.ifBlank { it.shortname } }
+
+        val tareas = cargarTareas(cliente, ahora, previas, idUsuario)
+        // null si el centro no deja leer los cuestionarios: entonces quedan los del calendario.
+        // Hasta la 2.7 eran eventos del calendario, con otro id: no sirven como carga anterior.
+        val previasCuestionarios = if (anterior?.cuestionarios == true) previas else emptyMap()
+        val cuestionarios = cargarCuestionarios(cliente, ahora, previasCuestionarios, nombresDeCurso)
+        val actividades = tareas + cuestionarios.orEmpty() +
+            cargarEventosNoTarea(cliente, ahora, conCuestionarios = cuestionarios == null)
 
         // La matrícula manda sobre lo deducido de las actividades: si el centro no responde
         // a esta consulta se conserva la lista anterior en vez de perder las asignaturas.
-        val asignaturas = nombresDeMisCursos(cliente, sesion)
-            .ifEmpty { cache.leer()?.asignaturas.orEmpty() }
+        val asignaturas = nombresDeCurso.values
+            .filter { it.isNotBlank() }
+            .distinct()
+            .ifEmpty { anterior?.asignaturas.orEmpty() }
 
-        cache.guardar(actividades, ahora, asignaturas)
+        cache.guardar(actividades, ahora, asignaturas, cuestionarios = cuestionarios != null)
         return actividades
     }
+
+    /**
+     * Los exámenes tipo test de Moodle (cuestionarios). Antes solo llegaban por el calendario,
+     * que enseña lo que queda por hacer: en cuanto se terminaba uno, desaparecía de la app,
+     * y con él su nota. Ahora se leen todos, hechos o no, con su nota y sobre cuánto es.
+     *
+     * Cada uno cuesta una consulta (dos si está terminado, para la nota), así que los cerrados
+     * hace semanas se toman de la carga anterior en vez de volver a preguntar.
+     */
+    private suspend fun cargarCuestionarios(
+        cliente: MoodleClient,
+        ahora: Long,
+        previas: Map<String, Actividad>,
+        nombresDeCurso: Map<Long, String>
+    ): List<Actividad>? = runCatching {
+        val dto: CuestionariosDto = cliente.decodificar(cliente.invocar("mod_quiz_get_quizzes_by_courses"))
+        coroutineScope {
+            val limitador = Semaphore(MAX_PETICIONES_SIMULTANEAS)
+            val aConsultar = dto.quizzes
+                .filter { cuestionario ->
+                    when {
+                        previas[claveDe(TipoActividad.CUESTIONARIO, cuestionario.id)] == null -> true
+                        // Sin cierre se puede hacer (o repetir) en cualquier momento.
+                        cuestionario.timeclose <= 0 -> true
+                        // Cerrado hace semanas ya no cambia: ni intentos ni, salvo revisión, nota.
+                        else -> cuestionario.timeclose >= ahora - MARGEN_RECALIFICACION
+                    }
+                }
+                .sortedBy { distanciaAlPlazo(it.timeclose, ahora) }
+                .take(MAX_CONSULTAS_CUESTIONARIO)
+                .mapTo(mutableSetOf()) { it.id }
+
+            dto.quizzes.map { cuestionario ->
+                async {
+                    val previa = previas[claveDe(TipoActividad.CUESTIONARIO, cuestionario.id)]
+                    val resumen = if (cuestionario.id in aConsultar) {
+                        limitador.withPermit { consultarCuestionario(cliente, cuestionario.id) }
+                    } else {
+                        null
+                    }
+                    val limite = cuestionario.timeclose.takeIf { it > 0 }
+                    val nota = if (resumen != null) resumen.nota else previa?.nota
+
+                    Actividad(
+                        id = cuestionario.id,
+                        nombre = cuestionario.name,
+                        curso = nombresDeCurso[cuestionario.course] ?: previa?.curso.orEmpty(),
+                        tipo = TipoActividad.CUESTIONARIO,
+                        fechaLimite = limite,
+                        // Sin respuesta, lo último que se supo; sin nada, lo que dice la fecha.
+                        estado = when {
+                            resumen != null -> Clasificador.estadoCuestionario(resumen.estados, limite, ahora)
+                            previa != null -> previa.estado
+                            else -> Clasificador.estado(null, limite, ahora)
+                        },
+                        calificada = nota != null,
+                        url = "${cliente.urlSitio}mod/quiz/view.php?id=${cuestionario.coursemodule}",
+                        nota = nota,
+                        descripcion = cuestionario.intro,
+                        notaMaxima = cuestionario.grade.takeIf { it > 0 }
+                    )
+                }
+            }.awaitAll()
+        }
+    }.getOrNull()
+
+    private data class ResumenCuestionario(val estados: List<String>, val nota: String?)
+
+    /** null si no hubo respuesta: entonces se conserva lo que se sabía. */
+    private suspend fun consultarCuestionario(cliente: MoodleClient, idCuestionario: Long): ResumenCuestionario? =
+        runCatching {
+            val intentos: IntentosCuestionarioDto = cliente.decodificar(
+                cliente.invocar(
+                    "mod_quiz_get_user_attempts",
+                    mapOf("quizid" to idCuestionario.toString(), "status" to "all")
+                )
+            )
+            val estados = intentos.attempts.map { it.state }
+            // La nota solo existe con un intento terminado; si Moodle la oculta, no hay nota.
+            val nota = if (estados.any { it.equals("finished", ignoreCase = true) }) {
+                runCatching {
+                    val mejor: MejorNotaCuestionarioDto = cliente.decodificar(
+                        cliente.invocar(
+                            "mod_quiz_get_user_best_grade",
+                            mapOf("quizid" to idCuestionario.toString())
+                        )
+                    )
+                    mejor.grade?.takeIf { mejor.hasgrade }?.let { formatearNota(it.toString()) }
+                }.getOrNull()
+            } else {
+                null
+            }
+            ResumenCuestionario(estados, nota)
+        }.getOrNull()
 
     private suspend fun cargarTareas(
         cliente: MoodleClient,
@@ -279,14 +390,6 @@ class ActividadesRepository(
         )
     )
 
-    /** Que falle esta consulta no debe tumbar la carga entera de actividades. */
-    private suspend fun nombresDeMisCursos(cliente: MoodleClient, sesion: Sesion): List<String> =
-        runCatching { misCursos(cliente, sesion) }
-            .getOrDefault(emptyList())
-            .map { it.fullname.ifBlank { it.shortname } }
-            .filter { it.isNotBlank() }
-            .distinct()
-
     private suspend fun consultarCalificaciones(): List<NotasDeCurso> = coroutineScope {
         val sesion = sesionStore.leer() ?: throw MoodleException(null, "No hay ninguna sesión iniciada.")
         val cliente = MoodleClient(sesion.urlSitio, sesion.token)
@@ -316,7 +419,9 @@ class ActividadesRepository(
                 .filter { it.isNotBlank() && it !in conNotas }
                 .map { NotasDeCurso(curso = it, total = null, calificaciones = emptyList()) }
 
-            return@coroutineScope (obtenidos + vacias).sortedByDescending { it.fechaMasReciente }
+            // Los exámenes tipo test que el libro no enseña, con la nota que da su propia API.
+            val completos = NotasCuestionarios.completar(obtenidos, cache.leer()?.actividades.orEmpty())
+            return@coroutineScope (completos + vacias).sortedByDescending { it.fechaMasReciente }
         }
 
         // Si el centro no deja leer su libro de calificaciones, al menos se enseña lo que ya
@@ -340,21 +445,9 @@ class ActividadesRepository(
                 NotasDeCurso(
                     curso = curso,
                     total = null,
-                    calificaciones = actividades.map { actividad ->
-                        Calificacion(
-                            curso = curso,
-                            nombre = actividad.nombre,
-                            nota = actividad.nota.orEmpty(),
-                            porcentaje = "",
-                            // Sin el libro de calificaciones, la tarea es lo único que dice
-                            // sobre cuánto es: sin esto, un 1,80 sobre 2 se daba por suspenso.
-                            notaMaxima = actividad.notaMaxima ?: 0.0,
-                            esTotalDelCurso = false,
-                            tipo = actividad.tipo,
-                            fecha = actividad.fechaLimite,
-                            url = actividad.url
-                        )
-                    }.ordenadasPorRecientes()
+                    calificaciones = actividades
+                        .map(NotasCuestionarios::comoCalificacion)
+                        .ordenadasPorRecientes()
                 )
             }
             .sortedByDescending { it.fechaMasReciente }
@@ -506,7 +599,15 @@ class ActividadesRepository(
         return null
     }
 
-    private suspend fun cargarEventosNoTarea(cliente: MoodleClient, ahora: Long): List<Actividad> = runCatching {
+    /**
+     * Lo que no es tarea, sacado del calendario. [conCuestionarios] es false cuando los
+     * cuestionarios ya se han leído por su API: si no, saldrían dos veces.
+     */
+    private suspend fun cargarEventosNoTarea(
+        cliente: MoodleClient,
+        ahora: Long,
+        conCuestionarios: Boolean
+    ): List<Actividad> = runCatching {
         val dto: EventosCalendarioDto = cliente.decodificar(
             cliente.invocar(
                 "core_calendar_get_action_events_by_timesort",
@@ -519,6 +620,7 @@ class ActividadesRepository(
         )
         dto.events
             .filter { it.modulename != "assign" }
+            .filter { conCuestionarios || it.modulename != "quiz" }
             .map { evento ->
                 val limite = evento.timesort.takeIf { it > 0 }
                 Actividad(
@@ -560,6 +662,10 @@ class ActividadesRepository(
         const val MAX_PETICIONES_SIMULTANEAS = 3
         const val TAMANO_LOTE_NOTAS = 25
         const val MAX_CONSULTAS_ESTADO = 180
+        const val MAX_CONSULTAS_CUESTIONARIO = 120
+
+        /** Un cuestionario cerrado hace menos de esto aún puede cambiar de nota (revisiones). */
+        const val MARGEN_RECALIFICACION = 60L * 60 * 24 * 21
         const val INTENTOS_POR_TAREA = 2
         const val ESPERA_ENTRE_INTENTOS_MS = 900L
         const val VENTANA_PASADA = 60L * 60 * 24 * 60
