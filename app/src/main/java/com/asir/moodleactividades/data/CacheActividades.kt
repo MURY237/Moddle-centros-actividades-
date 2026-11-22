@@ -15,7 +15,13 @@ data class Instantanea(
      * lista, una asignatura recién creada no existiría para la app hasta tener su primera
      * tarea, porque el resto de la pantalla se deduce de las actividades.
      */
-    val asignaturas: List<String> = emptyList()
+    val asignaturas: List<String> = emptyList(),
+    /**
+     * Los cuestionarios salen de su propia API (desde la 2.7). Hasta entonces solo se veían
+     * los pendientes, por el calendario: con esto el aviso de «actividades nuevas» sabe que
+     * los que aparecen al actualizar no son nuevos, sino que antes no se leían.
+     */
+    val cuestionarios: Boolean = false
 )
 
 class CacheActividades(contexto: Context) {
@@ -23,9 +29,14 @@ class CacheActividades(contexto: Context) {
     private val prefs = contexto.applicationContext
         .getSharedPreferences("cache_actividades", Context.MODE_PRIVATE)
 
-    fun guardar(actividades: List<Actividad>, momento: Long, asignaturas: List<String> = emptyList()) {
+    fun guardar(
+        actividades: List<Actividad>,
+        momento: Long,
+        asignaturas: List<String> = emptyList(),
+        cuestionarios: Boolean = false
+    ) {
         val serializado = runCatching {
-            json.encodeToString(Instantanea(actividades, momento, asignaturas))
+            json.encodeToString(Instantanea(actividades, momento, asignaturas, cuestionarios))
         }.getOrNull() ?: return
         prefs.edit().putString(CLAVE, serializado).apply()
     }

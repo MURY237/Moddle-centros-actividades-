@@ -66,7 +66,28 @@ Para generar un token manualmente en Moodle:
 | `mod_assign_get_assignments` | Listar las tareas, su enunciado y sus adjuntos |
 | `mod_assign_get_submission_status` | Saber si cada tarea está entregada y calificada |
 | `gradereport_user_get_grade_items` | Leer la calificación de cada tarea |
-| `core_calendar_get_action_events_by_timesort` | Añadir cuestionarios y otras actividades con fecha |
+| `mod_quiz_get_quizzes_by_courses` | Listar los cuestionarios (exámenes tipo test), hechos o no |
+| `mod_quiz_get_user_attempts` | Saber si un cuestionario está hecho |
+| `mod_quiz_get_user_best_grade` | Leer la nota de un cuestionario |
+| `core_calendar_get_action_events_by_timesort` | Añadir otras actividades con fecha |
+
+## Cuestionarios (exámenes tipo test)
+
+Hasta la 2.6 los cuestionarios salían del calendario, que solo lista lo que aún queda por
+hacer: al terminar un examen desaparecía de la app, y con él su nota. Desde la 2.7 se leen
+con la API de cuestionarios:
+
+1. `mod_quiz_get_quizzes_by_courses` da todos los de tus asignaturas, con su cierre y
+   sobre cuánto son.
+2. `mod_quiz_get_user_attempts` dice si tienes un intento terminado: entonces cuenta como
+   **entregado**, aunque haya cerrado.
+3. `mod_quiz_get_user_best_grade` da la nota que cuenta, si las opciones de revisión del
+   cuestionario permiten verla.
+
+La nota sale en la ficha del cuestionario y en **Notas**, también cuando el libro de
+calificaciones no la enseña. Los cerrados hace más de tres semanas no se vuelven a
+consultar: se usa lo que se leyó la última vez. Si el centro no deja usar esta API, la app
+vuelve a sacarlos del calendario.
 
 ## Enunciados y adjuntos
 
@@ -483,9 +504,9 @@ La app solo se compila en CI, así que CI también pinta cada pantalla con
 
 ## Limitaciones conocidas
 
-- Los estados «entregada/no entregada» solo son exactos para tareas (`mod_assign`).
-  Los cuestionarios y otras actividades del calendario aparecen como pendientes
-  mientras Moodle los marque como acción requerida.
+- Los estados «entregada/no entregada» son exactos para tareas (`mod_assign`) y
+  cuestionarios (`mod_quiz`). Las demás actividades del calendario aparecen como
+  pendientes mientras Moodle las marque como acción requerida.
 - Si el centro usa SSO y no permite generar tokens, la app no puede acceder.
 - Las tareas de grupo usan la entrega del grupo cuando existe.
 

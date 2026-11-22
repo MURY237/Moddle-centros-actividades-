@@ -19,6 +19,7 @@ import com.asir.moodleactividades.domain.Actividad
 import com.asir.moodleactividades.domain.Clasificador
 import com.asir.moodleactividades.domain.ComparadorNotas
 import com.asir.moodleactividades.domain.Programacion
+import com.asir.moodleactividades.domain.TipoActividad
 import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 
@@ -40,7 +41,8 @@ class RecordatoriosWorker(
         val cache = CacheActividades(contexto)
         val cacheNotas = CacheCalificaciones(contexto)
         // Las dos copias se leen antes de consultar: la consulta las sobrescribe.
-        val anteriores = cache.leer()?.actividades.orEmpty()
+        val instantaneaAnterior = cache.leer()
+        val anteriores = instantaneaAnterior?.actividades.orEmpty()
         val notasAnteriores = cacheNotas.leer()?.cursos
 
         val repositorio = ActividadesRepository(sesionStore, cache, cacheNotas)
@@ -48,7 +50,12 @@ class RecordatoriosWorker(
             .getOrElse { return Result.retry() }
 
         if (ajustes.avisarNuevas && anteriores.isNotEmpty()) {
-            Recordatorios.avisarDeNovedades(contexto, reciénPublicadas(anteriores, actuales))
+            // La primera vez que se leen los cuestionarios por su API salen todos de golpe: no
+            // son nuevos, es que antes no se veían. Avisar de ellos sería avisar de todo el curso.
+            val nuevas = reciénPublicadas(anteriores, actuales).filterNot {
+                it.tipo == TipoActividad.CUESTIONARIO && instantaneaAnterior?.cuestionarios != true
+            }
+            Recordatorios.avisarDeNovedades(contexto, nuevas)
         }
 
         if (ajustes.avisarEntregas) {
