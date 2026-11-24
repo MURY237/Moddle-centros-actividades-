@@ -2,7 +2,7 @@ package com.asir.moodleactividades.ui.faltas
 
 import androidx.lifecycle.ViewModel
 import com.asir.moodleactividades.data.AlmacenFaltas
-import com.asir.moodleactividades.data.AlmacenHorarioClases
+import com.asir.moodleactividades.data.AlmacenDiasCompletos
 import com.asir.moodleactividades.data.Aviso
 import com.asir.moodleactividades.data.Credenciales
 import com.asir.moodleactividades.data.CredencialesCifradas
@@ -12,6 +12,7 @@ import com.asir.moodleactividades.data.TipoAviso
 import com.asir.moodleactividades.data.seneca.DiagnosticoSeneca
 import com.asir.moodleactividades.data.seneca.RespuestaJs
 import com.asir.moodleactividades.domain.Falta
+import com.asir.moodleactividades.domain.DiasCompletos
 import com.asir.moodleactividades.domain.FaltasDeAsignatura
 import com.asir.moodleactividades.domain.HorarioClases
 import com.asir.moodleactividades.domain.ResumenFaltas
@@ -29,13 +30,11 @@ enum class ModoSeneca { NINGUNO, OCULTO, VISIBLE }
 data class FaltasUiState(
     /** Tal cual las da Séneca, con los días completos en una sola fila sin asignatura. */
     val faltas: List<Falta> = emptyList(),
-    /** Las mismas, con cada «Día completo» repartido entre las clases de ese día. */
+    /** Las mismas, con cada «Día completo» rellenado repartido entre sus clases. */
     val repartidas: List<Falta> = faltas,
     val porAsignatura: List<FaltasDeAsignatura> = emptyList(),
-    /** El horario con el que se reparten: lo deducido de las faltas más lo corregido. */
-    val horario: HorarioClases = HorarioClases(),
-    /** Solo lo que ha corregido el alumno. */
-    val horarioPropio: HorarioClases = HorarioClases(),
+    /** Qué clases ha puesto el alumno para cada día completo. */
+    val rellenos: DiasCompletos = DiasCompletos(),
     val momento: Long? = null,
     val modo: ModoSeneca = ModoSeneca.NINGUNO,
     /** Lo que se vio en la última página cuando no había tabla de faltas. */
@@ -56,17 +55,23 @@ data class FaltasUiState(
     val total: Int get() = repartidas.size
     val injustificadas: Int get() = ResumenFaltas.totalInjustificadas(repartidas)
 
-    /** Días completos que no se pueden sumar a ninguna asignatura sin el horario de ese día. */
-    val sinRepartir: List<Falta> get() = ResumenFaltas.sinRepartir(repartidas)
+    val diasCompletos: List<Falta> get() = ResumenFaltas.diasCompletos(faltas)
 
-    val tramos: List<String> get() = HorarioClases.tramos(faltas, horario)
+    /** Días completos sin rellenar: salen, pero no suman en ninguna asignatura. */
+    val sinRellenar: List<Falta> get() = ResumenFaltas.sinRellenar(faltas, rellenos)
 
-    /** Las asignaturas que se pueden elegir al corregir el horario. */
+    val tramos: List<String> get() = HorarioClases.tramos(faltas, rellenos)
+
+    /** Las asignaturas que se pueden elegir al rellenar un día completo. */
     val asignaturas: List<String>
-        get() = (faltas.map { it.asignatura } + horario.dias.values.flatMap { it.values })
+        get() = (faltas.map { it.asignatura } + rellenos.dias.values.flatMap { it.values })
             .filter { it.isNotBlank() }
             .distinct()
             .sorted()
+
+    /** Con qué se abre el formulario de un día: lo ya guardado o, si no hay, una propuesta. */
+    fun inicialDe(fecha: String): Map<String, String> =
+        rellenos.dias[fecha.trim()] ?: DiasCompletos.sugerencia(fecha, faltas, rellenos)
 }
 
 class FaltasViewModel(
@@ -74,7 +79,7 @@ class FaltasViewModel(
     private val sesion: SesionSeneca,
     private val historial: HistorialAvisos,
     private val credenciales: CredencialesCifradas,
-    private val almacenHorario: AlmacenHorarioClases
+    private val almacenDias: AlmacenDiasCompletos
 ) : ViewModel() {
 
     private val _estado = MutableStateFlow(FaltasUiState())
@@ -84,48 +89,42 @@ class FaltasViewModel(
 
     init {
         val guardadas = almacen.leer()
-        val propio = almacenHorario.leer()
+        val rellenos = almacenDias.leer()
         _estado.value = if (guardadas != null) {
-            conFaltas(FaltasUiState(momento = guardadas.momento, leidoAlgunaVez = true), guardadas.faltas, propio)
+            conFaltas(FaltasUiState(momento = guardadas.momento, leidoAlgunaVez = true), guardadas.faltas, rellenos)
         } else {
-            FaltasUiState(horarioPropio = propio)
+            FaltasUiState(rellenos = rellenos)
         }
 
         anotarCuenta()
         actualizarSiConviene()
     }
 
-    /**
-     * Rehace lo que depende de las faltas y del horario. El horario se deduce de nuevo cada
-     * vez: con cada falta que llega se sabe algo más de qué clase hay en cada tramo.
-     */
+    /** Rehace lo que depende de las faltas y de lo rellenado en los días completos. */
     private fun conFaltas(
         estado: FaltasUiState,
         faltas: List<Falta>,
-        propio: HorarioClases = estado.horarioPropio
+        rellenos: DiasCompletos = estado.rellenos
     ): FaltasUiState {
-        val horario = HorarioClases.deducir(faltas).sobre(propio)
-        val repartidas = ResumenFaltas.repartirDiasCompletos(faltas, horario)
+        val repartidas = ResumenFaltas.repartirDiasCompletos(faltas, rellenos)
         return estado.copy(
             faltas = faltas,
             repartidas = repartidas,
             porAsignatura = ResumenFaltas.porAsignatura(repartidas),
-            horario = horario,
-            horarioPropio = propio
+            rellenos = rellenos
         )
     }
 
-    /** [asignatura] en blanco es «ese tramo no hay clase». */
-    fun cambiarHorario(dia: Int, tramo: String, asignatura: String) {
-        val propio = _estado.value.horarioPropio.con(dia, tramo, asignatura)
-        almacenHorario.guardar(propio)
-        _estado.update { conFaltas(it, it.faltas, propio) }
-    }
+    /** Qué clase había en cada tramo de ese día completo; en blanco es «sin clase». */
+    fun rellenarDia(fecha: String, clases: Map<String, String>) =
+        cambiarRellenos(_estado.value.rellenos.con(fecha, clases))
 
-    /** Vuelve a lo que se deduce de las faltas, sin nada corregido a mano. */
-    fun restablecerHorario() {
-        almacenHorario.borrar()
-        _estado.update { conFaltas(it, it.faltas, HorarioClases()) }
+    /** El día vuelve a estar sin rellenar y deja de sumar. */
+    fun borrarRelleno(fecha: String) = cambiarRellenos(_estado.value.rellenos.sin(fecha))
+
+    private fun cambiarRellenos(rellenos: DiasCompletos) {
+        almacenDias.guardar(rellenos)
+        _estado.update { conFaltas(it, it.faltas, rellenos) }
     }
 
     private fun anotarCuenta() = _estado.update {
@@ -326,8 +325,8 @@ class FaltasViewModel(
         almacen.borrar()
         sesion.borrar()
         credenciales.borrar()
-        // El horario es del alumno, no de la sesión de Séneca: se conserva.
-        _estado.value = FaltasUiState(horarioPropio = almacenHorario.leer())
+        // Lo rellenado es trabajo del alumno, no de la sesión de Séneca: se conserva.
+        _estado.value = FaltasUiState(rellenos = almacenDias.leer())
         anotarCuenta()
     }
 

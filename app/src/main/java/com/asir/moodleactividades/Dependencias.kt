@@ -9,7 +9,7 @@ import com.asir.moodleactividades.data.ActividadesRepository
 import com.asir.moodleactividades.data.AjustesNotas
 import com.asir.moodleactividades.data.AlmacenBus
 import com.asir.moodleactividades.data.AlmacenFaltas
-import com.asir.moodleactividades.data.AlmacenHorarioClases
+import com.asir.moodleactividades.data.AlmacenDiasCompletos
 import com.asir.moodleactividades.data.AlmacenHorario
 import com.asir.moodleactividades.data.AlmacenNetacad
 import com.asir.moodleactividades.data.CacheActividades
@@ -97,7 +97,7 @@ class Dependencias(contexto: Context) {
         sesionSeneca,
         historial,
         CredencialesCifradas(app, CredencialesCifradas.SENECA),
-        AlmacenHorarioClases(app)
+        AlmacenDiasCompletos(app)
     )
     fun netacad() = NetacadViewModel(
         AlmacenNetacad(app),

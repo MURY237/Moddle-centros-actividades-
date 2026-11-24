@@ -4,38 +4,20 @@ import kotlinx.serialization.Serializable
 import java.time.LocalDate
 
 /**
- * Qué asignatura hay en cada tramo de cada día de la semana (1 = lunes … 5 = viernes).
- * Séneca apunta una falta de «Día completo» sin asignatura; sin saber qué clases había
- * ese día no se puede sumar a ninguna.
- *
- * Una asignatura en blanco significa «ese tramo no hay clase»: así el alumno puede quitar
- * un tramo que se dedujo mal.
+ * Qué asignatura hay en cada tramo de cada día de la semana (1 = lunes … 5 = viernes),
+ * deducido de las propias faltas. Solo sirve para proponer cómo rellenar un día completo.
  */
 @Serializable
 data class HorarioClases(
     val dias: Map<Int, Map<String, String>> = emptyMap()
 ) {
-    /** Las clases de ese día, sin los tramos marcados como «sin clase». */
     fun de(dia: Int): Map<String, String> = dias[dia].orEmpty().filterValues { it.isNotBlank() }
 
-    fun con(dia: Int, tramo: String, asignatura: String): HorarioClases =
-        copy(dias = dias + (dia to (dias[dia].orEmpty() + (tramo to asignatura))))
-
-    /** Lo de [encima] manda; lo que no toca se queda como estaba. */
-    fun sobre(encima: HorarioClases): HorarioClases {
-        val todos = dias.keys + encima.dias.keys
-        return HorarioClases(todos.associateWith { dia -> dias[dia].orEmpty() + encima.dias[dia].orEmpty() })
-    }
-
-    val vacio: Boolean get() = dias.values.all { tramos -> tramos.values.all { it.isBlank() } }
-
     companion object {
-        val DIAS_LECTIVOS = 1..5
-
         /**
-         * Lo que se puede saber del horario por las propias faltas: si un miércoles de 10:15
-         * a 11:15 se faltó a «Itinerario», esa es la clase de ese tramo. Si en un mismo
-         * tramo salen asignaturas distintas, la más repetida, y a igualdad la más reciente.
+         * Si un miércoles de 10:15 a 11:15 se faltó a «Itinerario», esa es la clase de ese
+         * tramo. Si en un mismo tramo salen asignaturas distintas, la más repetida, y a
+         * igualdad la más reciente.
          */
         fun deducir(faltas: List<Falta>): HorarioClases {
             val porHueco = faltas
@@ -63,9 +45,9 @@ data class HorarioClases(
             LocalDate.of(anio, mes, dia).dayOfWeek.value
         }.getOrNull()
 
-        /** Los tramos que aparecen en las faltas, por hora de inicio. */
-        fun tramos(faltas: List<Falta>, horario: HorarioClases = HorarioClases()): List<String> =
-            (faltas.filter { !it.esDiaCompleto }.map { it.tramo.trim() } + horario.dias.values.flatMap { it.keys })
+        /** Los tramos de las faltas y de lo ya rellenado, por hora de inicio. */
+        fun tramos(faltas: List<Falta>, rellenos: DiasCompletos = DiasCompletos()): List<String> =
+            (faltas.filter { !it.esDiaCompleto }.map { it.tramo.trim() } + rellenos.dias.values.flatMap { it.keys })
                 .filter { it.isNotBlank() }
                 .distinct()
                 .sortedWith(compareBy<String> { minutosDeInicio(it) ?: Int.MAX_VALUE }.thenBy { it })
