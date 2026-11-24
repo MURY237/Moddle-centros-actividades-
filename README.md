@@ -237,6 +237,24 @@ estaba hasta que Séneca la caduca por su cuenta, y entonces —solo entonces—
 pedir el acceso. Lo guardado equivale a una sesión abierta, **nunca a la contraseña**, y se
 borra al desconectar.
 
+### Días completos
+
+Cuando se falta el día entero, Séneca lo apunta en **una sola fila**: «Día completo», sin
+asignatura. Hasta la 2.7.1 esa fila se descartaba, y esas horas no sumaban en ninguna
+asignatura. Desde la 2.8 se reparte:
+
+1. La app deduce el horario de clase de tus propias faltas. Si un miércoles de 10:15 a 11:15
+   faltaste a «Itinerario», esa es la clase de ese tramo; si en un tramo salen varias, gana
+   la más repetida.
+2. Cada día completo cuenta como una falta, con su mismo estado, en cada clase de ese día de
+   la semana. Los tramos que ya tienen su propia falta ese día no se cuentan dos veces.
+3. Lo que no se puede deducir, porque nunca has faltado a ese tramo, se completa en
+   **Faltas → Horario de clase**. Ahí se puede corregir cualquier tramo o marcarlo «Sin
+   clase». Lo corregido se guarda solo en el móvil; lo deducido se recalcula con cada lectura.
+
+Si un día completo cae en un día de la semana sin horario, la pantalla lo avisa y no lo suma
+a ninguna asignatura hasta que se ponga.
+
 ## Al volver a la aplicación
 
 Entrar en la app es el momento en que se quiere ver lo último, así que ahí se refrescan

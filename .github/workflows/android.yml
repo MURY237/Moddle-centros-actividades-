@@ -44,6 +44,8 @@ jobs:
             app/src/main/java/com/asir/moodleactividades/data/netacad/AutoAccesoNetacad.kt
           NODE_PATH="$RUNNER_TEMP/jsdom/node_modules" node app/src/test/js/acceso-seneca.test.js \
             app/src/main/java/com/asir/moodleactividades/data/seneca/AutoAcceso.kt
+          NODE_PATH="$RUNNER_TEMP/jsdom/node_modules" node app/src/test/js/extractor-faltas.test.js \
+            app/src/main/java/com/asir/moodleactividades/data/seneca/ExtractorFaltas.kt
 
       # Las reglas de seguridad de los grupos se prueban contra un PostgreSQL de verdad
       # (PGlite), con usuarios distintos intentando leer y escribir lo que no deben.

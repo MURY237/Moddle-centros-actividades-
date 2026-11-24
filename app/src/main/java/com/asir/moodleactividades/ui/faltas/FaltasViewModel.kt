@@ -2,6 +2,7 @@ package com.asir.moodleactividades.ui.faltas
 
 import androidx.lifecycle.ViewModel
 import com.asir.moodleactividades.data.AlmacenFaltas
+import com.asir.moodleactividades.data.AlmacenHorarioClases
 import com.asir.moodleactividades.data.Aviso
 import com.asir.moodleactividades.data.Credenciales
 import com.asir.moodleactividades.data.CredencialesCifradas
@@ -12,6 +13,7 @@ import com.asir.moodleactividades.data.seneca.DiagnosticoSeneca
 import com.asir.moodleactividades.data.seneca.RespuestaJs
 import com.asir.moodleactividades.domain.Falta
 import com.asir.moodleactividades.domain.FaltasDeAsignatura
+import com.asir.moodleactividades.domain.HorarioClases
 import com.asir.moodleactividades.domain.ResumenFaltas
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,8 +27,15 @@ import kotlinx.coroutines.flow.update
 enum class ModoSeneca { NINGUNO, OCULTO, VISIBLE }
 
 data class FaltasUiState(
+    /** Tal cual las da Séneca, con los días completos en una sola fila sin asignatura. */
     val faltas: List<Falta> = emptyList(),
+    /** Las mismas, con cada «Día completo» repartido entre las clases de ese día. */
+    val repartidas: List<Falta> = faltas,
     val porAsignatura: List<FaltasDeAsignatura> = emptyList(),
+    /** El horario con el que se reparten: lo deducido de las faltas más lo corregido. */
+    val horario: HorarioClases = HorarioClases(),
+    /** Solo lo que ha corregido el alumno. */
+    val horarioPropio: HorarioClases = HorarioClases(),
     val momento: Long? = null,
     val modo: ModoSeneca = ModoSeneca.NINGUNO,
     /** Lo que se vio en la última página cuando no había tabla de faltas. */
@@ -43,15 +52,29 @@ data class FaltasUiState(
     val credencialesRechazadas: Boolean = false,
     val diagnosticoSeneca: DiagnosticoSeneca = DiagnosticoSeneca()
 ) {
-    val total: Int get() = faltas.size
-    val injustificadas: Int get() = ResumenFaltas.totalInjustificadas(faltas)
+    /** Cada falta es una hora de clase: un día completo cuenta tantas como clases tenía. */
+    val total: Int get() = repartidas.size
+    val injustificadas: Int get() = ResumenFaltas.totalInjustificadas(repartidas)
+
+    /** Días completos que no se pueden sumar a ninguna asignatura sin el horario de ese día. */
+    val sinRepartir: List<Falta> get() = ResumenFaltas.sinRepartir(repartidas)
+
+    val tramos: List<String> get() = HorarioClases.tramos(faltas, horario)
+
+    /** Las asignaturas que se pueden elegir al corregir el horario. */
+    val asignaturas: List<String>
+        get() = (faltas.map { it.asignatura } + horario.dias.values.flatMap { it.values })
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sorted()
 }
 
 class FaltasViewModel(
     private val almacen: AlmacenFaltas,
     private val sesion: SesionSeneca,
     private val historial: HistorialAvisos,
-    private val credenciales: CredencialesCifradas
+    private val credenciales: CredencialesCifradas,
+    private val almacenHorario: AlmacenHorarioClases
 ) : ViewModel() {
 
     private val _estado = MutableStateFlow(FaltasUiState())
@@ -61,17 +84,48 @@ class FaltasViewModel(
 
     init {
         val guardadas = almacen.leer()
-        if (guardadas != null) {
-            _estado.value = FaltasUiState(
-                faltas = guardadas.faltas,
-                porAsignatura = ResumenFaltas.porAsignatura(guardadas.faltas),
-                momento = guardadas.momento,
-                leidoAlgunaVez = true
-            )
+        val propio = almacenHorario.leer()
+        _estado.value = if (guardadas != null) {
+            conFaltas(FaltasUiState(momento = guardadas.momento, leidoAlgunaVez = true), guardadas.faltas, propio)
+        } else {
+            FaltasUiState(horarioPropio = propio)
         }
 
         anotarCuenta()
         actualizarSiConviene()
+    }
+
+    /**
+     * Rehace lo que depende de las faltas y del horario. El horario se deduce de nuevo cada
+     * vez: con cada falta que llega se sabe algo más de qué clase hay en cada tramo.
+     */
+    private fun conFaltas(
+        estado: FaltasUiState,
+        faltas: List<Falta>,
+        propio: HorarioClases = estado.horarioPropio
+    ): FaltasUiState {
+        val horario = HorarioClases.deducir(faltas).sobre(propio)
+        val repartidas = ResumenFaltas.repartirDiasCompletos(faltas, horario)
+        return estado.copy(
+            faltas = faltas,
+            repartidas = repartidas,
+            porAsignatura = ResumenFaltas.porAsignatura(repartidas),
+            horario = horario,
+            horarioPropio = propio
+        )
+    }
+
+    /** [asignatura] en blanco es «ese tramo no hay clase». */
+    fun cambiarHorario(dia: Int, tramo: String, asignatura: String) {
+        val propio = _estado.value.horarioPropio.con(dia, tramo, asignatura)
+        almacenHorario.guardar(propio)
+        _estado.update { conFaltas(it, it.faltas, propio) }
+    }
+
+    /** Vuelve a lo que se deduce de las faltas, sin nada corregido a mano. */
+    fun restablecerHorario() {
+        almacenHorario.borrar()
+        _estado.update { conFaltas(it, it.faltas, HorarioClases()) }
     }
 
     private fun anotarCuenta() = _estado.update {
@@ -220,9 +274,7 @@ class FaltasViewModel(
         // copy y no un estado nuevo: uno nuevo perdía la cuenta guardada, y la tarjeta decía
         // «Sin configurar» justo después de haber entrado con ella.
         _estado.update {
-            it.copy(
-                faltas = resultado.faltas,
-                porAsignatura = ResumenFaltas.porAsignatura(resultado.faltas),
+            conFaltas(it, resultado.faltas).copy(
                 momento = System.currentTimeMillis() / 1000,
                 modo = ModoSeneca.NINGUNO,
                 diagnostico = emptyList(),
@@ -262,7 +314,7 @@ class FaltasViewModel(
                 Aviso(
                     momento = System.currentTimeMillis() / 1000,
                     tipo = TipoAviso.FALTA,
-                    titulo = "Falta nueva en " + falta.asignatura,
+                    titulo = if (falta.esDiaCompleto) "Falta de día completo" else "Falta nueva en " + falta.asignatura,
                     texto = falta.fecha + " · " + falta.tramo + " · " + falta.estado
                 )
             )
@@ -274,7 +326,8 @@ class FaltasViewModel(
         almacen.borrar()
         sesion.borrar()
         credenciales.borrar()
-        _estado.value = FaltasUiState()
+        // El horario es del alumno, no de la sesión de Séneca: se conserva.
+        _estado.value = FaltasUiState(horarioPropio = almacenHorario.leer())
         anotarCuenta()
     }
 
