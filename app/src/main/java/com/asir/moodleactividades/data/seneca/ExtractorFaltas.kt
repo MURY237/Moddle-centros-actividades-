@@ -114,10 +114,14 @@ object ExtractorFaltas {
                 var celdas = filas[f].cells;
                 if (!celdas || celdas.length <= iAsignatura) continue;
                 var asignatura = limpio(celdas[iAsignatura]);
-                if (!asignatura) continue;
+                var fecha = celdas.length > iFecha ? limpio(celdas[iFecha]) : '';
+                var tramo = iTramo >= 0 && celdas.length > iTramo ? limpio(celdas[iTramo]) : '';
+                // «Día completo» llega sin asignatura: es una falta de todo el día, no una
+                // fila vacía. La app la reparte luego entre las clases de ese día.
+                if (!asignatura && (!fecha || !tramo)) continue;
                 faltas.push({
-                  fecha: limpio(celdas[iFecha]),
-                  tramo: iTramo >= 0 && celdas.length > iTramo ? limpio(celdas[iTramo]) : '',
+                  fecha: fecha,
+                  tramo: tramo,
                   asignatura: asignatura,
                   estado: iEstado >= 0 && celdas.length > iEstado ? limpio(celdas[iEstado]) : ''
                 });

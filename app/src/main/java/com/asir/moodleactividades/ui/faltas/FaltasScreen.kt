@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -29,10 +30,13 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,10 +45,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
@@ -53,7 +59,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.asir.moodleactividades.data.SesionSeneca
+import com.asir.moodleactividades.domain.Falta
 import com.asir.moodleactividades.domain.FaltasDeAsignatura
+import com.asir.moodleactividades.domain.HorarioClases
 import com.asir.moodleactividades.ui.componentes.Aviso
 import com.asir.moodleactividades.ui.componentes.CabeceraPantalla
 import com.asir.moodleactividades.ui.componentes.DialogoCuentaGuardada
@@ -76,7 +84,10 @@ data class AccionesFaltas(
     val actualizar: () -> Unit = {},
     val guardarCuenta: (String, String) -> Unit = { _, _ -> },
     val olvidarCuenta: () -> Unit = {},
-    val desconectar: () -> Unit = {}
+    val desconectar: () -> Unit = {},
+    /** Fecha del día completo y, por tramo, su asignatura; en blanco es «sin clase». */
+    val rellenarDia: (String, Map<String, String>) -> Unit = { _, _ -> },
+    val borrarRelleno: (String) -> Unit = {}
 )
 
 /**
@@ -138,7 +149,9 @@ fun FaltasScreen(
             actualizar = { viewModel.actualizar() },
             guardarCuenta = viewModel::guardarCredenciales,
             olvidarCuenta = viewModel::olvidarCredenciales,
-            desconectar = viewModel::desconectar
+            desconectar = viewModel::desconectar,
+            rellenarDia = viewModel::rellenarDia,
+            borrarRelleno = viewModel::borrarRelleno
         ),
         modifier = modifier
     )
@@ -155,6 +168,8 @@ fun FaltasContenido(
     var editandoCuenta by rememberSaveable { mutableStateOf(false) }
     var viendoDiagnostico by rememberSaveable { mutableStateOf(false) }
     var confirmarDesconexion by rememberSaveable { mutableStateOf(false) }
+    /** La fecha del día completo que se está rellenando. */
+    var rellenando by rememberSaveable { mutableStateOf<String?>(null) }
     val consultando = estado.modo == ModoSeneca.OCULTO
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -203,7 +218,8 @@ fun FaltasContenido(
                     }
                 }
 
-                if (estado.porAsignatura.isEmpty()) {
+                // Con solo días completos sin rellenar no hay nada por asignatura, pero sí faltas.
+                if (estado.faltas.isEmpty()) {
                     item(key = "vacio") {
                         EstadoVacio(
                             icono = Icons.Default.EventBusy,
@@ -226,11 +242,43 @@ fun FaltasContenido(
                             modifier = Modifier.padding(top = Espacio.xs)
                         )
                     }
-                    item(key = "titulo-asignaturas") {
-                        TituloSeccion("Por asignatura", extra = estado.porAsignatura.size.toString())
+                    if (estado.sinRellenar.isNotEmpty()) {
+                        item(key = "sin-rellenar") {
+                            val dias = estado.sinRellenar
+                            Aviso(
+                                titulo = if (dias.size == 1) "1 día completo sin rellenar" else "${dias.size} días completos sin rellenar",
+                                texto = "Séneca no dice a qué clases faltaste. Rellena qué asignaturas tuviste " +
+                                    "ese día y se sumarán a cada una.",
+                                tono = Tono.AVISO,
+                                accion = "Rellenar",
+                                alPulsarAccion = { rellenando = dias.first().fecha }
+                            )
+                        }
                     }
-                    items(estado.porAsignatura, key = { it.asignatura }) { asignatura ->
-                        TarjetaAsignatura(asignatura)
+                    if (estado.diasCompletos.isNotEmpty()) {
+                        item(key = "titulo-dias") {
+                            TituloSeccion("Días completos", extra = estado.diasCompletos.size.toString())
+                        }
+                        item(key = "dias") {
+                            Tarjeta(relleno = PaddingValues(0.dp)) {
+                                estado.diasCompletos.forEachIndexed { indice, dia ->
+                                    if (indice > 0) DivisorFila()
+                                    FilaDiaCompleto(
+                                        falta = dia,
+                                        clases = estado.rellenos.de(dia.fecha),
+                                        alPulsar = { rellenando = dia.fecha }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (estado.porAsignatura.isNotEmpty()) {
+                        item(key = "titulo-asignaturas") {
+                            TituloSeccion("Por asignatura", extra = estado.porAsignatura.size.toString())
+                        }
+                        items(estado.porAsignatura, key = { it.asignatura }) { asignatura ->
+                            TarjetaAsignatura(asignatura)
+                        }
                     }
                 }
 
@@ -301,6 +349,27 @@ fun FaltasContenido(
             },
             alCerrar = { editandoCuenta = false }
         )
+    }
+
+    rellenando?.let { fecha ->
+        estado.diasCompletos.firstOrNull { it.fecha == fecha }?.let { dia ->
+            DialogoDiaCompleto(
+                falta = dia,
+                inicial = estado.inicialDe(fecha),
+                yaRellenado = estado.rellenos.relleno(fecha),
+                tramos = estado.tramos,
+                opciones = estado.asignaturas,
+                alGuardar = { clases ->
+                    acciones.rellenarDia(fecha, clases)
+                    rellenando = null
+                },
+                alBorrar = {
+                    acciones.borrarRelleno(fecha)
+                    rellenando = null
+                },
+                alCerrar = { rellenando = null }
+            )
+        }
     }
 
     if (viendoDiagnostico) {
@@ -396,7 +465,7 @@ private fun TarjetaAsignatura(asignatura: FaltasDeAsignatura) {
                         Text(falta.fecha, style = MaterialTheme.typography.bodyMedium)
                         if (falta.tramo.isNotBlank()) {
                             Text(
-                                falta.tramo,
+                                if (falta.deDiaCompleto) falta.tramo + " · día completo" else falta.tramo,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -412,6 +481,203 @@ private fun TarjetaAsignatura(asignatura: FaltasDeAsignatura) {
         }
     }
 }
+
+@Composable
+private fun FilaDiaCompleto(falta: Falta, clases: Map<String, String>?, alPulsar: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = alPulsar)
+            .padding(horizontal = Espacio.l, vertical = Espacio.s + 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = Espacio.s)) {
+            Text(nombreDelDia(falta.fecha) + falta.fecha, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = when {
+                    clases == null -> "Sin rellenar: toca para poner las clases"
+                    clases.isEmpty() -> "Rellenado: sin clases ese día"
+                    else -> (if (clases.size == 1) "1 clase: " else "${clases.size} clases: ") +
+                        clases.values.distinct().joinToString(", ")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (clases == null) Tono.AVISO.colores().contenido else MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        EtiquetaEstado(
+            texto = falta.estado.ifBlank { if (falta.justificada) "Justificada" else "Injustificada" },
+            tono = if (falta.justificada) Tono.EXITO else Tono.PELIGRO,
+            conPunto = false
+        )
+    }
+}
+
+/**
+ * Qué clase había en cada tramo de un día completo. Se abre con lo ya guardado o con una
+ * propuesta sacada de las otras faltas, pero nada cuenta hasta pulsar «Guardar».
+ */
+@Composable
+private fun DialogoDiaCompleto(
+    falta: Falta,
+    inicial: Map<String, String>,
+    yaRellenado: Boolean,
+    tramos: List<String>,
+    opciones: List<String>,
+    alGuardar: (Map<String, String>) -> Unit,
+    alBorrar: () -> Unit,
+    alCerrar: () -> Unit
+) {
+    var clases by remember(falta.fecha) { mutableStateOf(inicial) }
+    var otraPara by remember { mutableStateOf<String?>(null) }
+    val todas = (opciones + clases.values.filter { it.isNotBlank() }).distinct().sorted()
+
+    AlertDialog(
+        onDismissRequest = alCerrar,
+        icon = { Icon(Icons.Default.EventBusy, contentDescription = null) },
+        title = { Text("Día completo · " + nombreDelDia(falta.fecha) + falta.fecha) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(Espacio.xs)
+            ) {
+                Text(
+                    "Elige la clase que tenías en cada tramo. Al guardar, cada una cuenta como una falta " +
+                        (if (falta.justificada) "justificada" else "sin justificar") + " en su asignatura.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (!yaRellenado && inicial.isNotEmpty()) {
+                    Text(
+                        "Viene propuesto según tus otras faltas de ese día de la semana: revísalo.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Tono.AVISO.colores().contenido
+                    )
+                }
+                if (tramos.isEmpty()) {
+                    Text(
+                        "Aún no se conocen las horas de clase: salen de tus otras faltas.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                tramos.forEach { tramo ->
+                    FilaTramo(
+                        tramo = tramo,
+                        asignatura = clases[tramo]?.takeIf { it.isNotBlank() },
+                        opciones = todas,
+                        alElegir = { clases = clases + (tramo to it) },
+                        alPedirOtra = { otraPara = tramo }
+                    )
+                }
+                if (yaRellenado) {
+                    TextButton(onClick = alBorrar) {
+                        Text("Dejar sin rellenar", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        },
+        // Se guardan todos los tramos: uno en blanco es «sin clase», no «sin decidir».
+        confirmButton = {
+            TextButton(onClick = { alGuardar(tramos.associateWith { clases[it].orEmpty() }) }) { Text("Guardar") }
+        },
+        dismissButton = { TextButton(onClick = alCerrar) { Text("Cancelar") } }
+    )
+
+    otraPara?.let { tramo ->
+        DialogoOtraAsignatura(
+            alAceptar = { nombre ->
+                clases = clases + (tramo to nombre)
+                otraPara = null
+            },
+            alCerrar = { otraPara = null }
+        )
+    }
+}
+
+@Composable
+private fun FilaTramo(
+    tramo: String,
+    asignatura: String?,
+    opciones: List<String>,
+    alElegir: (String) -> Unit,
+    alPedirOtra: () -> Unit
+) {
+    var abierto by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            tramo,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(96.dp)
+        )
+        Box(modifier = Modifier.weight(1f)) {
+            TextButton(onClick = { abierto = true }, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    asignatura ?: "Sin clase",
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (asignatura == null) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            DropdownMenu(expanded = abierto, onDismissRequest = { abierto = false }) {
+                DropdownMenuItem(
+                    text = { Text("Sin clase") },
+                    onClick = {
+                        abierto = false
+                        alElegir("")
+                    }
+                )
+                opciones.forEach { opcion ->
+                    DropdownMenuItem(
+                        text = { Text(opcion, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                        onClick = {
+                            abierto = false
+                            alElegir(opcion)
+                        }
+                    )
+                }
+                DropdownMenuItem(
+                    text = { Text("Otra asignatura…") },
+                    onClick = {
+                        abierto = false
+                        alPedirOtra()
+                    }
+                )
+            }
+        }
+    }
+}
+
+/** Para una asignatura a la que nunca se ha faltado, que por eso no está en la lista. */
+@Composable
+private fun DialogoOtraAsignatura(alAceptar: (String) -> Unit, alCerrar: () -> Unit) {
+    var texto by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = alCerrar,
+        title = { Text("Otra asignatura") },
+        text = {
+            OutlinedTextField(
+                value = texto,
+                onValueChange = { texto = it },
+                singleLine = true,
+                label = { Text("Nombre, como sale en Séneca") }
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { alAceptar(texto.trim()) }, enabled = texto.isNotBlank()) { Text("Aceptar") }
+        },
+        dismissButton = { TextButton(onClick = alCerrar) { Text("Cancelar") } }
+    )
+}
+
+/** «Miércoles » para «11/11/2026»; vacío si la fecha no se entiende. */
+private fun nombreDelDia(fecha: String): String =
+    HorarioClases.diaDeLaSemana(fecha)?.let { NOMBRES_DIAS[it - 1] + " " }.orEmpty()
+
+private val NOMBRES_DIAS = listOf("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
 
 /**
  * Séneca no se puede probar desde fuera de un móvil con sesión, así que la app cuenta qué vio
